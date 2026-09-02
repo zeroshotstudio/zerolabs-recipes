@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+# Run sensitive data and credentials scanner on staged changes
+echo "🔍 Checking staged files for sensitive tokens, internal hosts, or credentials..."
+python3 scripts/scan_secrets.py --git-staged
+if [ $? -ne 0 ]; then
+    echo "❌ Pre-commit hook blocked commit due to sensitive data match!"
+    exit 1
+fi
+echo "✅ No sensitive credentials detected."

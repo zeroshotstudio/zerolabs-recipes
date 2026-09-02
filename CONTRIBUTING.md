@@ -15,17 +15,23 @@ Every recipe inside `recipes/` must adhere to these foundational rules:
    - It must include its own dependency manifest (`requirements.txt`, `package.json`, or `go.mod`), execution harness, `.env.example`, and comprehensive `README.md`.
    - Prefer containerization via `docker-compose.yml` or `Dockerfile` so users can run it instantly without dependency hell.
 
-2. **Zero Hardcoded Secrets:**
-   - Never commit API keys, tokens, or production endpoints.
-   - Always provide `.env.example` with clear dummy variables and comments explaining where keys can be obtained.
+2. **Zero Hardcoded Secrets & Automated Pre-Commit Guards:**
+   - Never commit API keys, tokens, credentials, or internal network endpoints.
+   - Always provide `.env.example` with sanitized placeholder variables (`your_api_key_here`) and clear documentation.
+   - We enforce strict pre-commit hooks and CI security checks (`scripts/scan_secrets.py`) that block commits containing API tokens, private keys, Tailscale hostnames, or internal IPs.
+   - Configure local pre-commit hooks before committing:
+     ```bash
+     git config core.hooksPath .githooks
+     ```
 
 3. **Canonical Linkage & Documentation:**
    - Each recipe's `README.md` must link back to the deep-dive architectural brief on [ZeroLabs](https://labs.zeroshot.studio) with appropriate UTM tags (`?utm_source=github&utm_medium=repo&utm_campaign=<recipe-name>`).
    - Clearly document prerequisites, setup instructions, verification commands, and architecture diagrams.
 
-4. **Code Quality & CI Testing:**
+4. **Code Quality, Security & CI Testing:**
    - All Python code must pass automated linting (`flake8` syntax checks) and avoid syntax errors.
    - Docker Compose configurations must pass `docker compose config` validation.
+   - Automated GitHub Actions CI scans every pull request and push for sensitive credentials, ensuring zero leakage into public repos.
 
 ---
 

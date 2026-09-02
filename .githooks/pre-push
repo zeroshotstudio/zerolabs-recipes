@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+# Pre-push hook: Deterministic repository-wide secret & sensitive data scan
+echo "🔒 Running pre-push sensitive data and security audit..."
+python3 scripts/scan_secrets.py .
+if [ $? -ne 0 ]; then
+    echo "❌ Pre-push blocked! Leaked secrets or sensitive identifiers detected."
+    exit 1
+fi
+echo "✅ Security check passed. Proceeding with push."

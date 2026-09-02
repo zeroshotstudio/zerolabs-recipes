@@ -1,0 +1,9 @@
+services:
+  agent:
+    build: .
+    restart: unless-stopped
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-dummy_key_for_testing}
+      - MCP_SERVER_PATH=${MCP_SERVER_PATH:-/app/mcp_server.py}
+    volumes:
+      - ./:/app

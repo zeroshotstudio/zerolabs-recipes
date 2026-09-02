@@ -1,0 +1,127 @@
+# 🧪 ZeroLabs Recipes (`zerolabs-recipes`)
+
+> **The Flagship Open-Source Companion Monorepo for [ZeroLabs Intelligence Briefs](https://labs.zeroshot.studio)**
+
+[![CI Status](https://github.com/zeroshotstudio/zerolabs-recipes/actions/workflows/ci.yml/badge.svg)](https://github.com/zeroshotstudio/zerolabs-recipes/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![ZeroLabs](https://img.shields.io/badge/ZeroLabs-Intelligence%20Briefs-blueviolet)](https://labs.zeroshot.studio?utm_source=github&utm_medium=repo&utm_campaign=zerolabs-recipes)
+[![Maintained by ZeroShot](https://img.shields.io/badge/Maintained%20by-ZeroShot%20Studio-000000.svg)](https://zeroshot.studio)
+
+Welcome to `zerolabs-recipes`! This repository is designed as the definitive reference implementation companion for all technical teardowns, architectural briefs, and agent playbooks published on [ZeroLabs](https://labs.zeroshot.studio).
+
+Every recipe is standalone, tested via automated CI, and containerized so developers and AI agents can execute, test, and adapt them immediately without dependency friction.
+
+---
+
+## 🧭 The ZeroLabs Exemplar Standard: Modern Git & GitHub
+
+We use this monorepo as a live, open-source exemplar demonstrating how modern engineering teams and autonomous AI agents configure, branch, test, review, and ship production code:
+
+1. **Deterministic Monorepo Layout:** Clean boundaries where every recipe possesses its own dependency manifest, runtime harness, and environment templates.
+2. **Community Standards:** Production-grade [Issue Templates](.github/ISSUE_TEMPLATE), [PR Template](.github/pull_request_template.md), and [Contribution Guide](CONTRIBUTING.md).
+3. **Automated Verification:** Continuous Integration ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) testing Python syntax validity and Docker Compose declarations on every PR and push.
+4. **Canonical Provenance:** Direct bi-directional traceability between every line of companion code and its architectural teardown on [ZeroLabs](https://labs.zeroshot.studio).
+
+---
+
+## 📚 Recipe Catalog
+
+### 🌿 Git & GitHub Mastery Series (Foundational Blueprint)
+*The comprehensive guide for modern builders and non-developers navigating version control in the AI era.*
+
+| Recipe | Topic | Architecture & Brief | Stack |
+| :--- | :--- | :--- | :--- |
+| [`git-mastery/01-github-for-beginners`](./recipes/git-mastery/01-github-for-beginners) | Branches, Commits & PRs Demystified | [Read Deep Dive](https://labs.zeroshot.studio/ai-workflows/github-for-beginners?utm_source=github&utm_medium=repo&utm_campaign=github-for-beginners) | Git CLI, GitHub Flow |
+| [`git-mastery/02-setup-github-cli-workspace`](./recipes/git-mastery/02-setup-github-cli-workspace) | GitHub CLI & Headless Workspace Setup | [Read Deep Dive](https://labs.zeroshot.studio/resources/how-to-set-up-github-cli-and-workspace?utm_source=github&utm_medium=repo&utm_campaign=setup-gh-cli) | `gh` CLI, SSH/GPG Auth |
+| [`git-mastery/03-create-repo-scaffold-web-project`](./recipes/git-mastery/03-create-repo-scaffold-web-project) | Repo Creation & Modern Project Scaffolding | [Read Deep Dive](https://labs.zeroshot.studio/resources/how-to-create-a-github-repo-and-scaffold-a-web-project?utm_source=github&utm_medium=repo&utm_campaign=create-repo-scaffold) | Node.js, Vite, Git Hooks |
+| [`git-mastery/04-clone-sync-repositories-locally`](./recipes/git-mastery/04-clone-sync-repositories-locally) | Local Cloning, Remote Tracking & Fetching | [Read Deep Dive](https://labs.zeroshot.studio/resources/how-to-clone-and-sync-github-repositories-locally?utm_source=github&utm_medium=repo&utm_campaign=clone-sync-repos) | Git Remotes, Upstreams |
+| [`git-mastery/05-branch-commit-push-code`](./recipes/git-mastery/05-branch-commit-push-code) | Clean Branching & Atomic Commits | [Read Deep Dive](https://labs.zeroshot.studio/resources/how-to-branch-commit-and-push-code-on-github?utm_source=github&utm_medium=repo&utm_campaign=branch-commit-push) | Conventional Commits |
+| [`git-mastery/06-review-prs-merge-cleanly`](./recipes/git-mastery/06-review-prs-merge-cleanly) | Code Review & Conflict-Free Merging | [Read Deep Dive](https://labs.zeroshot.studio/resources/how-to-review-pull-requests-and-merge-cleanly?utm_source=github&utm_medium=repo&utm_campaign=review-prs-merge) | Rebase vs Merge, Squash |
+| [`git-mastery/07-deploy-actions-github-pages`](./recipes/git-mastery/07-deploy-actions-github-pages) | CI/CD Deployments via Actions & Pages | [Read Deep Dive](https://labs.zeroshot.studio/resources/how-to-deploy-web-projects-with-github-actions-and-pages?utm_source=github&utm_medium=repo&utm_campaign=deploy-actions-pages) | GitHub Actions, Pages |
+| [`git-mastery/08-plan-features-issues-projects`](./recipes/git-mastery/08-plan-features-issues-projects) | Agile Issue Tracking & Projects Kanban | [Read Deep Dive](https://labs.zeroshot.studio/resources/how-to-plan-software-features-with-github-issues-and-projects?utm_source=github&utm_medium=repo&utm_campaign=plan-features-issues) | GitHub Projects, Issues |
+| [`git-mastery/09-continuous-learning-stack`](./recipes/git-mastery/09-continuous-learning-stack) | Autonomous Git Learning & Verification Stack | [Read Deep Dive](https://labs.zeroshot.studio/resources/how-to-build-a-continuous-git-and-github-learning-stack?utm_source=github&utm_medium=repo&utm_campaign=continuous-learning-stack) | Python, Shell, Automation |
+
+---
+
+### 🤖 AI Workflows & Autonomous Agents
+*Production scaffolds for Model Context Protocol (MCP), agent memory, and sandbox harnesses.*
+
+| Recipe | Topic | Architecture & Brief | Stack |
+| :--- | :--- | :--- | :--- |
+| [`01-claude-mcp-agent-starter`](./recipes/01-claude-mcp-agent-starter) | Claude MCP Autonomous Agent Harness | [Read Deep Dive](https://labs.zeroshot.studio/ai-workflows/claude-mcp-agent-starter?utm_source=github&utm_medium=repo&utm_campaign=01-claude-mcp) | Python 3.11, FastMCP, Anthropic SDK, Docker |
+| [`ai-workflows/claude-code-spec-first`](./recipes/ai-workflows/claude-code-spec-first) | Spec-First AI Code Generation | [Read Deep Dive](https://labs.zeroshot.studio/ai-workflows/claude-code-spec-first-workflows?utm_source=github&utm_medium=repo&utm_campaign=claude-code-spec) | Specification Engine, Claude |
+| [`ai-workflows/full-stack-mcp`](./recipes/ai-workflows/full-stack-mcp) | Full-Stack MCP Architecture | [Read Deep Dive](https://labs.zeroshot.studio/ai-workflows/full-stack-mcp-cheatsheet?utm_source=github&utm_medium=repo&utm_campaign=full-stack-mcp) | FastMCP, Client/Server Wire |
+| [`ai-workflows/openclaw-custom-skills`](./recipes/ai-workflows/openclaw-custom-skills) | OpenClaw Custom Skills Masterclass | [Read Deep Dive](https://labs.zeroshot.studio/ai-workflows/openclaw-custom-skills-masterclass?utm_source=github&utm_medium=repo&utm_campaign=openclaw-skills) | Custom Skills SDK, Runtime |
+| [`ai-workflows/persistent-memory-agents`](./recipes/ai-workflows/persistent-memory-agents) | Multi-Tier Agent Memory Architectures | [Read Deep Dive](https://labs.zeroshot.studio/agents/persistent-memory-architectures-agents?utm_source=github&utm_medium=repo&utm_campaign=persistent-memory) | Vector Brain, SQLite, Embeddings |
+| [`ai-workflows/headless-agent-vps`](./recipes/ai-workflows/headless-agent-vps) | Self-Hosting Headless Agent VPS | [Read Deep Dive](https://labs.zeroshot.studio/vps-infra/self-hosting-headless-agent-vps?utm_source=github&utm_medium=repo&utm_campaign=headless-agent-vps) | Systemd, Docker, Tailscale |
+
+---
+
+## 🚀 Quick Start Example
+
+Run the flagship Claude MCP agent starter in seconds:
+
+```bash
+# 1. Clone this repository
+git clone https://github.com/zeroshotstudio/zerolabs-recipes.git
+cd zerolabs-recipes/recipes/01-claude-mcp-agent-starter
+
+# 2. Configure environment
+cp .env.example .env
+# Add your ANTHROPIC_API_KEY to .env
+
+# 3. Spin up with Docker Compose
+docker compose up -d --build
+
+# 4. Verify test harness
+python3 test_agent.py
+```
+
+---
+
+## 🛠️ Repository Architecture
+
+```
+zerolabs-recipes/
+├── .github/
+│   ├── ISSUE_TEMPLATE/        # Standardized proposal & bug templates
+│   │   ├── bug_report.yml
+│   │   └── recipe_proposal.yml
+│   ├── workflows/
+│   │   └── ci.yml             # Automated syntax and container linting
+│   └── pull_request_template.md
+├── recipes/
+│   ├── 01-claude-mcp-agent-starter/   # Flagship MCP agent harness
+│   │   ├── Dockerfile
+│   │   ├── docker-compose.yml
+│   │   ├── app.py
+│   │   ├── test_agent.py
+│   │   └── README.md
+│   ├── git-mastery/           # Complete 9-part GitHub learning blueprint
+│   │   ├── 01-github-for-beginners/
+│   │   ├── ...
+│   │   └── 09-continuous-learning-stack/
+│   └── ai-workflows/          # Production AI agent & MCP patterns
+│       ├── claude-code-spec-first/
+│       ├── full-stack-mcp/
+│       ├── openclaw-custom-skills/
+│       ├── persistent-memory-agents/
+│       └── headless-agent-vps/
+├── CONTRIBUTING.md            # Modern engineering & PR guidelines
+├── LICENSE                    # MIT Open-Source License
+└── README.md
+```
+
+---
+
+## 🤝 Contributing
+
+We welcome community recipe proposals, bug fixes, and workflow improvements! Please read our [Contribution Guidelines](CONTRIBUTING.md) before opening a Pull Request or submitting an Issue.
+
+---
+
+## 📄 License
+
+Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
+
+Maintained with 🖤 by **[ZeroShot Studio](https://zeroshot.studio)**.

@@ -1,0 +1,42 @@
+name: "🐛 Bug Report"
+description: Report a broken recipe, Docker configuration failure, or dependency mismatch.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping keep ZeroLabs Recipes reproducible and rock solid!
+  - type: input
+    id: affected-recipe
+    attributes:
+      label: Affected Recipe
+      placeholder: "e.g., recipes/01-claude-mcp-agent-starter"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Execution Environment
+      description: OS, Docker version, Python version, architecture (x86_64, arm64/Apple Silicon).
+      placeholder: "Ubuntu 24.04 LTS / Docker 27.0.3 / Python 3.11 / Apple M-series"
+    validations:
+      required: true
+  - type: textarea
+    id: error-logs
+    attributes:
+      label: Logs & Error Output
+      description: Paste the exact terminal output or traceback.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. cd recipes/...
+        2. cp .env.example .env
+        3. docker compose up -d --build
+        4. See error...
+    validations:
+      required: true

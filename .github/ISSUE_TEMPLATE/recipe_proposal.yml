@@ -1,0 +1,55 @@
+name: "💡 Recipe Proposal"
+description: Propose a new reproducible recipe or AI workflow starter for ZeroLabs Recipes.
+labels: ["recipe-proposal", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a new recipe! Every recipe in `zerolabs-recipes` is an open-source, deterministic reference implementation companion to [ZeroLabs](https://labs.zeroshot.studio) intelligence briefs.
+  - type: input
+    id: recipe-name
+    attributes:
+      label: Recipe Name
+      description: Proposed folder name (e.g., `02-multi-agent-state-sync`).
+      placeholder: "e.g., 04-gemini-multimodal-pipeline"
+    validations:
+      required: true
+  - type: textarea
+    id: overview
+    attributes:
+      label: Problem & Architectural Overview
+      description: What does this recipe accomplish, and what technical problem does it solve?
+      placeholder: "Describe the architecture, stack, and developer use-case..."
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - "AI Workflows & MCP"
+        - "Autonomous Agents"
+        - "Infrastructure & Sandboxing"
+        - "Developer Tooling & Git"
+        - "Data & Vector Pipelines"
+    validations:
+      required: true
+  - type: textarea
+    id: stack
+    attributes:
+      label: Tech Stack & Dependencies
+      description: What libraries, runtimes, and containers will be used?
+      placeholder: "e.g., Python 3.12, FastMCP, Docker Compose, Postgres pgvector"
+    validations:
+      required: true
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Standards Checklist
+      options:
+        - label: "I confirm this recipe will be standalone, runnable via Docker Compose or minimal command."
+          required: true
+        - label: "I confirm no proprietary API keys or secrets are committed (uses `.env.example`)."
+          required: true
+        - label: "I have read and agree to CONTRIBUTING.md."
+          required: true

@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+"""
+Starter implementation for: How to Set Up GitHub CLI and Initialize a Workspace
+See complete teardown at: https://labs.zeroshot.studio/resources/how-to-set-up-github-cli-and-workspace
+"""
+
+import os
+import sys
+
+def main():
+    print("[+] Initializing How to Set Up GitHub CLI and Initialize a Workspace starter workflow...")
+    # Add implementation details here
+    print("[+] Workflow completed successfully.")
+
+if __name__ == "__main__":
+    main()

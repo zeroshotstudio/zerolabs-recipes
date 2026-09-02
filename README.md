@@ -54,6 +54,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`ai-workflows/openclaw-custom-skills`](./recipes/ai-workflows/openclaw-custom-skills) | OpenClaw Custom Skills Masterclass | [Read Deep Dive](https://labs.zeroshot.studio/ai-workflows/openclaw-custom-skills-masterclass?utm_source=github&utm_medium=repo&utm_campaign=openclaw-skills) | Custom Skills SDK, Runtime |
 | [`ai-workflows/persistent-memory-agents`](./recipes/ai-workflows/persistent-memory-agents) | Multi-Tier Agent Memory Architectures | [Read Deep Dive](https://labs.zeroshot.studio/agents/persistent-memory-architectures-agents?utm_source=github&utm_medium=repo&utm_campaign=persistent-memory) | Vector Brain, SQLite, Embeddings |
 | [`ai-workflows/headless-agent-vps`](./recipes/ai-workflows/headless-agent-vps) | Self-Hosting Headless Agent VPS | [Read Deep Dive](https://labs.zeroshot.studio/vps-infra/self-hosting-headless-agent-vps?utm_source=github&utm_medium=repo&utm_campaign=headless-agent-vps) | Systemd, Docker, Tailscale |
+| [`ai-workflows/refactoring-vibe-coded-debt`](./recipes/ai-workflows/refactoring-vibe-coded-debt) | Taming Vibe-Coded Technical Debt: Automated Test Harnesses for AI-Generated Repos | [Read Deep Dive](https://labs.zeroshot.studio/ai-workflows/refactoring-vibe-coded-debt?utm_source=github&utm_medium=repo&utm_campaign=refactoring-vibe-coded-debt) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

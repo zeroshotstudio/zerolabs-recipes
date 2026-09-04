@@ -69,6 +69,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`news/playco-cut-manual-fixes-50-prototyping-games-with-gpt-6-astr`](./recipes/news/playco-cut-manual-fixes-50-prototyping-games-with-gpt-6-astr) | Playco cut manual fixes 50% prototyping games with GPT-6 Astra | [Read Deep Dive](https://labs.zeroshot.studio/news/playco-cut-manual-fixes-50-prototyping-games-with-gpt-6-astr?utm_source=github&utm_medium=repo&utm_campaign=playco-cut-manual-fixes-50-prototyping-games-with-gpt-6-astr) | Python 3.11, ZeroLabs Architecture |
 | [`news/safety-overview-gpt-6-astra`](./recipes/news/safety-overview-gpt-6-astra) | Safety overview: GPT-6 Astra | [Read Deep Dive](https://labs.zeroshot.studio/news/safety-overview-gpt-6-astra?utm_source=github&utm_medium=repo&utm_campaign=safety-overview-gpt-6-astra) | Python 3.11, ZeroLabs Architecture |
 | [`news/gpt-4`](./recipes/news/gpt-4) | GPT-4 | [Read Deep Dive](https://labs.zeroshot.studio/news/gpt-4?utm_source=github&utm_medium=repo&utm_campaign=gpt-4) | Python 3.11, ZeroLabs Architecture |
+| [`news/create-your-best-tracks-yet-with-lyria-35-in-gemini`](./recipes/news/create-your-best-tracks-yet-with-lyria-35-in-gemini) | Create your best tracks yet with Lyria 3.5 in Gemini. | [Read Deep Dive](https://labs.zeroshot.studio/news/create-your-best-tracks-yet-with-lyria-35-in-gemini?utm_source=github&utm_medium=repo&utm_campaign=create-your-best-tracks-yet-with-lyria-35-in-gemini) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

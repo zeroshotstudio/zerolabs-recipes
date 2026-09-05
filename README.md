@@ -71,6 +71,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`news/gpt-4`](./recipes/news/gpt-4) | GPT-4 | [Read Deep Dive](https://labs.zeroshot.studio/news/gpt-4?utm_source=github&utm_medium=repo&utm_campaign=gpt-4) | Python 3.11, ZeroLabs Architecture |
 | [`news/create-your-best-tracks-yet-with-lyria-35-in-gemini`](./recipes/news/create-your-best-tracks-yet-with-lyria-35-in-gemini) | Create your best tracks yet with Lyria 3.5 in Gemini. | [Read Deep Dive](https://labs.zeroshot.studio/news/create-your-best-tracks-yet-with-lyria-35-in-gemini?utm_source=github&utm_medium=repo&utm_campaign=create-your-best-tracks-yet-with-lyria-35-in-gemini) | Python 3.11, ZeroLabs Architecture |
 | [`ai-workflows/debugging-ai-generated-code-without-rage`](./recipes/ai-workflows/debugging-ai-generated-code-without-rage) | Debugging AI-Generated Code Without Rage: The 4-Step Protocol | [Read Deep Dive](https://labs.zeroshot.studio/ai-workflows/debugging-ai-generated-code-without-rage?utm_source=github&utm_medium=repo&utm_campaign=debugging-ai-generated-code-without-rage) | Python 3.11, ZeroLabs Architecture |
+| [`news/gpt-6-astra-a-new-generation-of-intelligence`](./recipes/news/gpt-6-astra-a-new-generation-of-intelligence) | GPT-6 Astra: A new generation of intelligence | [Read Deep Dive](https://labs.zeroshot.studio/news/gpt-6-astra-a-new-generation-of-intelligence?utm_source=github&utm_medium=repo&utm_campaign=gpt-6-astra-a-new-generation-of-intelligence) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

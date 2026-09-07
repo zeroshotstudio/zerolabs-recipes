@@ -77,6 +77,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`news/research-acceleration-the-view-inside-openai`](./recipes/news/research-acceleration-the-view-inside-openai) | Research acceleration: The view inside OpenAI | [Read Deep Dive](https://labs.zeroshot.studio/news/research-acceleration-the-view-inside-openai?utm_source=github&utm_medium=repo&utm_campaign=research-acceleration-the-view-inside-openai) | Python 3.11, ZeroLabs Architecture |
 | [`news/an-alien-mind`](./recipes/news/an-alien-mind) | An Alien Mind | [Read Deep Dive](https://labs.zeroshot.studio/news/an-alien-mind?utm_source=github&utm_medium=repo&utm_campaign=an-alien-mind) | Python 3.11, ZeroLabs Architecture |
 | [`ai-workflows/simple-ai-workflows-before-agents`](./recipes/ai-workflows/simple-ai-workflows-before-agents) | Simple AI Workflows Before Agents: When a Script Beats Orchestration | [Read Deep Dive](https://labs.zeroshot.studio/agents/simple-ai-workflows-before-agents?utm_source=github&utm_medium=repo&utm_campaign=simple-ai-workflows-before-agents) | Python 3.11, ZeroLabs Architecture |
+| [`news/supporting-independent-journalism-in-ukraine`](./recipes/news/supporting-independent-journalism-in-ukraine) | Supporting independent journalism in Ukraine | [Read Deep Dive](https://labs.zeroshot.studio/news/supporting-independent-journalism-in-ukraine?utm_source=github&utm_medium=repo&utm_campaign=supporting-independent-journalism-in-ukraine) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

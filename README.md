@@ -83,6 +83,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`news/the-work-now-within-reach`](./recipes/news/the-work-now-within-reach) | The Work Now Within Reach | [Read Deep Dive](https://labs.zeroshot.studio/news/the-work-now-within-reach?utm_source=github&utm_medium=repo&utm_campaign=the-work-now-within-reach) | Python 3.11, ZeroLabs Architecture |
 | [`news/introducing-chatgpt-images-25`](./recipes/news/introducing-chatgpt-images-25) | Introducing ChatGPT Images 2.5 | [Read Deep Dive](https://labs.zeroshot.studio/news/introducing-chatgpt-images-25?utm_source=github&utm_medium=repo&utm_campaign=introducing-chatgpt-images-25) | Python 3.11, ZeroLabs Architecture |
 | [`news/how-gpt-56-sol-helps-run-quantum-computing-experiments`](./recipes/news/how-gpt-56-sol-helps-run-quantum-computing-experiments) | How GPT-5.6 Sol helps run quantum computing experiments | [Read Deep Dive](https://labs.zeroshot.studio/news/how-gpt-56-sol-helps-run-quantum-computing-experiments?utm_source=github&utm_medium=repo&utm_campaign=how-gpt-56-sol-helps-run-quantum-computing-experiments) | Python 3.11, ZeroLabs Architecture |
+| [`news/on-the-navier-stokes-millennium-prize-problem`](./recipes/news/on-the-navier-stokes-millennium-prize-problem) | On the Navier - Stokes Millennium Prize Problem | [Read Deep Dive](https://labs.zeroshot.studio/news/on-the-navier-stokes-millennium-prize-problem?utm_source=github&utm_medium=repo&utm_campaign=on-the-navier-stokes-millennium-prize-problem) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

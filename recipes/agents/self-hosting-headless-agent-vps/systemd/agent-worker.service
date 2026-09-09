@@ -1,0 +1,25 @@
+[Unit]
+Description=Autonomous Agent Supervisor Service
+After=network.target
+
+[Service]
+Type=simple
+User=agent
+WorkingDirectory=/opt/autonomous-agent
+Environment=DISPLAY=:99
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/python3 /opt/autonomous-agent/scripts/run_worker.py --scheduled
+Restart=on-failure
+RestartSec=10
+
+# Security and Sandboxing
+ProtectSystem=strict
+PrivateTmp=true
+ProtectHome=read-only
+ReadWritePaths=/opt/autonomous-agent /var/log
+
+StandardOutput=append:/var/log/agent-worker.log
+StandardError=append:/var/log/agent-worker.log
+
+[Install]
+WantedBy=multi-user.target

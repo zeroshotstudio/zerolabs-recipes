@@ -99,6 +99,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`news/introducing-the-agents-api`](./recipes/news/introducing-the-agents-api) | Introducing the Agents API | [Read Deep Dive](https://labs.zeroshot.studio/news/introducing-the-agents-api?utm_source=github&utm_medium=repo&utm_campaign=introducing-the-agents-api) | Python 3.11, ZeroLabs Architecture |
 | [`news/introducing-chatgpt-for-financial-services`](./recipes/news/introducing-chatgpt-for-financial-services) | Introducing ChatGPT for Financial Services | [Read Deep Dive](https://labs.zeroshot.studio/news/introducing-chatgpt-for-financial-services?utm_source=github&utm_medium=repo&utm_campaign=introducing-chatgpt-for-financial-services) | Python 3.11, ZeroLabs Architecture |
 | [`ai-workflows/zeroguide-interactive-mcp-agent-coaching`](./recipes/ai-workflows/zeroguide-interactive-mcp-agent-coaching) | Zeroguide Interactive Mcp Agent Coaching | [Read Deep Dive](https://labs.zeroshot.studio/agents/zeroguide-interactive-mcp-agent-coaching?utm_source=github&utm_medium=repo&utm_campaign=zeroguide-interactive-mcp-agent-coaching) | Python 3.11, ZeroLabs Architecture |
+| [`ai-workflows/observability-for-vibe-coders`](./recipes/ai-workflows/observability-for-vibe-coders) | Observability for Vibe Coders: Logs, Traces, Evals, and Failure Recovery | [Read Deep Dive](https://labs.zeroshot.studio/ai-workflows/observability-for-vibe-coders?utm_source=github&utm_medium=repo&utm_campaign=observability-for-vibe-coders) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

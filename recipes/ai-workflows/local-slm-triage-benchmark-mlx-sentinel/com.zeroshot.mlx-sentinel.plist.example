@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.zeroshot.mlx-sentinel</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/username/scripts/mlx_sentinel.py</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <!-- Enforce minimum 15s between crash restarts to avoid infinite respawn loops -->
+    <key>ThrottleInterval</key>
+    <integer>15</integer>
+    <!-- Restart only on abnormal non-zero termination -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/username/Library/Logs/mlx-sentinel.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/username/Library/Logs/mlx-sentinel.stderr.log</string>
+</dict>
+</plist>

@@ -125,6 +125,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`news/4-ways-to-tackle-household-chores-with-gemini`](./recipes/news/4-ways-to-tackle-household-chores-with-gemini) | 4 ways to tackle household chores with Gemini | [Read Deep Dive](https://labs.zeroshot.studio/news/4-ways-to-tackle-household-chores-with-gemini?utm_source=github&utm_medium=repo&utm_campaign=4-ways-to-tackle-household-chores-with-gemini) | Python 3.11, ZeroLabs Architecture |
 | [`news/ai-for-societal-impact`](./recipes/news/ai-for-societal-impact) | AI for Societal Impact | [Read Deep Dive](https://labs.zeroshot.studio/news/ai-for-societal-impact?utm_source=github&utm_medium=repo&utm_campaign=ai-for-societal-impact) | Python 3.11, ZeroLabs Architecture |
 | [`news/building-ai-to-accelerate-science-and-improve-lives`](./recipes/news/building-ai-to-accelerate-science-and-improve-lives) | Building AI to accelerate science and improve lives | [Read Deep Dive](https://labs.zeroshot.studio/news/building-ai-to-accelerate-science-and-improve-lives?utm_source=github&utm_medium=repo&utm_campaign=building-ai-to-accelerate-science-and-improve-lives) | Python 3.11, ZeroLabs Architecture |
+| [`news/ai-for-everyone-in-every-language`](./recipes/news/ai-for-everyone-in-every-language) | AI for everyone in every language | [Read Deep Dive](https://labs.zeroshot.studio/news/ai-for-everyone-in-every-language?utm_source=github&utm_medium=repo&utm_campaign=ai-for-everyone-in-every-language) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

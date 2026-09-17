@@ -1,0 +1,15 @@
+{
+  "title": "How to Extract Reasoning Traces and Thought Signatures",
+  "slug": "how-to-extract-reasoning-traces-and-thought-signatures",
+  "zone": "resources",
+  "excerpt": "Extract Claude extended thinking blocks, verify cryptographic thought signatures, and maintain conversation state across multi-turn reasoning workflows.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "extended-thinking",
+    "reasoning",
+    "developer-guides",
+    "claude-module-4"
+  ]
+}

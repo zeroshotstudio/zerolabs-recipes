@@ -1,0 +1,16 @@
+{
+  "title": "Implement Remote MCP Servers and Secure Tunnels",
+  "slug": "how-to-implement-remote-mcp-servers-and-tunnels",
+  "zone": "resources",
+  "excerpt": "Implement remote Model Context Protocol servers exposed via HTTPS and SSE tunnels with bearer token authentication and reverse proxies.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "mcp",
+    "remote-mcp",
+    "sse",
+    "tunnels",
+    "developer-guides",
+    "claude-module-9"
+  ]
+}

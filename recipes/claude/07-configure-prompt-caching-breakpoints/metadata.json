@@ -1,0 +1,15 @@
+{
+  "title": "How to Configure Prompt Caching Breakpoints",
+  "slug": "how-to-configure-prompt-caching-breakpoints",
+  "zone": "resources",
+  "excerpt": "Configure prompt caching breakpoints in Claude Messages API to cut latency up to 85% and reduce token expenses by 90% across long prefixes.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "prompt-caching",
+    "optimization",
+    "developer-guides",
+    "claude-module-3"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "title": "How to Optimize Token Costs with 1-Hour Ephemeral Cache",
+  "slug": "how-to-optimize-token-costs-with-1-hour-ephemeral-cache",
+  "zone": "resources",
+  "excerpt": "Model Claude prompt caching unit economics, calculate break-even ROI thresholds, and implement batching architectures to maximize 1-hour cache lifetimes.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "prompt-caching",
+    "cost-optimization",
+    "developer-guides",
+    "claude-module-3"
+  ]
+}

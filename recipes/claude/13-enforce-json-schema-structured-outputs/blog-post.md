@@ -38,7 +38,7 @@ flowchart LR
 
 Under this workflow, Claude processes the input context and immediately transitions to tool invocation mode. The model produces a `tool_use` content block where the `input` field contains the parsed JSON object. The response metadata returns `stop_reason: "tool_use"`, confirming that generation completed through tool execution rather than standard text termination.
 
-For architectural context on handling response stop reasons across different execution modes, reference our guide on [How to Handle Stop Reasons and Truncated Outputs](https://labs.zeroshot.studio/resources/how-to-handle-stop-reasons-and-truncated-outputs).
+For architectural context on handling response stop reasons across different execution modes, reference our guide on [How to Handle Stop Reasons and Truncated Outputs](https://labs.zeroshot.studio/resources/how-to-handle-stop-reasons-and-max-token-truncation).
 
 ## What Are the Hard Rules for Structured Output Schemas?
 
@@ -475,7 +475,7 @@ The gateway returns the structured payload directly:
 }
 ```
 
-For setting up development environments and testing local connectivity, review [How to Test Claude API Connectivity and Latency](https://labs.zeroshot.studio/resources/how-to-test-claude-api-connectivity-and-latency).
+For setting up development environments and testing local connectivity, review [How to Test Claude API Connectivity and Latency](https://labs.zeroshot.studio/resources/how-to-test-claude-api-connectivity-and-models-endpoint).
 
 ## How to Handle Schema Extraction Failures and Stop Reasons?
 

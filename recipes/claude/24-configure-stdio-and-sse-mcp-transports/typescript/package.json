@@ -1,0 +1,23 @@
+{
+  "name": "mcp-transport-server-ts",
+  "version": "1.0.0",
+  "description": "Dual-transport MCP server in TypeScript supporting Stdio and SSE transports",
+  "main": "dist/server_sse.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server_sse.js",
+    "dev:sse": "ts-node src/server_sse.ts --transport sse",
+    "dev:stdio": "ts-node src/server_sse.ts --transport stdio"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.0",
+    "express": "^4.19.2",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

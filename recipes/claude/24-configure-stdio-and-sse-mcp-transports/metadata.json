@@ -1,0 +1,16 @@
+{
+  "title": "Configure Stdio and SSE Transports in MCP",
+  "slug": "how-to-configure-stdio-and-sse-mcp-transports",
+  "zone": "resources",
+  "excerpt": "Configure Stdio and Server-Sent Event transports for Model Context Protocol servers with session lifecycle management and resilient streaming.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "mcp",
+    "sse",
+    "stdio",
+    "transport",
+    "developer-guides",
+    "claude-module-8"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "title": "How to Implement Strict Tool Use and Error Recovery Loops",
+  "slug": "how-to-implement-strict-tool-use-and-error-recovery-loops",
+  "zone": "resources",
+  "excerpt": "Implement resilient Claude tool use and error recovery loops with is_error diagnostics, bounded retry budgets, and fail-safe circuit breaker patterns.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "tool-use",
+    "error-recovery",
+    "developer-guides",
+    "claude-module-6"
+  ]
+}

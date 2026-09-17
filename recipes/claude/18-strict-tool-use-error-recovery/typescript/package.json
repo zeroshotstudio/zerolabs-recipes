@@ -1,0 +1,18 @@
+{
+  "name": "claude-strict-tool-use-error-recovery",
+  "version": "1.0.0",
+  "description": "Strict Claude tool use and error recovery loops with TypeScript and Zod",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsc && node dist/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.4.5"
+  }
+}

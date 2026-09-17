@@ -1,0 +1,18 @@
+{
+  "name": "mcp-context-router",
+  "version": "1.0.0",
+  "description": "TypeScript implementation of dynamic MCP tool filtering, schema pruning, and prompt caching router",
+  "main": "dist/mcp_context_router.js",
+  "types": "dist/mcp_context_router.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/mcp_context_router.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

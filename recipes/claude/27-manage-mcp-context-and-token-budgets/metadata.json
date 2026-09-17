@@ -1,0 +1,15 @@
+{
+  "title": "Manage MCP Tool Context and Token Budgets",
+  "slug": "how-to-manage-mcp-tool-context-and-token-budgets",
+  "zone": "resources",
+  "excerpt": "Manage MCP tool context and token budgets using dynamic schema pruning, tool filtering, and prompt caching to prevent window overflow.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "mcp",
+    "token-budget",
+    "context-management",
+    "developer-guides",
+    "claude-module-9"
+  ]
+}

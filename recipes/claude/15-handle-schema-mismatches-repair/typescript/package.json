@@ -1,0 +1,18 @@
+{
+  "name": "claude-schema-repair-typescript",
+  "version": "1.0.0",
+  "description": "Multi-turn schema repair loop with Zod and Anthropic Messages API",
+  "main": "dist/schemaRepair.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsc && node dist/schemaRepair.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.4.5"
+  }
+}

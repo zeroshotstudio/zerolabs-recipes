@@ -1,0 +1,16 @@
+{
+  "title": "Track Usage Costs and Audit Admin API Events",
+  "slug": "how-to-track-usage-costs-and-audit-admin-api-events",
+  "zone": "resources",
+  "excerpt": "Track Claude API token usage costs and audit workspace organization events with Anthropic Admin API and automated Prometheus metrics.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "admin-api",
+    "cost-tracking",
+    "governance",
+    "developer-guides",
+    "claude-module-10"
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "title": "How to Handle Schema Mismatches and Repair Responses",
+  "title": "How to Handle Schema Mismatches and Repair Loops",
   "slug": "how-to-handle-schema-mismatches-and-repair-responses",
   "zone": "resources",
   "excerpt": "Implement multi-turn schema repair loops for Claude responses. Catch Pydantic and Zod validation errors and repair malformed structured JSON outputs.",

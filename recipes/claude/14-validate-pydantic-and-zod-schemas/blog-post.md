@@ -407,7 +407,7 @@ When executed, the Anthropic gateway responds with a formatted tool call:
 
 The response conforms to all schema properties and boundary types, allowing direct ingestion by client services.
 
-For initial SDK setup and environment verification steps, refer to [How to Set Up Anthropic SDKs for Python and TypeScript](https://labs.zeroshot.studio/resources/how-to-set-up-anthropic-sdks-for-python-and-typescript).
+For initial SDK configuration and environment verification steps, refer to [How to Manage Anthropic API Keys & Env Variables](https://labs.zeroshot.studio/resources/how-to-manage-anthropic-api-keys-and-environment-variables).
 
 ## How to Handle Malformed Properties and Schema Mismatches?
 
@@ -473,7 +473,7 @@ def execute_with_repair_loop(client: anthropic.Anthropic, user_message: str, max
 
 By providing Claude with the exact field path and rule violation (for instance, `incident_id: String should match pattern '^INC-[0-9]{4,6}$'`), Claude adjusts its output on the subsequent turn, bringing the repaired payload into compliance.
 
-For architectural guidance on prompt optimization and message construction, read [How to Optimize Token Costs with Ephemeral Cache](https://labs.zeroshot.studio/resources/how-to-optimize-token-costs-with-ephemeral-cache).
+For architectural guidance on prompt optimization and message construction, read [How to Optimize Token Costs with Ephemeral Cache](https://labs.zeroshot.studio/resources/how-to-optimize-token-costs-with-1-hour-ephemeral-cache).
 
 ## What Are Production Anti-Patterns in Model Deserialization?
 

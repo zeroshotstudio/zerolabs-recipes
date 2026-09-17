@@ -1,0 +1,15 @@
+{
+  "title": "Connect Claude Desktop and Cursor to Custom MCP",
+  "slug": "how-to-connect-claude-desktop-and-cursor-to-custom-mcp-servers",
+  "zone": "resources",
+  "excerpt": "Connect Claude Desktop and Cursor to custom MCP servers via local stdio configurations, environment injection, and connection diagnostics.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "mcp",
+    "cursor",
+    "claude-desktop",
+    "developer-guides",
+    "claude-module-9"
+  ]
+}

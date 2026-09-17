@@ -1,0 +1,10 @@
+services:
+  claude-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # Inject secret directly from the host environment without checking into git
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - NODE_ENV=production
+    restart: unless-stopped

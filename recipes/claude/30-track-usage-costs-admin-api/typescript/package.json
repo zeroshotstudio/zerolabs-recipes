@@ -1,0 +1,22 @@
+{
+  "name": "claude-usage-and-admin-cost-tracker",
+  "version": "1.0.0",
+  "description": "Anthropic Admin API Usage Cost Tracker and Organization Governance Exporter in TypeScript",
+  "main": "dist/cost_tracker.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cost_tracker.js",
+    "dev": "ts-node src/cost_tracker.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.38.0",
+    "dotenv": "^16.4.5",
+    "prom-client": "^15.1.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

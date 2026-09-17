@@ -1,0 +1,16 @@
+{
+  "title": "Implement Streaming Refusals and Fallback Loops",
+  "slug": "how-to-implement-streaming-refusal-guardrails-and-fallbacks",
+  "zone": "resources",
+  "excerpt": "Implement streaming refusal guardrails and deterministic fallback loops with stop reason detection, classification, and model routing.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "guardrails",
+    "refusals",
+    "streaming",
+    "developer-guides",
+    "claude-module-10"
+  ]
+}

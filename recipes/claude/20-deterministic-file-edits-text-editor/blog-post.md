@@ -58,7 +58,7 @@ The tool accepts five distinct commands through its structured parameters:
 - `insert`: Adds `new_str` immediately following `insert_line`. Setting `insert_line: 0` prepends content to the start of the file.
 - `undo_edit`: Reverts the target file to its exact state prior to the previous mutation command.
 
-For foundational architectural guidance on registering tools and streaming responses, explore our companion recipes on [How to Define and Register Tools with Claude](/resources/how-to-define-and-register-tools) and [How to Implement Strict Tool Use and Error Recovery Loops](/resources/how-to-implement-strict-tool-use-and-error-recovery-loops). Official platform documentation is available at [Anthropic Tool Use Overview](https://docs.anthropic.com/en/docs/build-with-claude/tool-use).
+For foundational architectural guidance on registering tools and streaming responses, explore our companion recipes on [How to Define and Register Tools with Claude](https://labs.zeroshot.studio/resources/how-to-define-and-register-tools-with-claude), [How to Implement Strict Tool Use and Error Recovery Loops](https://labs.zeroshot.studio/resources/how-to-implement-strict-tool-use-and-error-recovery-loops), and [How to Provision and Sandbox Claude Computer Use](https://labs.zeroshot.studio/resources/how-to-provision-and-sandbox-claude-computer-use). Official platform documentation is available at [Anthropic Tool Use Overview](https://docs.anthropic.com/en/docs/build-with-claude/tool-use).
 
 ## What Are the Hard Rules for Deterministic String Replacement?
 

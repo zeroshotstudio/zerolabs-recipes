@@ -1,0 +1,19 @@
+{
+  "name": "claude-recipe-validate-zod-schemas",
+  "version": "1.0.0",
+  "description": "Validating Zod schemas with Claude Messages API tools",
+  "main": "validate_zod.ts",
+  "scripts": {
+    "start": "tsx validate_zod.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.0",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.23.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}

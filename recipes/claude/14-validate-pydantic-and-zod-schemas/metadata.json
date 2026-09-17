@@ -1,0 +1,16 @@
+{
+  "title": "How to Validate Pydantic and Zod Schemas with Claude",
+  "slug": "how-to-validate-pydantic-and-zod-schemas-with-claude",
+  "zone": "resources",
+  "excerpt": "Generate strict JSON Schema from Pydantic and Zod, pass definitions into Claude tool parameters, and validate tool call responses into typed models.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "pydantic",
+    "zod",
+    "validation",
+    "developer-guides",
+    "claude-module-5"
+  ]
+}

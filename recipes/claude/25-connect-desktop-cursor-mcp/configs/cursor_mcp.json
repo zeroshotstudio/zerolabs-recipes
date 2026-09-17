@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "custom-python-mcp": {
+      "command": "python3",
+      "args": [
+        "${workspaceFolder}/recipes/claude/25-connect-desktop-cursor-mcp/python/server.py"
+      ],
+      "env": {
+        "MCP_DEBUG": "true",
+        "API_SECRET_KEY": "zerolabs-local-secret-key-12345"
+      }
+    },
+    "custom-typescript-mcp": {
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/recipes/claude/25-connect-desktop-cursor-mcp/typescript/dist/server.js"
+      ],
+      "env": {
+        "MCP_DEBUG": "true",
+        "API_SECRET_KEY": "zerolabs-local-secret-key-12345"
+      }
+    }
+  }
+}

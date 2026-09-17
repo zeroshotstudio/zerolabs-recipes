@@ -1,0 +1,19 @@
+{
+  "name": "custom-typescript-mcp",
+  "version": "1.0.0",
+  "description": "Custom TypeScript MCP Server for Claude Desktop and Cursor integration testing",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "typescript": "^5.7.3"
+  }
+}

@@ -349,7 +349,7 @@ In response to this prompt, Claude analyzes the validation diagnostics and emits
 
 The model corrects the renamed key (`name` to `service_name`), coerces the port string into an integer (`"8080"` to `8080`), replaces the illegal enum value (`active` to `healthy`), and restores the missing `tags` array.
 
-For background on setting up SDK authentication and headers, refer to [How to Manage API Keys and Environment Variables](/resources/how-to-manage-api-keys-and-env).
+For background on setting up SDK authentication and headers, refer to [How to Manage API Keys and Environment Variables](/resources/how-to-manage-anthropic-api-keys-and-environment-variables).
 
 ## How to Implement Circuit Breakers and Dead Letter Queues?
 
@@ -379,7 +379,7 @@ Production architectures require a defined failure threshold:
 
 By decoupling error handling into immediate conversational repair loops backed by persistent DLQ safety nets, systems achieve enterprise-grade resilience and total auditability.
 
-For monitoring token usage and cost efficiency across multi-turn pipelines, consult [How to Optimize Token Costs with Ephemeral Cache](/resources/how-to-optimize-token-costs-ephemeral-cache) and the official [Anthropic Messages API Reference](https://docs.anthropic.com/en/api/messages).
+For monitoring token usage and cost efficiency across multi-turn pipelines, consult [How to Optimize Token Costs with Ephemeral Cache](/resources/how-to-optimize-token-costs-with-1-hour-ephemeral-cache) and the official [Anthropic Messages API Reference](https://docs.anthropic.com/en/api/messages).
 
 ## FAQ
 

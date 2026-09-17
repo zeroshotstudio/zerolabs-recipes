@@ -1,0 +1,19 @@
+{
+  "name": "claude-batch-processor-typescript",
+  "version": "1.0.0",
+  "description": "Anthropic Message Batches API client in TypeScript",
+  "main": "dist/batch_processor.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/batch_processor.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

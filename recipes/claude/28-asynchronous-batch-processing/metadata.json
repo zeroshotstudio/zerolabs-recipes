@@ -1,0 +1,15 @@
+{
+  "title": "Execute Asynchronous Batch Processing with Claude",
+  "slug": "how-to-execute-asynchronous-batch-processing-with-claude-api",
+  "zone": "resources",
+  "excerpt": "Execute high-throughput asynchronous batch processing with Anthropic Message Batches API to cut token costs by 50% with custom IDs.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "message-batches",
+    "batch-processing",
+    "developer-guides",
+    "claude-module-10"
+  ]
+}

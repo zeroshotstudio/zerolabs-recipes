@@ -1,0 +1,15 @@
+{
+  "title": "How to Execute Deterministic File Edits with Text Editor Tool",
+  "slug": "how-to-execute-deterministic-file-edits-with-text-editor-tool",
+  "zone": "resources",
+  "excerpt": "Execute deterministic file edits with Anthropic's text editor tool using view, create, str_replace, and insert operations with strict validation guardrails.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "text-editor",
+    "agentic-coding",
+    "developer-guides",
+    "claude-module-7"
+  ]
+}

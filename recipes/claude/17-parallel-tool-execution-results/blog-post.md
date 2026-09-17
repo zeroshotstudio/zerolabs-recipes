@@ -151,7 +151,7 @@ Consider a scenario where the stock ticker for AAPL resolves, but an invalid tic
 
 Setting `is_error: true` notifies Claude that the specific tool call encountered a problem without breaking the conversational state machine. Claude ingests the successful AAPL data to answer the primary question, while politely informing the user that `UNKNOWN` could not be located.
 
-For detailed strategies on handling stop signals, consult [How to Handle Stop Reasons and Response Signals](/resources/how-to-handle-stop-reasons-and-response-signals).
+For detailed strategies on handling stop signals, consult [How to Handle Stop Reasons & Token Truncation](/resources/how-to-handle-stop-reasons-and-max-token-truncation).
 
 ## How to Implement Parallel Tool Execution in Python?
 
@@ -509,7 +509,7 @@ Implement strict concurrency throttling using semaphores:
 
 1. **Asyncio Semaphore Limits**: In Python, initialize an `asyncio.Semaphore(value=5)` to cap concurrent HTTP outbound sockets. Even if Claude emits 12 tool calls, execution progresses smoothly in bounded batches of 5.
 2. **Dynamic Timeout Periphery**: Set tight individual timeouts (such as 3.0 seconds) for each tool coroutine. If one external data provider stalls, fail that specific tool call with a timeout message in `tool_result` while allowing the rest of the batch to complete on schedule.
-3. **Structured Schema Validation**: Always validate parameters extracted from `tool_use.input` before dispatching network requests, preventing malformed inputs from reaching internal services. For best practices, see [How to Validate Claude Structured Outputs with Pydantic and Zod](/resources/how-to-validate-claude-structured-outputs-with-pydantic-and-zod) and [How to Enforce JSON Schema in Claude Structured Outputs](/resources/how-to-enforce-json-schema-in-claude-structured-outputs).
+3. **Structured Schema Validation**: Always validate parameters extracted from `tool_use.input` before dispatching network requests, preventing malformed inputs from reaching internal services. For best practices, see [Validate Pydantic and Zod Schemas with Claude](/resources/how-to-validate-pydantic-and-zod-schemas-with-claude) and [How to Enforce JSON Schema Structured Outputs](/resources/how-to-enforce-json-schema-with-claude-structured-outputs).
 
 For official API documentation on tool use protocols, visit the [Anthropic Tool Use Documentation](https://docs.anthropic.com/en/docs/build-with-claude/tool-use).
 

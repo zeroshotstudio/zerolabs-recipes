@@ -1,0 +1,16 @@
+{
+  "title": "How to Measure and Debug Cache Hit Rates",
+  "slug": "how-to-measure-and-debug-cache-hit-rates",
+  "zone": "resources",
+  "excerpt": "Track Claude prompt cache hit rates, calculate token savings and latency reductions, and resolve cache busting pitfalls in Python and TypeScript.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "prompt-caching",
+    "monitoring",
+    "latency",
+    "developer-guides",
+    "claude-module-3"
+  ]
+}

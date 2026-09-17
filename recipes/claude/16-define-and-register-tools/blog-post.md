@@ -117,7 +117,7 @@ The lifecycle proceeds through distinct stages:
 4. **Completion Delivery**: The API returns an HTTP 200 response with `stop_reason: "tool_use"` and a `content` array containing one or more blocks.
 5. **Execution Dispatch**: The client application inspects the blocks, extracts `id`, `name`, and `input`, executes the underlying service, and returns results via subsequent `tool_result` turns.
 
-For details on managing conversation state across subsequent turns, see [How to Handle Stop Reasons in Claude Responses](/resources/how-to-handle-stop-reasons-in-claude-responses).
+For details on managing conversation state across subsequent turns, see [How to Handle Stop Reasons in Claude Responses](/resources/how-to-handle-stop-reasons-and-max-token-truncation).
 
 ## How to Implement Tool Registration in Python?
 

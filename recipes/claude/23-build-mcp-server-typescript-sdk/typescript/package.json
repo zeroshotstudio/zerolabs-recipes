@@ -1,0 +1,28 @@
+{
+  "name": "23-build-mcp-server-typescript-sdk",
+  "version": "1.0.0",
+  "description": "Model Context Protocol server built with TypeScript SDK, Zod schemas, tools, resources, and prompts.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "client": "tsx src/client.ts"
+  },
+  "keywords": [
+    "claude",
+    "anthropic",
+    "mcp",
+    "typescript",
+    "model-context-protocol"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  },
+  "type": "module"
+}

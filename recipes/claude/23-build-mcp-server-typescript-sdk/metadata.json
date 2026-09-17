@@ -1,0 +1,26 @@
+{
+  "id": "23-build-mcp-server-typescript-sdk",
+  "title": "How to Build an MCP Server with TypeScript SDK",
+  "slug": "how-to-build-an-mcp-server-with-typescript-sdk",
+  "module": 8,
+  "recipe": 23,
+  "zone": "resources",
+  "tags": [
+    "claude",
+    "anthropic",
+    "mcp",
+    "typescript",
+    "model-context-protocol",
+    "developer-guides",
+    "claude-module-8"
+  ],
+  "excerpt": "Build deterministic Model Context Protocol servers in TypeScript using the official MCP SDK, Zod schema validation, tools, and typed resources.",
+  "difficulty": "intermediate",
+  "estimatedTimeMinutes": 25,
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76",
+    "typescript": "^5.8.2"
+  },
+  "publishedAt": "2026-09-17T12:00:00.000Z"
+}

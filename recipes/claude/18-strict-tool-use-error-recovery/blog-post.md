@@ -372,7 +372,7 @@ export async function runAgentLoop(
 }
 ```
 
-For teams enforcing schema standards with Zod across structured outputs, refer to our detailed walkthrough on [How to Validate Pydantic and Zod Schemas](/resources/how-to-validate-pydantic-and-zod-schemas).
+For teams enforcing schema standards with Zod across structured outputs, refer to our detailed walkthrough on [How to Validate Pydantic and Zod Schemas](/resources/how-to-validate-pydantic-and-zod-schemas-with-claude).
 
 ## How to Test Error Injection and Recovery with cURL?
 
@@ -471,7 +471,7 @@ curl -s -X POST "https://api.anthropic.com/v1/messages" \
 
 Claude evaluates the error block and issues a corrected tool call with `{ "record_id": "550e8400-e29b-41d4-a716-446655440999", "environment": "production" }`, validating the self-correction loop.
 
-For guidance on parsing response objects and managing finish states, refer to [How to Handle Stop Reasons in Claude Responses](/resources/how-to-handle-stop-reasons-in-claude-responses).
+For guidance on parsing response objects and managing finish states, refer to [How to Handle Stop Reasons in Claude Responses](/resources/how-to-handle-stop-reasons-and-max-token-truncation).
 
 ## How to Prevent Infinite Loops with Circuit Breakers?
 

@@ -1,0 +1,15 @@
+{
+  "title": "How to Define and Register Tools with Claude",
+  "slug": "how-to-define-and-register-tools-with-claude",
+  "zone": "resources",
+  "excerpt": "Define JSON schema tools in Claude Messages API requests. Configure tool choice strategies and parse tool use blocks across Python, TypeScript, and cURL.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "tool-use",
+    "function-calling",
+    "developer-guides",
+    "claude-module-6"
+  ]
+}

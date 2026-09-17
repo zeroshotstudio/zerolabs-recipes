@@ -1,0 +1,17 @@
+{
+  "name": "claude-recipe-16-define-and-register-tools",
+  "version": "1.0.0",
+  "description": "How to define and register tools with Claude Messages API",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

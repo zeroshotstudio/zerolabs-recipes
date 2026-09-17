@@ -1,0 +1,16 @@
+{
+  "title": "How to Integrate and Sandbox Claude Bash Tool",
+  "slug": "how-to-integrate-and-sandbox-the-claude-bash-tool",
+  "zone": "resources",
+  "excerpt": "Integrate Claude bash tools with container sandboxes, timeout management, output capture, and safe execution loops in Python and TypeScript.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "bash-tool",
+    "sandboxing",
+    "security",
+    "developer-guides",
+    "claude-module-7"
+  ]
+}

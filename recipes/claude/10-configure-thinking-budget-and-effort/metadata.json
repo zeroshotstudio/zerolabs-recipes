@@ -1,0 +1,15 @@
+{
+  "title": "How to Configure Thinking Budget and Effort Parameters",
+  "slug": "how-to-configure-thinking-budget-and-effort-parameters",
+  "zone": "resources",
+  "excerpt": "Configure thinking budget tokens and reasoning effort parameters in Claude Messages API to govern extended thinking depth, latency, and token cost.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "extended-thinking",
+    "reasoning",
+    "developer-guides",
+    "claude-module-4"
+  ]
+}

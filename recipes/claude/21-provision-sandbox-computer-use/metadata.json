@@ -1,0 +1,16 @@
+{
+  "title": "How to Provision and Sandbox Claude Computer Use",
+  "slug": "how-to-provision-and-sandbox-claude-computer-use",
+  "zone": "resources",
+  "excerpt": "Provision isolated virtual desktop sandboxes for Claude Computer Use with Xvfb, fluxbox, base64 visual feedback, and human-in-the-loop security boundaries.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "computer-use",
+    "gui-automation",
+    "sandboxing",
+    "developer-guides",
+    "claude-module-7"
+  ]
+}

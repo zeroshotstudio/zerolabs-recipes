@@ -1,0 +1,16 @@
+{
+  "name": "recipe-21-provision-sandbox-computer-use",
+  "version": "1.0.0",
+  "description": "Claude Computer Use Virtual Desktop Sandbox Orchestrator",
+  "main": "computer_use_orchestrator.ts",
+  "scripts": {
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.11.0"
+  }
+}

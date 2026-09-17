@@ -1,0 +1,15 @@
+{
+  "title": "How to Enforce JSON Schema with Structured Outputs",
+  "slug": "how-to-enforce-json-schema-with-claude-structured-outputs",
+  "zone": "resources",
+  "excerpt": "Enforce deterministic JSON Schema output from Claude using forced tool choice, strict schema declarations, and typed extraction in Python and TypeScript.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "structured-outputs",
+    "json-schema",
+    "developer-guides",
+    "claude-module-5"
+  ]
+}

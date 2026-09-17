@@ -1,0 +1,15 @@
+{
+  "title": "How to Stream Thinking Blocks to User Interfaces",
+  "slug": "how-to-stream-thinking-blocks-to-user-interfaces",
+  "zone": "resources",
+  "excerpt": "Stream Claude extended thinking blocks with Server-Sent Events to render real-time collapsible accordions and isolate thinking deltas from text.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "extended-thinking",
+    "streaming",
+    "developer-guides",
+    "claude-module-4"
+  ]
+}

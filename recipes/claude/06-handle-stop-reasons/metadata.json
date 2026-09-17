@@ -1,0 +1,16 @@
+{
+  "title": "How to Handle Stop Reasons and Max Token Truncation",
+  "slug": "how-to-handle-stop-reasons-and-max-token-truncation",
+  "zone": "resources",
+  "excerpt": "Inspect Claude stop reasons, detect max_tokens truncation, and build automated multi-turn continuation loops across Python and TypeScript.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "tokens",
+    "stop-reasons",
+    "error-handling",
+    "developer-guides",
+    "claude-module-2"
+  ]
+}

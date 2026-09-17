@@ -1,0 +1,15 @@
+{
+  "title": "How to Handle Parallel Tool Execution and Results",
+  "slug": "how-to-handle-parallel-tool-execution-and-results",
+  "zone": "resources",
+  "excerpt": "Execute multiple Claude tool_use calls concurrently using asyncio or Promise.all, map responses to tool_use_id, and handle partial failures.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "api",
+    "tool-use",
+    "parallel-execution",
+    "developer-guides",
+    "claude-module-6"
+  ]
+}

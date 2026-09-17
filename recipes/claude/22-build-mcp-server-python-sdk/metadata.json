@@ -1,0 +1,15 @@
+{
+  "title": "How to Build an MCP Server with Python SDK",
+  "slug": "how-to-build-an-mcp-server-with-python-sdk",
+  "zone": "resources",
+  "excerpt": "Build production-ready Model Context Protocol servers in Python using FastMCP and the official SDK with custom tools, resources, and schemas.",
+  "tags": [
+    "claude",
+    "anthropic",
+    "mcp",
+    "python",
+    "model-context-protocol",
+    "developer-guides",
+    "claude-module-8"
+  ]
+}

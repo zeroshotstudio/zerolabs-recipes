@@ -141,6 +141,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`news/introducing-the-australian-youth-safety-blueprint`](./recipes/news/introducing-the-australian-youth-safety-blueprint) | Introducing the Australian Youth Safety Blueprint | [Read Deep Dive](https://labs.zeroshot.studio/news/introducing-the-australian-youth-safety-blueprint?utm_source=github&utm_medium=repo&utm_campaign=introducing-the-australian-youth-safety-blueprint) | Python 3.11, ZeroLabs Architecture |
 | [`news/romance-scams-ai-enabled-romance-scam-workflows`](./recipes/news/romance-scams-ai-enabled-romance-scam-workflows) | Romance scams: AI-enabled romance scam workflows | [Read Deep Dive](https://labs.zeroshot.studio/news/romance-scams-ai-enabled-romance-scam-workflows?utm_source=github&utm_medium=repo&utm_campaign=romance-scams-ai-enabled-romance-scam-workflows) | Python 3.11, ZeroLabs Architecture |
 | [`ai-workflows/handoff-docs-for-vibe-coders`](./recipes/ai-workflows/handoff-docs-for-vibe-coders) | Handoff Docs for Vibe Coders | [Read Deep Dive](https://labs.zeroshot.studio/ai-workflows/handoff-docs-for-vibe-coders?utm_source=github&utm_medium=repo&utm_campaign=handoff-docs-for-vibe-coders) | Python 3.11, ZeroLabs Architecture |
+| [`news/introducing-astra-for-law`](./recipes/news/introducing-astra-for-law) | Introducing Astra for Law | [Read Deep Dive](https://labs.zeroshot.studio/news/introducing-astra-for-law?utm_source=github&utm_medium=repo&utm_campaign=introducing-astra-for-law) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

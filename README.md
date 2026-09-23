@@ -150,6 +150,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`news/better-prompt-caching-for-gpt-6`](./recipes/news/better-prompt-caching-for-gpt-6) | Better prompt caching for GPT-6 | [Read Deep Dive](https://labs.zeroshot.studio/news/better-prompt-caching-for-gpt-6?utm_source=github&utm_medium=repo&utm_campaign=better-prompt-caching-for-gpt-6) | Python 3.11, ZeroLabs Architecture |
 | [`ai-workflows/maintenance-mode-for-vibe-coders`](./recipes/ai-workflows/maintenance-mode-for-vibe-coders) | Maintenance Mode for Vibe Coders | [Read Deep Dive](https://labs.zeroshot.studio/maintenance-mode/maintenance-mode-for-vibe-coders?utm_source=github&utm_medium=repo&utm_campaign=maintenance-mode-for-vibe-coders) | Python 3.11, ZeroLabs Architecture |
 | [`news/how-v7-gives-ai-agents-institutional-memory`](./recipes/news/how-v7-gives-ai-agents-institutional-memory) | How V7 gives AI agents institutional memory | [Read Deep Dive](https://labs.zeroshot.studio/news/how-v7-gives-ai-agents-institutional-memory?utm_source=github&utm_medium=repo&utm_campaign=how-v7-gives-ai-agents-institutional-memory) | Python 3.11, ZeroLabs Architecture |
+| [`news/gemini-38-text-to-speech-says-hello`](./recipes/news/gemini-38-text-to-speech-says-hello) | Gemini 3.8 text-to-speech says hello | [Read Deep Dive](https://labs.zeroshot.studio/news/gemini-38-text-to-speech-says-hello?utm_source=github&utm_medium=repo&utm_campaign=gemini-38-text-to-speech-says-hello) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

@@ -1,8 +1,8 @@
-# VPS Infrastructure Basics for Vibe Coders: Backups, Rollback, and Uptime — ZeroLabs Companion Recipe
+# VPS Infrastructure Basics for Vibe Coders — ZeroLabs Companion Recipe
 
-> **Canonical Teardown & Deep Dive:** [VPS Infrastructure Basics for Vibe Coders: Backups, Rollback, and Uptime](https://labs.zeroshot.studio/vps-infra/vps-infra-basics-for-vibe-coders?utm_source=github&utm_medium=repo&utm_campaign=vps-infra-basics-for-vibe-coders)
+> **Canonical Teardown & Deep Dive:** [VPS Infrastructure Basics for Vibe Coders](https://labs.zeroshot.studio/vps-infra/vps-infra-basics-for-vibe-coders?utm_source=github&utm_medium=repo&utm_campaign=vps-infra-basics-for-vibe-coders)
 
-This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"VPS Infrastructure Basics for Vibe Coders: Backups, Rollback, and Uptime"**.
+This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"VPS Infrastructure Basics for Vibe Coders"**.
 
 ## Quick Start
 

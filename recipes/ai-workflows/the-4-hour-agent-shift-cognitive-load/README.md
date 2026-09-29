@@ -1,8 +1,8 @@
-# The 4-Hour Agent Shift: Preventing Cognitive Satiation When Babysitting Autonomous AI — ZeroLabs Companion Recipe
+# The 4-Hour Agent Shift: Preventing AI Burnout — ZeroLabs Companion Recipe
 
-> **Canonical Teardown & Deep Dive:** [The 4-Hour Agent Shift: Preventing Cognitive Satiation When Babysitting Autonomous AI](https://labs.zeroshot.studio/maintenance-mode/the-4-hour-agent-shift-cognitive-load?utm_source=github&utm_medium=repo&utm_campaign=the-4-hour-agent-shift-cognitive-load)
+> **Canonical Teardown & Deep Dive:** [The 4-Hour Agent Shift: Preventing AI Burnout](https://labs.zeroshot.studio/maintenance-mode/the-4-hour-agent-shift-cognitive-load?utm_source=github&utm_medium=repo&utm_campaign=the-4-hour-agent-shift-cognitive-load)
 
-This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"The 4-Hour Agent Shift: Preventing Cognitive Satiation When Babysitting Autonomous AI"**.
+This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"The 4-Hour Agent Shift: Preventing AI Burnout"**.
 
 ## Quick Start
 

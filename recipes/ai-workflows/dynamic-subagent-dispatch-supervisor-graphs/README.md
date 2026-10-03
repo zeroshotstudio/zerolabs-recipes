@@ -1,8 +1,8 @@
-# Dynamic Subagent Dispatch in OpenClaw: Designing Hierarchical Supervisor-Worker Graphs — ZeroLabs Companion Recipe
+# Dynamic Subagent Dispatch in OpenClaw — ZeroLabs Companion Recipe
 
-> **Canonical Teardown & Deep Dive:** [Dynamic Subagent Dispatch in OpenClaw: Designing Hierarchical Supervisor-Worker Graphs](https://labs.zeroshot.studio/agents/dynamic-subagent-dispatch-supervisor-graphs?utm_source=github&utm_medium=repo&utm_campaign=dynamic-subagent-dispatch-supervisor-graphs)
+> **Canonical Teardown & Deep Dive:** [Dynamic Subagent Dispatch in OpenClaw](https://labs.zeroshot.studio/openclaw/dynamic-subagent-dispatch-supervisor-graphs?utm_source=github&utm_medium=repo&utm_campaign=dynamic-subagent-dispatch-supervisor-graphs)
 
-This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"Dynamic Subagent Dispatch in OpenClaw: Designing Hierarchical Supervisor-Worker Graphs"**.
+This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"Dynamic Subagent Dispatch in OpenClaw"**.
 
 ## Quick Start
 
@@ -25,7 +25,7 @@ python3 starter.py
 ```
 
 ## Architecture & Workflow Details
-For full architectural diagrams, failure mode analyses, and benchmark data, read the complete intelligence brief at [ZeroLabs](https://labs.zeroshot.studio/agents/dynamic-subagent-dispatch-supervisor-graphs?utm_source=github&utm_medium=repo&utm_campaign=dynamic-subagent-dispatch-supervisor-graphs).
+For full architectural diagrams, failure mode analyses, and benchmark data, read the complete intelligence brief at [ZeroLabs](https://labs.zeroshot.studio/openclaw/dynamic-subagent-dispatch-supervisor-graphs?utm_source=github&utm_medium=repo&utm_campaign=dynamic-subagent-dispatch-supervisor-graphs).
 
 ---
 *Maintained by [ZeroShot Studio](https://zeroshot.studio) & the ZeroLabs Team.*

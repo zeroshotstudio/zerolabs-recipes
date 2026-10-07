@@ -1,0 +1,2227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Documentation — Self-Hosted Agent Infrastructure Kit</title>
+  <meta name="description" content="Complete developer guides, system architecture, API references, guardrails, and operations runbook for the Self-Hosted Agent Infrastructure Stack.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-canvas: #08090a;
+      --bg-sidebar: #0b0c0e;
+      --bg-surface: #101115;
+      --bg-surface-elevated: #16171e;
+      --bg-surface-hover: #1c1d26;
+      --bg-code: #0c0d11;
+      
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-medium: rgba(255, 255, 255, 0.12);
+      --border-accent: rgba(94, 106, 210, 0.35);
+      --border-accent-strong: rgba(94, 106, 210, 0.7);
+
+      --text-primary: #f7f8f8;
+      --text-secondary: #8a8f98;
+      --text-tertiary: #5d6169;
+      --text-link: #828fff;
+      
+      --brand-indigo: #5E6AD2;
+      --brand-indigo-hover: #707CE8;
+      --brand-indigo-light: #9ba6ff;
+      --brand-glow: rgba(94, 106, 210, 0.16);
+
+      --badge-green: #10b981;
+      --badge-amber: #f59e0b;
+      --badge-red: #ef4444;
+      --badge-blue: #3b82f6;
+
+      --sidebar-width: 270px;
+      --toc-width: 230px;
+      --header-height: 56px;
+      --content-max-width: 860px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      color-scheme: dark;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: var(--text-link);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+    a:hover {
+      color: var(--brand-indigo-light);
+    }
+
+    /* Top Navigation Header */
+    .top-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: var(--header-height);
+      width: 100%;
+      background: rgba(8, 9, 10, 0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .mobile-menu-toggle {
+      display: none;
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .brand-mark {
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(135deg, #5E6AD2 0%, #8A95FF 100%);
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 12px rgba(94, 106, 210, 0.4);
+    }
+
+    .brand-mark svg {
+      width: 13px;
+      height: 13px;
+      fill: #ffffff;
+    }
+
+    .brand-pill {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 99px;
+      background: rgba(94, 106, 210, 0.12);
+      border: 1px solid rgba(94, 106, 210, 0.28);
+      color: var(--brand-indigo-light);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .header-center {
+      flex: 1;
+      max-width: 440px;
+      margin: 0 24px;
+    }
+
+    .search-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 34px;
+      padding: 0 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .search-trigger:hover {
+      border-color: var(--border-medium);
+      color: var(--text-secondary);
+      background: var(--bg-surface-elevated);
+    }
+
+    .search-shortcut {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 2px 5px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-tertiary);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-link {
+      font-size: 13px;
+      color: var(--text-secondary);
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+    .header-link:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .btn-header-action {
+      font-size: 13px;
+      font-weight: 500;
+      color: #ffffff;
+      background: var(--brand-indigo);
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-header-action:hover {
+      background: var(--brand-indigo-hover);
+      box-shadow: 0 0 16px var(--brand-glow);
+      color: #ffffff;
+    }
+
+    /* Main Container Layout */
+    .docs-container {
+      display: flex;
+      width: 100%;
+      max-width: 1440px;
+      margin: 0 auto;
+      min-height: calc(100vh - var(--header-height));
+    }
+
+    /* Left Sidebar */
+    .docs-sidebar {
+      width: var(--sidebar-width);
+      flex-shrink: 0;
+      position: sticky;
+      top: var(--header-height);
+      height: calc(100vh - var(--header-height));
+      overflow-y: auto;
+      padding: 24px 16px 40px;
+      border-right: 1px solid var(--border-subtle);
+      background: var(--bg-sidebar);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    }
+
+    .docs-sidebar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .docs-sidebar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    .nav-section {
+      margin-bottom: 24px;
+    }
+
+    .nav-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+      padding: 4px 10px 8px;
+    }
+
+    .nav-list {
+      list-style: none;
+    }
+
+    .nav-item {
+      margin-bottom: 2px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 400;
+      transition: all 0.12s ease;
+      position: relative;
+    }
+
+    .nav-link:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .nav-link.active {
+      color: #ffffff;
+      background: rgba(94, 106, 210, 0.14);
+      font-weight: 500;
+    }
+    .nav-link.active::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 6px;
+      width: 3px;
+      background: var(--brand-indigo);
+      border-radius: 0 3px 3px 0;
+      box-shadow: 0 0 8px var(--brand-indigo);
+    }
+
+    .nav-icon {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+    .nav-link.active .nav-icon {
+      opacity: 1;
+      color: var(--brand-indigo-light);
+    }
+
+    /* Content Area */
+    .docs-content-wrapper {
+      flex: 1;
+      min-width: 0;
+      padding: 40px 48px 80px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .docs-article {
+      max-width: var(--content-max-width);
+      width: 100%;
+    }
+
+    /* Breadcrumbs */
+    .breadcrumbs {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-bottom: 18px;
+    }
+    .breadcrumb-item {
+      color: var(--text-tertiary);
+    }
+    .breadcrumb-sep {
+      opacity: 0.4;
+    }
+    .breadcrumb-current {
+      color: var(--text-secondary);
+    }
+
+    /* Linear Kicker & Page Headers */
+    .page-kicker {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--brand-indigo-light);
+      margin-bottom: 8px;
+      display: inline-block;
+    }
+
+    .page-title {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.025em;
+      line-height: 1.25;
+      margin-bottom: 14px;
+    }
+
+    .page-lead {
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 0 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 36px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Typography inside Content */
+    h2 {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      margin: 44px 0 16px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-subtle);
+      scroll-margin-top: calc(var(--header-height) + 20px);
+    }
+
+    h3 {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      margin: 28px 0 12px;
+      scroll-margin-top: calc(var(--header-height) + 20px);
+    }
+
+    p {
+      margin-bottom: 16px;
+      color: var(--text-secondary);
+    }
+
+    ul, ol {
+      margin-bottom: 20px;
+      padding-left: 22px;
+    }
+
+    li {
+      margin-bottom: 6px;
+      color: var(--text-secondary);
+    }
+
+    strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* Feature Grid / Cards (Linear Style) */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin: 24px 0 32px;
+    }
+
+    .linear-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 20px;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .linear-card:hover {
+      border-color: var(--border-accent);
+      background: var(--bg-surface-elevated);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .card-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(94, 106, 210, 0.12);
+      border: 1px solid rgba(94, 106, 210, 0.25);
+      color: var(--brand-indigo-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      font-size: 16px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    /* Callouts */
+    .callout {
+      border-radius: 8px;
+      padding: 16px 18px;
+      margin: 22px 0;
+      display: flex;
+      gap: 14px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .callout-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+      line-height: 1.4;
+    }
+
+    .callout-body {
+      flex: 1;
+    }
+
+    .callout-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+
+    .callout-info {
+      background: rgba(94, 106, 210, 0.08);
+      border: 1px solid rgba(94, 106, 210, 0.28);
+      color: #d1d6fa;
+    }
+
+    .callout-tip {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.28);
+      color: #d1fae5;
+    }
+
+    .callout-warning {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.28);
+      color: #fef3c7;
+    }
+
+    .callout-danger {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.28);
+      color: #fee2e2;
+    }
+
+    /* Code Blocks */
+    .code-container {
+      background: var(--bg-code);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      margin: 20px 0 24px;
+      overflow: hidden;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .code-filename {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .btn-copy {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-tertiary);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.15s ease;
+    }
+    .btn-copy:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-primary);
+      border-color: var(--border-medium);
+    }
+    .btn-copy.copied {
+      color: #10b981;
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    pre {
+      margin: 0;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #d1d5db;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    p code, li code, td code {
+      font-size: 12.5px;
+      padding: 2px 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 5px;
+      color: #e5e7eb;
+    }
+
+    /* Data Tables */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      margin: 22px 0 28px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13.5px;
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      padding: 10px 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.02em;
+    }
+    .badge-get { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-post { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-del { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-type { background: rgba(255, 255, 255, 0.06); color: #9ca3af; border: 1px solid rgba(255, 255, 255, 0.08); }
+
+    /* Right Table of Contents */
+    .docs-toc-sidebar {
+      width: var(--toc-width);
+      flex-shrink: 0;
+      position: sticky;
+      top: var(--header-height);
+      height: calc(100vh - var(--header-height));
+      overflow-y: auto;
+      padding: 32px 12px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .toc-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+    }
+
+    .toc-list {
+      list-style: none;
+      border-left: 1px solid var(--border-subtle);
+      padding-left: 12px;
+    }
+
+    .toc-item {
+      margin-bottom: 6px;
+    }
+
+    .toc-link {
+      font-size: 12.5px;
+      color: var(--text-tertiary);
+      transition: all 0.15s ease;
+      display: block;
+      line-height: 1.4;
+    }
+    .toc-link:hover {
+      color: var(--text-primary);
+    }
+    .toc-link.active {
+      color: var(--brand-indigo-light);
+      font-weight: 500;
+    }
+
+    .toc-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 12px;
+    }
+    .toc-box-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .toc-box-desc {
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+    /* Article Navigation (Previous / Next) */
+    .article-nav-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 56px;
+      padding-top: 28px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .article-nav-card {
+      display: flex;
+      flex-direction: column;
+      padding: 16px 20px;
+      border-radius: 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.15s ease;
+    }
+    .article-nav-card:hover {
+      border-color: var(--border-accent);
+      background: var(--bg-surface-elevated);
+      transform: translateY(-2px);
+    }
+
+    .nav-card-sub {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      margin-bottom: 4px;
+    }
+
+    .nav-card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Search Modal (Linear Cmd+K) */
+    .search-modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 999;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 80px 20px 20px;
+    }
+
+    .search-modal-backdrop.open {
+      display: flex;
+    }
+
+    .search-modal {
+      width: 100%;
+      max-width: 600px;
+      background: #111217;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(94, 106, 210, 0.15);
+      overflow: hidden;
+      animation: modalSlide 0.15s ease-out;
+    }
+
+    @keyframes modalSlide {
+      from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .search-input-wrapper {
+      display: flex;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      gap: 12px;
+    }
+
+    .search-input-wrapper input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 15px;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+    }
+    .search-input-wrapper input::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    .search-results-list {
+      max-height: 380px;
+      overflow-y: auto;
+      padding: 8px;
+      list-style: none;
+    }
+
+    .search-result-item {
+      display: flex;
+      flex-direction: column;
+      padding: 10px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.1s ease;
+    }
+
+    .search-result-item:hover, .search-result-item.selected {
+      background: rgba(94, 106, 210, 0.15);
+    }
+
+    .search-result-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 3px;
+    }
+
+    .search-result-title {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .search-result-category {
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--brand-indigo-light);
+      background: rgba(94, 106, 210, 0.12);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .search-result-snippet {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .search-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      background: rgba(255, 255, 255, 0.02);
+      border-top: 1px solid var(--border-subtle);
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    /* Responsive Breakpoints */
+    @media (max-width: 1100px) {
+      .docs-toc-sidebar {
+        display: none;
+      }
+      .docs-content-wrapper {
+        padding: 36px 32px 60px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .mobile-menu-toggle {
+        display: flex;
+      }
+      .docs-sidebar {
+        position: fixed;
+        left: -100%;
+        top: var(--header-height);
+        height: calc(100vh - var(--header-height));
+        z-index: 95;
+        transition: left 0.25s ease;
+        background: #0d0e12;
+        box-shadow: 10px 0 30px rgba(0, 0, 0, 0.7);
+        width: 280px;
+      }
+      .docs-sidebar.drawer-open {
+        left: 0;
+      }
+      .header-center {
+        display: none;
+      }
+      .docs-content-wrapper {
+        padding: 24px 16px 60px;
+      }
+      .page-title {
+        font-size: 26px;
+      }
+      .article-nav-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="top-header">
+    <div class="header-left">
+      <button class="mobile-menu-toggle" id="mobileMenuBtn" aria-label="Toggle navigation menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
+      <a href="#overview" class="brand-logo">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <span>AgentKit Docs</span>
+        <span class="brand-pill">v1.2.0</span>
+      </a>
+    </div>
+
+    <div class="header-center">
+      <div class="search-trigger" id="searchTriggerBtn">
+        <span style="display: flex; align-items: center; gap: 8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          Search documentation, APIs, runbook...
+        </span>
+        <span class="search-shortcut">⌘K</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <a href="https://agent.yourdomain.com" target="_blank" class="header-link">Live HUD</a>
+      <a href="https://github.com/zeroshotstudio/zerolabs-recipes/tree/main/kits/self-hosted-agent-kit" target="_blank" class="header-link">GitHub</a>
+      <a href="https://labs.zeroshot.studio/products/self-hosted-agent-kit.zip" class="btn-header-action">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Download Kit .zip
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="docs-container">
+
+    <!-- Left Sidebar -->
+    <aside class="docs-sidebar" id="sidebarNav">
+      <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <ul class="nav-list">
+          <li class="nav-item"><a href="#overview" class="nav-link active" data-section="overview"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>Overview & Architecture</a></li>
+          <li class="nav-item"><a href="#quickstart" class="nav-link" data-section="quickstart"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>5-Minute Quickstart</a></li>
+          <li class="nav-item"><a href="#quick-connect" class="nav-link" data-section="quick-connect"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>1-Click Frontier AI Connect</a></li>
+        </ul>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Developer Guide</div>
+        <ul class="nav-list">
+          <li class="nav-item"><a href="#database" class="nav-link" data-section="database"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>PostgreSQL 17 Schema</a></li>
+          <li class="nav-item"><a href="#redis-protocol" class="nav-link" data-section="redis-protocol"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>Redis Queue & SSE Stream</a></li>
+          <li class="nav-item"><a href="#api-reference" class="nav-link" data-section="api-reference"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>REST & SSE API Spec</a></li>
+          <li class="nav-item"><a href="#custom-agents" class="nav-link" data-section="custom-agents"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M7 7h10v10H7z"></path></svg>Custom Agent Containers</a></li>
+        </ul>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Security & Guardrails</div>
+        <ul class="nav-list">
+          <li class="nav-item"><a href="#guardrails" class="nav-link" data-section="guardrails"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>ZeroVPS Guardrail Engine</a></li>
+          <li class="nav-item"><a href="#hardening" class="nav-link" data-section="hardening"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>VPS Hardening Checklist</a></li>
+        </ul>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Operations & Runbook</div>
+        <ul class="nav-list">
+          <li class="nav-item"><a href="#watchdog" class="nav-link" data-section="watchdog"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>Automated Watchdog</a></li>
+          <li class="nav-item"><a href="#backups" class="nav-link" data-section="backups"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>Backups & Disaster Recovery</a></li>
+        </ul>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Support & FAQ</div>
+        <ul class="nav-list">
+          <li class="nav-item"><a href="#troubleshooting" class="nav-link" data-section="troubleshooting"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>Top 10 Buyer Issues</a></li>
+          <li class="nav-item"><a href="#support-playbook" class="nav-link" data-section="support-playbook"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>Support Tiers & SLAs</a></li>
+          <li class="nav-item"><a href="#reference" class="nav-link" data-section="reference"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line></svg>Environment Reference (.env)</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="docs-content-wrapper">
+      <article class="docs-article">
+
+        <!-- Breadcrumbs -->
+        <div class="breadcrumbs">
+          <span class="breadcrumb-item">Docs</span>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-item" id="crumbParent">Getting Started</span>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current" id="crumbCurrent">Overview & Architecture</span>
+        </div>
+
+        <!-- Section: Overview -->
+        <section id="overview" class="content-section">
+          <span class="page-kicker">Architecture & Foundations</span>
+          <h1 class="page-title">Self-Hosted Agent Infrastructure Kit</h1>
+          <p class="page-lead">A turnkey, production-grade infrastructure stack for running autonomous AI agents 24/7 on private VPS hardware with PostgreSQL 17, Redis 7.4, Caddy 2, and ZeroVPS Guardrails.</p>
+
+          <div class="meta-bar">
+            <div class="meta-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>Updated: October 2026</div>
+            <div class="meta-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>Version 1.2.0 Production</div>
+            <div class="meta-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>4 Microservices Mesh</div>
+          </div>
+
+          <div class="callout callout-info">
+            <div class="callout-icon">💡</div>
+            <div class="callout-body">
+              <div class="callout-title">The Problem We Solved</div>
+              Every developer and team building autonomous agents hits the same wall: running scripts on local laptops fails the moment sleep mode triggers, paid cloud agent platforms cost hundreds monthly, and raw VPS setups lack database isolation, automated watchdog healing, and safety guardrails against accidental catastrophic shell wipes.
+            </div>
+          </div>
+
+          <h2>System Mesh & Network Topology</h2>
+          <p>The stack operates as four lightweight Docker containers connected via a private internal bridge network (<code>agent-net</code>). Zero database ports are exposed to the public internet.</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">ASCII Network Architecture</span>
+              <button class="btn-copy" data-target="code-arch">Copy</button>
+            </div>
+            <pre id="code-arch"><code>                  ┌────────────────────────────────────────────────────────┐
+                  │                      Public Internet                   │
+                  └───────────────────────────┬────────────────────────────┘
+                                              │ Ingress: Ports 80, 443
+                                              ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│ Host VPS (Ubuntu 22.04 / 24.04 LTS) — UFW Hardened (Ports 22, 80, 443 only)             │
+│                                                                                          │
+│  ┌────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Caddy 2.8 Reverse Proxy (Auto Let's Encrypt SSL / HTTP3 / Rate-Limiting / Gzip)   │  │
+│  └───────────────────────────────────┬────────────────────────────────────────────────┘  │
+│                                      │ http://agent-runtime:3000                         │
+│                                      ▼                                                   │
+│  ┌────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ agent-runtime (Node.js 22 LTS)                                                     │  │
+│  │ ├─ Web Operations Dashboard (Glassmorphism HUD, Quick Connect Portal)              │  │
+│  │ ├─ ZeroVPS Guardrail Engine (Command Interception & AST Blacklisting)              │  │
+│  │ ├─ REST & SSE Streaming Endpoints (/api/stream, /api/agent/*)                     │  │
+│  │ └─ Frontier AI Connectors (Antigravity, Claude, OpenAI, Cursor, Python, Node)      │  │
+│  └──────────────────┬─────────────────────────────────┬───────────────────────────────┘  │
+│                     │                                 │                                  │
+│   Private Docker    │ postgres:5432                   │ redis:6379                       │
+│   Bridge Network    ▼                                 ▼                                  │
+│   (agent-net) ┌───────────────────────────┐     ┌───────────────────────────┐            │
+│               │ PostgreSQL 17 Alpine      │     │ Redis 7.4 Alpine          │            │
+│               │ - Persistent Memory       │     │ - Distributed Task Queues │            │
+│               │ - Task History & Logs     │     │ - Pub/Sub Event Bus       │            │
+│               │ - Vector-Ready Schema     │     │ - Distributed Mutex Locks │            │
+│               └───────────────────────────┘     └───────────────────────────┘            │
+│                               ▲                               ▲                          │
+│                               └───────────────┬───────────────┘                          │
+│                                               │ Internal Mesh                            │
+│                               ┌───────────────┴───────────────┐                          │
+│                               │ Custom Autonomous Agents      │                          │
+│                               │ (Python / CrewAI / AutoGen)   │                          │
+│                               └───────────────────────────────┘                          │
+└──────────────────────────────────────────────────────────────────────────────────────────┘</code></pre>
+          </div>
+
+          <div class="feature-grid">
+            <div class="linear-card">
+              <div class="card-icon">🔒</div>
+              <div class="card-title">Zero Exposed DB Ports</div>
+              <div class="card-desc">Postgres and Redis are bound exclusively to <code>agent-net</code>. No public IP exposure prevents automated port scanners and brute-force intrusion.</div>
+            </div>
+            <div class="linear-card">
+              <div class="card-icon">⚡</div>
+              <div class="card-title">Automatic TLS & HTTP/3</div>
+              <div class="card-desc">Caddy 2 handles automatic Let's Encrypt certificate issuance, OCSP stapling, and HTTP/3 edge termination with zero manual certbot crons.</div>
+            </div>
+            <div class="linear-card">
+              <div class="card-icon">🛡️</div>
+              <div class="card-title">ZeroVPS Guardrails</div>
+              <div class="card-desc">Every agent-dispatched command is evaluated before execution against filesystem destruction patterns, fork-bombs, and credential leaks.</div>
+            </div>
+            <div class="linear-card">
+              <div class="card-icon">🐕</div>
+              <div class="card-title">Auto-Healing Watchdog</div>
+              <div class="card-desc">A systemd-isolated Python watchdog monitors container health, disk space, and memory, rebooting failed processes and paging via Telegram.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Quickstart -->
+        <section id="quickstart" class="content-section" style="display: none;">
+          <span class="page-kicker">Deployment</span>
+          <h1 class="page-title">5-Minute VPS Quickstart</h1>
+          <p class="page-lead">Deploy your complete autonomous agent stack to any fresh Ubuntu or Debian VPS in under 5 minutes with automated provisioning.</p>
+
+          <div class="callout callout-tip">
+            <div class="callout-icon">✨</div>
+            <div class="callout-body">
+              <div class="callout-title">Hardware Requirements</div>
+              Minimum: 1 vCPU, 1 GB RAM, 15 GB SSD (Ubuntu 22.04 or 24.04 LTS). Recommended: 2 vCPU, 2-4 GB RAM on Hetzner (€3.79/mo) or DigitalOcean ($6/mo).
+            </div>
+          </div>
+
+          <h2>Method 1: One-Line Remote Installer</h2>
+          <p>SSH into your clean VPS and run the one-line deployment script:</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">Terminal (Root or Sudo)</span>
+              <button class="btn-copy" data-target="code-quick1">Copy</button>
+            </div>
+            <pre id="code-quick1"><code>curl -fsSL https://agent.yourdomain.com/connect.sh | bash</code></pre>
+          </div>
+
+          <h2>Method 2: Manual Git / Tarball Setup</h2>
+          <p>If you prefer inspecting every script before running:</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">bash</span>
+              <button class="btn-copy" data-target="code-quick2">Copy</button>
+            </div>
+            <pre id="code-quick2"><code># 1. Download and extract the kit bundle
+wget https://labs.zeroshot.studio/products/self-hosted-agent-kit.zip
+unzip self-hosted-agent-kit.zip -d /opt/agent-stack
+cd /opt/agent-stack
+
+# 2. Configure your environment
+cp .env.example .env
+nano .env  # Enter your DOMAIN, passwords, and optional Telegram bot token
+
+# 3. Execute the automated bootstrap script
+chmod +x scripts/*.sh scripts/*.py
+sudo ./scripts/setup.sh
+
+# 4. Verify systemd and container status
+sudo systemctl status agent-stack.service
+docker compose ps</code></pre>
+          </div>
+
+          <h2>Post-Install Verification</h2>
+          <p>Once started, your operations dashboard is live at your configured domain or Tailscale endpoint. Run the one-line watchdog test to ensure green lights across all four microservices:</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">bash</span>
+              <button class="btn-copy" data-target="code-quick3">Copy</button>
+            </div>
+            <pre id="code-quick3"><code>sudo /opt/agent-stack/scripts/watchdog.py</code></pre>
+          </div>
+        </section>
+
+        <!-- Section: Frontier AI Connect -->
+        <section id="quick-connect" class="content-section" style="display: none;">
+          <span class="page-kicker">Integrations</span>
+          <h1 class="page-title">One-Click Frontier AI Quick Connect</h1>
+          <p class="page-lead">Instantly hook Google Antigravity, Anthropic Claude, OpenAI Codex, Cursor, and custom Python agents into your self-hosted stack.</p>
+
+          <h2>A. Anthropic Claude Desktop & Claude Code</h2>
+          <p>Claude connects via Model Context Protocol (MCP) to access your self-hosted PostgreSQL database for persistent memory and schema introspection.</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">claude_desktop_config.json</span>
+              <button class="btn-copy" data-target="code-claude">Copy</button>
+            </div>
+            <pre id="code-claude"><code>{
+  "mcpServers": {
+    "agent-postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:PLACEHOLDER@agent.yourdomain.com:5432/agentdb"
+      ]
+    }
+  }
+}</code></pre>
+          </div>
+          <p style="font-size: 13px; color: var(--text-tertiary);">Config file locations: macOS: <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> | Linux: <code>~/.config/Claude/claude_desktop_config.json</code> | Windows: <code>%APPDATA%\\Claude\\claude_desktop_config.json</code></p>
+
+          <h2>B. Google Antigravity (AGY) Integration</h2>
+          <p>Add to your project's <code>.antigravity/rules</code> or <code>AGENTS.md</code> to equip Antigravity subagents with autonomous VPS persistence:</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">.antigravity/rules</span>
+              <button class="btn-copy" data-target="code-agy">Copy</button>
+            </div>
+            <pre id="code-agy"><code># Antigravity VPS Persistence Directive
+- Persistent Task Memory: Query PostgreSQL `agent_tasks` before starting multi-step jobs.
+- Distributed Queue: Push long-running async background jobs to Redis list `agent:tasks`.
+- ZeroVPS Boundary: Always respect ZeroVPS Guardrails; never issue bare destructive disk wipes.</code></pre>
+          </div>
+
+          <h2>C. Cursor & Windsurf AI IDEs</h2>
+          <p>Drop into your project workspace root at <code>.cursor/mcp.json</code> or <code>.codeium/windsurf/mcp_config.json</code>:</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">.cursor/mcp.json</span>
+              <button class="btn-copy" data-target="code-cursor">Copy</button>
+            </div>
+            <pre id="code-cursor"><code>{
+  "mcpServers": {
+    "vps-stack": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:PLACEHOLDER@agent.yourdomain.com:5432/agentdb"
+      ]
+    }
+  }
+}</code></pre>
+          </div>
+
+          <h2>D. OpenAI Agents SDK & Codex (Python)</h2>
+          <p>Dispatch tasks and write results to the self-hosted PostgreSQL memory engine:</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">agent_openai.py</span>
+              <button class="btn-copy" data-target="code-openai">Copy</button>
+            </div>
+            <pre id="code-openai"><code>import os, json, psycopg2
+from openai import OpenAI
+
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+
+def run_agent_job(prompt: str):
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO agent_tasks (prompt, framework, safety_status) VALUES (%s, %s, %s) RETURNING id;",
+            (prompt, "openai", "PASSED")
+        )
+        task_id = cur.fetchone()[0]
+        conn.commit()
+
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    output = resp.choices[0].message.content
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE agent_tasks SET output = %s, completed_at = NOW() WHERE id = %s;",
+            (output, task_id)
+        )
+        conn.commit()
+    return output</code></pre>
+          </div>
+        </section>
+
+        <!-- Section: Database Schema -->
+        <section id="database" class="content-section" style="display: none;">
+          <span class="page-kicker">Data Engine</span>
+          <h1 class="page-title">PostgreSQL 17 Schema & Models</h1>
+          <p class="page-lead">Pre-initialized database schemas optimized for high-throughput agent logs, JSONB metadata, and vector indexing.</p>
+
+          <h2>Table: <code>agent_tasks</code></h2>
+          <p>Records all incoming agent prompts, execution status, guardrail verification, and returned outputs.</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">PostgreSQL 17 DDL</span>
+              <button class="btn-copy" data-target="code-schema-tasks">Copy</button>
+            </div>
+            <pre id="code-schema-tasks"><code>CREATE TABLE IF NOT EXISTS agent_tasks (
+    id SERIAL PRIMARY KEY,
+    prompt TEXT NOT NULL,
+    output TEXT,
+    safety_status VARCHAR(50) DEFAULT 'PASSED',
+    framework VARCHAR(50) DEFAULT 'generic',
+    session_id VARCHAR(100),
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_tasks_created_at ON agent_tasks (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_tasks_framework ON agent_tasks (framework);
+CREATE INDEX IF NOT EXISTS idx_agent_tasks_safety ON agent_tasks (safety_status);</code></pre>
+          </div>
+
+          <h2>Table: <code>agent_registry</code></h2>
+          <p>Maintains live heartbeats and health metrics across multi-agent clusters and external IDE connectors.</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">PostgreSQL 17 DDL</span>
+              <button class="btn-copy" data-target="code-schema-reg">Copy</button>
+            </div>
+            <pre id="code-schema-reg"><code>CREATE TABLE IF NOT EXISTS agent_registry (
+    agent_id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    framework VARCHAR(50) NOT NULL,
+    status VARCHAR(50) DEFAULT 'online',
+    last_ping TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    metadata JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_registry_ping ON agent_registry (last_ping DESC);</code></pre>
+          </div>
+
+          <h2>Secure Remote Access (SSH Tunneling)</h2>
+          <p>Because PostgreSQL does not expose port 5432 to the public internet, use an SSH tunnel to connect local desktop clients (such as TablePlus, DBeaver, or pgAdmin):</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">Terminal (Local Laptop)</span>
+              <button class="btn-copy" data-target="code-ssh-tunnel">Copy</button>
+            </div>
+            <pre id="code-ssh-tunnel"><code>ssh -L 5433:localhost:5432 user@vps-ip
+# Now connect TablePlus / DBeaver to:
+# Host: 127.0.0.1, Port: 5433, User: postgres, DB: agentdb</code></pre>
+          </div>
+        </section>
+
+        <!-- Section: Redis Protocol -->
+        <section id="redis-protocol" class="content-section" style="display: none;">
+          <span class="page-kicker">Message Bus</span>
+          <h1 class="page-title">Redis 7.4 Queue Protocol & SSE</h1>
+          <p class="page-lead">Asynchronous task distribution, pub/sub telemetry, and Server-Sent Events architecture.</p>
+
+          <h2>Key Data Structures</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Key / Pattern</th>
+                  <th>Type</th>
+                  <th>TTL</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>agent:tasks</code></td>
+                  <td><span class="badge badge-type">List</span></td>
+                  <td>None</td>
+                  <td>FIFO queue where agents pop tasks using <code>BLPOP agent:tasks 0</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>agent:results:{id}</code></td>
+                  <td><span class="badge badge-type">String</span></td>
+                  <td>86,400s (24h)</td>
+                  <td>Stores execution output payload for polling clients.</td>
+                </tr>
+                <tr>
+                  <td><code>agent:events</code></td>
+                  <td><span class="badge badge-type">Pub/Sub</span></td>
+                  <td>N/A</td>
+                  <td>Real-time event stream forwarded to the live dashboard SSE feed.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>Task Dispatch Payload Specification</h2>
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">Payload JSON</span>
+              <button class="btn-copy" data-target="code-task-payload">Copy</button>
+            </div>
+            <pre id="code-task-payload"><code>{
+  "id": "task_1728345600000",
+  "framework": "antigravity",
+  "prompt": "Analyze repository health and generate changelog",
+  "created_at": "2026-10-07T21:00:00.000Z",
+  "environment": {
+    "timeout_seconds": 300,
+    "sandbox_mode": true
+  }
+}</code></pre>
+          </div>
+        </section>
+
+        <!-- Section: REST API Spec -->
+        <section id="api-reference" class="content-section" style="display: none;">
+          <span class="page-kicker">Reference</span>
+          <h1 class="page-title">REST & SSE API Specification</h1>
+          <p class="page-lead">Complete HTTP endpoint definitions for agent orchestration, health monitoring, and guardrail validation.</p>
+
+          <h2>1. Stack Health Status</h2>
+          <p><span class="badge badge-get">GET</span> <code>/api/health</code></p>
+          <p>Returns health status for PostgreSQL, Redis, and ZeroVPS Guardrails.</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">Response (200 OK)</span>
+              <button class="btn-copy" data-target="code-api-health">Copy</button>
+            </div>
+            <pre id="code-api-health"><code>{
+  "status": "healthy",
+  "timestamp": "2026-10-07T21:00:00.000Z",
+  "services": {
+    "postgres": "connected",
+    "redis": "connected",
+    "guardrails": "active"
+  },
+  "version": "1.2.0"
+}</code></pre>
+          </div>
+
+          <h2>2. Live Telemetry Stream (SSE)</h2>
+          <p><span class="badge badge-get">GET</span> <code>/api/stream</code></p>
+          <p>Establishes a persistent Server-Sent Events channel streaming CPU/memory metrics and task events.</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">SSE Stream Event</span>
+              <button class="btn-copy" data-target="code-api-sse">Copy</button>
+            </div>
+            <pre id="code-api-sse"><code>event: metrics
+data: {"cpu": 12.4, "memory": "342MB", "tasks_active": 2, "guardrail_status": "ONLINE"}
+
+event: task_dispatched
+data: {"taskId": 42, "framework": "claude", "status": "RUNNING"}</code></pre>
+          </div>
+
+          <h2>3. Agent Task Dispatch</h2>
+          <p><span class="badge badge-post">POST</span> <code>/api/agent/dispatch</code></p>
+          <p>Submits a prompt to the stack. Evaluated through ZeroVPS Guardrails before logging to PostgreSQL and Redis.</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">cURL Request</span>
+              <button class="btn-copy" data-target="code-api-dispatch">Copy</button>
+            </div>
+            <pre id="code-api-dispatch"><code>curl -X POST https://agent.yourdomain.com/api/agent/dispatch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "framework": "antigravity",
+    "prompt": "Run weekly database maintenance and optimize indexes",
+    "sessionId": "sess_prod_01"
+  }'</code></pre>
+          </div>
+
+          <h2>4. ZeroVPS Guardrail Evaluation</h2>
+          <p><span class="badge badge-post">POST</span> <code>/api/guardrail-test</code></p>
+          <p>Pre-flight tests any shell command against the AST security engine.</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">cURL & Response</span>
+              <button class="btn-copy" data-target="code-api-guard">Copy</button>
+            </div>
+            <pre id="code-api-guard"><code>curl -X POST https://agent.yourdomain.com/api/guardrail-test \
+  -H "Content-Type: application/json" \
+  -d '{"command": "rm -rf / --no-preserve-root"}'
+
+# Response (Blocked):
+{
+  "allowed": false,
+  "status": "BLOCKED",
+  "reason": "Destructive filesystem wipe pattern detected (rm -rf /)"
+}</code></pre>
+          </div>
+        </section>
+
+        <!-- Section: Custom Agents -->
+        <section id="custom-agents" class="content-section" style="display: none;">
+          <span class="page-kicker">Extensibility</span>
+          <h1 class="page-title">Extending with Custom Agent Containers</h1>
+          <p class="page-lead">How to build, containerize, and orchestrate custom 24/7 Python, Node.js, or Go worker agents directly within the Docker mesh.</p>
+
+          <h2>Step 1: Create Your Worker Directory</h2>
+          <p>Create a dedicated directory under <code>agents/my-worker/</code>:</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">Dockerfile</span>
+              <button class="btn-copy" data-target="code-docker-custom">Copy</button>
+            </div>
+            <pre id="code-docker-custom"><code>FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["python", "worker.py"]</code></pre>
+          </div>
+
+          <h2>Step 2: Add Service to Docker Compose</h2>
+          <p>Edit <code>docker-compose.yml</code> to wire your container into the private network:</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">docker-compose.yml</span>
+              <button class="btn-copy" data-target="code-compose-custom">Copy</button>
+            </div>
+            <pre id="code-compose-custom"><code>  my-worker:
+    build: ./agents/my-worker
+    container_name: my-worker-agent
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} # PLACEHOLDER
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379 # PLACEHOLDER
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    networks:
+      - agent-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy</code></pre>
+          </div>
+
+          <h2>Step 3: Launch and Monitor</h2>
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">bash</span>
+              <button class="btn-copy" data-target="code-build-custom">Copy</button>
+            </div>
+            <pre id="code-build-custom"><code>docker compose up -d --build my-worker
+docker compose logs -f my-worker</code></pre>
+          </div>
+        </section>
+
+        <!-- Section: Guardrails -->
+        <section id="guardrails" class="content-section" style="display: none;">
+          <span class="page-kicker">Security Engine</span>
+          <h1 class="page-title">ZeroVPS Guardrail Engine</h1>
+          <p class="page-lead">Runtime command interception and abstract syntax tree (AST) blacklisting protecting host VPS stability.</p>
+
+          <h2>Protected Vectors & Rule Hierarchy</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Blocked Patterns</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Root Filesystem Destruction</strong></td>
+                  <td><code>rm -rf /</code>, <code>mkfs.*</code>, <code>dd if=/dev/zero of=/dev/sd*</code></td>
+                  <td><span class="badge badge-del">BLOCKED (403)</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Resource Exhaustion</strong></td>
+                  <td><code>:(){ :|:& };:</code> (fork bombs), unconstrained heap bombs</td>
+                  <td><span class="badge badge-del">BLOCKED (403)</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Credential Exfiltration</strong></td>
+                  <td>Targeting unverified raw IP webhooks, dumping <code>.env</code></td>
+                  <td><span class="badge badge-del">BLOCKED (403)</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Host Firewall Tampering</strong></td>
+                  <td><code>ufw disable</code>, unverified iptables flushes</td>
+                  <td><span class="badge badge-del">BLOCKED (403)</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>Custom Rule Configuration</h2>
+          <p>Add custom domain-specific rules in <code>scripts/guardrails/rules.json</code>:</p>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">scripts/guardrails/rules.json</span>
+              <button class="btn-copy" data-target="code-guard-rules">Copy</button>
+            </div>
+            <pre id="code-guard-rules"><code>{
+  "blocked_patterns": [
+    "DROP DATABASE",
+    "TRUNCATE agent_tasks",
+    "chmod 777 -R /"
+  ],
+  "allowed_overrides": [
+    "ALLOW_MAINTENANCE_WINDOW"
+  ]
+}</code></pre>
+          </div>
+        </section>
+
+        <!-- Section: VPS Hardening -->
+        <section id="hardening" class="content-section" style="display: none;">
+          <span class="page-kicker">Security Checklist</span>
+          <h1 class="page-title">VPS Hardening & Firewall Checklist</h1>
+          <p class="page-lead">Standard hardening measures applied automatically by <code>setup.sh</code> to lock down public VPS attack surfaces.</p>
+
+          <div class="feature-grid">
+            <div class="linear-card">
+              <div class="card-icon">🧱</div>
+              <div class="card-title">Strict UFW Rules</div>
+              <div class="card-desc">Default incoming DROP. Only ports 22 (SSH), 80 (HTTP), and 443 (HTTPS) are permitted. Databases remain invisible.</div>
+            </div>
+            <div class="linear-card">
+              <div class="card-icon">🔑</div>
+              <div class="card-title">SSH Key-Only Auth</div>
+              <div class="card-desc">Password authentication disabled in <code>/etc/ssh/sshd_config</code>. Root password brute-forcing mitigated.</div>
+            </div>
+            <div class="linear-card">
+              <div class="card-icon">🛡️</div>
+              <div class="card-title">Fail2Ban Jails</div>
+              <div class="card-desc">Automated IP banning after 5 repeated invalid SSH attempts within a 10-minute sliding window.</div>
+            </div>
+            <div class="linear-card">
+              <div class="card-icon">🔄</div>
+              <div class="card-title">Unattended Upgrades</div>
+              <div class="card-desc">Automatic application of critical Ubuntu/Debian kernel and security vulnerability patches.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Watchdog -->
+        <section id="watchdog" class="content-section" style="display: none;">
+          <span class="page-kicker">Reliability</span>
+          <h1 class="page-title">Automated Watchdog & Telegram Alerts</h1>
+          <p class="page-lead">Background health daemon providing continuous self-healing, process recovery, and push notifications.</p>
+
+          <h2>Automated Healing Cycle</h2>
+          <p>Every 60 seconds, <code>agent-watchdog.timer</code> executes <code>scripts/watchdog.py</code>:</p>
+          <ol>
+            <li>Pings Docker daemon and checks container states.</li>
+            <li>Executes <code>SELECT 1</code> against PostgreSQL inside the private bridge.</li>
+            <li>Executes <code>PING</code> against Redis.</li>
+            <li>Checks disk utilization (alerts if <code>/</code> exceeds 85%).</li>
+            <li>If any container is degraded, triggers up to 3 automatic restarts before paging Telegram.</li>
+          </ol>
+
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">Telegram Alert Payload</span>
+              <button class="btn-copy" data-target="code-tg-alert">Copy</button>
+            </div>
+            <pre id="code-tg-alert"><code>🚨 [Agent Stack Watchdog Alert]
+Host: vps-prod-01 (185.12.34.56)
+Service: agent-runtime
+Status: Degraded (Memory threshold exceeded)
+Action Taken: Container restarted automatically (Attempt 1/3).
+Status Now: Healthy (HTTP 200 OK)</code></pre>
+          </div>
+        </section>
+
+        <!-- Section: Backups & Disaster Recovery -->
+        <section id="backups" class="content-section" style="display: none;">
+          <span class="page-kicker">Disaster Recovery</span>
+          <h1 class="page-title">Nightly Backups & Full Stack Restore</h1>
+          <p class="page-lead">Automated gzip-compressed database snapshots with point-in-time recovery runbooks.</p>
+
+          <h2>1. Manual Backup On-Demand</h2>
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">bash</span>
+              <button class="btn-copy" data-target="code-bk-run">Copy</button>
+            </div>
+            <pre id="code-bk-run"><code>sudo /opt/agent-stack/scripts/backup.sh
+# Outputs: /opt/agent-stack/backups/agent-backup-YYYY-MM-DD-HHMM.tar.gz</code></pre>
+          </div>
+
+          <h2>2. Full Disaster Recovery Restore Procedure</h2>
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">bash</span>
+              <button class="btn-copy" data-target="code-bk-res">Copy</button>
+            </div>
+            <pre id="code-bk-res"><code># 1. Stop writes
+docker compose stop agent-runtime
+
+# 2. Extract target backup archive
+mkdir -p /tmp/restore
+tar -xzf /opt/agent-stack/backups/agent-backup-2026-10-07-1200.tar.gz -C /tmp/restore/
+
+# 3. Restore PostgreSQL dump
+docker compose exec -T postgres dropdb -U postgres agentdb || true
+docker compose exec -T postgres createdb -U postgres agentdb
+cat /tmp/restore/postgres_dump.sql | docker compose exec -T postgres psql -U postgres agentdb
+
+# 4. Restart stack
+sudo systemctl restart agent-stack.service</code></pre>
+          </div>
+        </section>
+
+        <!-- Section: Top 10 Buyer Issues -->
+        <section id="troubleshooting" class="content-section" style="display: none;">
+          <span class="page-kicker">Troubleshooting</span>
+          <h1 class="page-title">Top 10 Buyer Issues & Resolution Playbook</h1>
+          <p class="page-lead">Battle-tested solutions for the most common buyer questions and deployment hiccups.</p>
+
+          <h2>1. "I cannot connect to PostgreSQL (5432) from my laptop"</h2>
+          <p><strong>Cause:</strong> By design, database ports are NOT exposed to <code>0.0.0.0</code> on the public internet to prevent brute-force attacks.</p>
+          <p><strong>Solution:</strong> Use an encrypted SSH tunnel:</p>
+          <div class="code-container">
+            <pre><code>ssh -L 5432:localhost:5432 user@vps-ip</code></pre>
+          </div>
+
+          <h2>2. "SSL certificate error / Caddy HTTPS handshake fails"</h2>
+          <p><strong>Cause:</strong> ACME challenge cannot reach the server via port 80/443 or Cloudflare is set to flexible mode.</p>
+          <p><strong>Fix:</strong> Set Cloudflare to <strong>Full (Strict)</strong>, or temporarily disable orange-cloud proxying until Caddy obtains the initial certificate. Verify port 80 is open in UFW.</p>
+
+          <h2>3. "Port 80 or 443 already in use during setup"</h2>
+          <p><strong>Cause:</strong> An existing web server (Apache, Nginx, or Plesk) is running on the fresh VPS image.</p>
+          <p><strong>Fix:</strong> Disable the conflicting web server:</p>
+          <div class="code-container">
+            <pre><code>sudo systemctl stop nginx apache2 2>/dev/null || true
+sudo systemctl disable nginx apache2 2>/dev/null || true
+sudo systemctl restart agent-stack.service</code></pre>
+          </div>
+
+          <h2>4. "Lost or forgotten database passwords"</h2>
+          <p><strong>Fix:</strong> Credentials are saved in <code>/opt/agent-stack/.env</code>. Inspect them with:</p>
+          <div class="code-container">
+            <pre><code>sudo cat /opt/agent-stack/.env | grep -E 'PASSWORD|SECRET'</code></pre>
+          </div>
+
+          <h2>5. "How do I safely prune Docker disk space without losing data?"</h2>
+          <div class="callout callout-warning">
+            <div class="callout-icon">⚠️</div>
+            <div class="callout-body">
+              <strong>Caution:</strong> Never run <code>docker volume prune -a</code>. Use the safe command below:
+            </div>
+          </div>
+          <div class="code-container">
+            <pre><code># Safely cleans stopped containers and dangling images; preserves named volumes
+docker system prune -af</code></pre>
+          </div>
+        </section>
+
+        <!-- Section: Support Tiers & SLAs -->
+        <section id="support-playbook" class="content-section" style="display: none;">
+          <span class="page-kicker">Support Operations</span>
+          <h1 class="page-title">Support Tiers, SLAs & Concierge Onboarding</h1>
+          <p class="page-lead">Service level agreements, customer reply templates, and concierge onboarding procedures.</p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tier</th>
+                  <th>Price</th>
+                  <th>Target Buyer</th>
+                  <th>SLA</th>
+                  <th>Scope</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Tier 1: Self-Service</strong></td>
+                  <td>€35 Digital Download</td>
+                  <td>Independent devs, tinkerers</td>
+                  <td>Docs / Community</td>
+                  <td>Full documentation, automated setup script, watchdog auto-healing.</td>
+                </tr>
+                <tr>
+                  <td><strong>Tier 2: Config Support</strong></td>
+                  <td>Included in upgrades</td>
+                  <td>Early founders, solo devs</td>
+                  <td>24 Hours</td>
+                  <td>Asynchronous email triage for SSL, port, or Docker issues.</td>
+                </tr>
+                <tr>
+                  <td><strong>Tier 3: Concierge</strong></td>
+                  <td>€350 White-Glove</td>
+                  <td>Agencies, busy engineers</td>
+                  <td>2 Hours (Business)</td>
+                  <td>Full SSH provisioning, custom domain DNS, Telegram bot pairing, tailored guardrails.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>Customer Email Response Templates</h2>
+          <h3>Template: External Postgres Connection</h3>
+          <div class="code-container">
+            <div class="code-header">
+              <span class="code-filename">email_template_postgres.txt</span>
+              <button class="btn-copy" data-target="code-email-pg">Copy</button>
+            </div>
+            <pre id="code-email-pg"><code>Hi [Name],
+
+For security, the kit keeps PostgreSQL (5432) bound strictly to an internal Docker network, protecting your agent memory from port scanners.
+
+To connect TablePlus, Cursor, or local scripts:
+Simply open an SSH tunnel from your laptop:
+ssh -L 5432:localhost:5432 user@your-vps-ip
+
+Then point your local client to:
+postgresql://postgres:PLACEHOLDER@127.0.0.1:5432/agentdb
+
+Let me know if you need any assistance getting connected!</code></pre>
+          </div>
+        </section>
+
+        <!-- Section: Environment Reference -->
+        <section id="reference" class="content-section" style="display: none;">
+          <span class="page-kicker">Configuration</span>
+          <h1 class="page-title">Environment Variables Reference (.env)</h1>
+          <p class="page-lead">Complete configuration matrix for the self-hosted agent stack.</p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Variable</th>
+                  <th>Default</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>DOMAIN</code></td>
+                  <td><code>agent.local</code></td>
+                  <td>Public domain or subdomain pointing to your VPS IP for Caddy TLS.</td>
+                </tr>
+                <tr>
+                  <td><code>POSTGRES_USER</code></td>
+                  <td><code>agent</code></td>
+                  <td>Database superuser account.</td>
+                </tr>
+                <tr>
+                  <td><code>POSTGRES_PASSWORD</code></td>
+                  <td><em>Generated hex</em></td>
+                  <td>Secure password for PostgreSQL 17.</td>
+                </tr>
+                <tr>
+                  <td><code>POSTGRES_DB</code></td>
+                  <td><code>agentdb</code></td>
+                  <td>Primary persistent database name.</td>
+                </tr>
+                <tr>
+                  <td><code>REDIS_PASSWORD</code></td>
+                  <td><em>Generated hex</em></td>
+                  <td>Authentication password for Redis 7.4.</td>
+                </tr>
+                <tr>
+                  <td><code>TELEGRAM_BOT_TOKEN</code></td>
+                  <td><em>Optional</em></td>
+                  <td>Bot token from @BotFather for watchdog emergency push alerts.</td>
+                </tr>
+                <tr>
+                  <td><code>TELEGRAM_CHAT_ID</code></td>
+                  <td><em>Optional</em></td>
+                  <td>Your Telegram user/chat ID to receive watchdog alerts.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Article Footer Prev/Next -->
+        <div class="article-nav-row">
+          <a href="#overview" class="article-nav-card" id="prevCard">
+            <span class="nav-card-sub">Previous</span>
+            <span class="nav-card-title" id="prevTitle">Overview & Architecture</span>
+          </a>
+          <a href="#quickstart" class="article-nav-card" id="nextCard">
+            <span class="nav-card-sub">Next</span>
+            <span class="nav-card-title" id="nextTitle">5-Minute Quickstart</span>
+          </a>
+        </div>
+
+      </article>
+    </main>
+
+    <!-- Right Rail TOC -->
+    <aside class="docs-toc-sidebar">
+      <div>
+        <div class="toc-title">On this page</div>
+        <ul class="toc-list" id="tocList">
+          <li class="toc-item"><a href="#overview" class="toc-link active">Overview</a></li>
+          <li class="toc-item"><a href="#overview" class="toc-link">Topology</a></li>
+          <li class="toc-item"><a href="#overview" class="toc-link">Features</a></li>
+        </ul>
+      </div>
+
+      <div class="toc-box">
+        <div class="toc-box-title">Need Concierge Setup?</div>
+        <div class="toc-box-desc">Get white-glove deployment on your VPS with custom guardrails and Telegram pairing.</div>
+        <a href="#support-playbook" style="color: var(--brand-indigo-light); font-weight: 500;">View Concierge SLA →</a>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Search Modal Overlay (Linear Cmd+K) -->
+  <div class="search-modal-backdrop" id="searchModal">
+    <div class="search-modal">
+      <div class="search-input-wrapper">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a8f98" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="searchInput" placeholder="Search documentation, guides, and runbooks..." autocomplete="off">
+        <span class="search-shortcut">ESC</span>
+      </div>
+      <ul class="search-results-list" id="searchResults">
+        <!-- Injected via JS -->
+      </ul>
+      <div class="search-footer">
+        <span>Press <kbd>↑</kbd> <kbd>↓</kbd> to navigate</span>
+        <span>Press <kbd>ENTER</kbd> to select</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Client-side Script -->
+  <script>
+    const sections = [
+      { id: 'overview', title: 'Overview & Architecture', group: 'Getting Started', parent: 'Getting Started' },
+      { id: 'quickstart', title: '5-Minute Quickstart', group: 'Getting Started', parent: 'Getting Started' },
+      { id: 'quick-connect', title: '1-Click Frontier AI Connect', group: 'Getting Started', parent: 'Getting Started' },
+      { id: 'database', title: 'PostgreSQL 17 Schema', group: 'Developer Guide', parent: 'Developer Guide' },
+      { id: 'redis-protocol', title: 'Redis Queue & SSE Stream', group: 'Developer Guide', parent: 'Developer Guide' },
+      { id: 'api-reference', title: 'REST & SSE API Spec', group: 'Developer Guide', parent: 'Developer Guide' },
+      { id: 'custom-agents', title: 'Custom Agent Containers', group: 'Developer Guide', parent: 'Developer Guide' },
+      { id: 'guardrails', title: 'ZeroVPS Guardrail Engine', group: 'Security', parent: 'Security & Guardrails' },
+      { id: 'hardening', title: 'VPS Hardening Checklist', group: 'Security', parent: 'Security & Guardrails' },
+      { id: 'watchdog', title: 'Automated Watchdog', group: 'Operations', parent: 'Operations & Runbook' },
+      { id: 'backups', title: 'Backups & Disaster Recovery', group: 'Operations', parent: 'Operations & Runbook' },
+      { id: 'troubleshooting', title: 'Top 10 Buyer Issues', group: 'Support & FAQ', parent: 'Support & FAQ' },
+      { id: 'support-playbook', title: 'Support Tiers & SLAs', group: 'Support & FAQ', parent: 'Support & FAQ' },
+      { id: 'reference', title: 'Environment Reference (.env)', group: 'Reference', parent: 'Reference' }
+    ];
+
+    // Search Database
+    const searchIndex = [
+      { id: 'overview', title: 'Overview & System Architecture', category: 'Guide', snippet: 'Turnkey production mesh with Postgres 17, Redis 7.4, Caddy 2, and ZeroVPS Guardrails.' },
+      { id: 'quickstart', title: '5-Minute VPS Quickstart', category: 'Deployment', snippet: 'Deploy on clean Ubuntu VPS using one-line curl installer or manual tarball setup.' },
+      { id: 'quick-connect', title: 'One-Click Frontier AI Connect', category: 'Integrations', snippet: 'Connect Claude Desktop, Antigravity, OpenAI Codex, Cursor, and Python scripts.' },
+      { id: 'database', title: 'PostgreSQL 17 Schema & DDL', category: 'Database', snippet: 'Schema for agent_tasks, agent_registry, indexes, and SSH port-forwarding instructions.' },
+      { id: 'redis-protocol', title: 'Redis Queue Protocol & SSE', category: 'Protocol', snippet: 'FIFO task queues, BLPOP payload structure, Pub/Sub channels, and TTL results.' },
+      { id: 'api-reference', title: 'REST & SSE API Specification', category: 'API', snippet: 'GET /api/health, GET /api/stream, POST /api/agent/dispatch, and POST /api/guardrail-test.' },
+      { id: 'custom-agents', title: 'Custom Agent Containers', category: 'Docker', snippet: 'Adding custom Python, Node, or Go worker containers to docker-compose.yml mesh.' },
+      { id: 'guardrails', title: 'ZeroVPS Guardrail Engine', category: 'Security', snippet: 'AST command blacklisting protecting root filesystem wipes and fork bombs.' },
+      { id: 'hardening', title: 'VPS Hardening Checklist', category: 'Security', snippet: 'UFW firewall, SSH key-only auth, Fail2Ban jails, and automated security upgrades.' },
+      { id: 'watchdog', title: 'Automated Watchdog Daemon', category: 'Operations', snippet: 'Python health check with auto-restart, disk monitoring, and Telegram alerts.' },
+      { id: 'backups', title: 'Nightly Backups & Full Restore', category: 'Operations', snippet: 'Point-in-time recovery, tarball archives, and PostgreSQL restore runbook.' },
+      { id: 'troubleshooting', title: 'Top 10 Buyer Issues', category: 'Support', snippet: 'Fixes for remote DB connection, SSL ACME handshake, port 80 conflicts, and forgotten passwords.' },
+      { id: 'support-playbook', title: 'Support Tiers & SLAs', category: 'Support', snippet: '€35 digital download vs €350 concierge tier SLAs and ready-to-send email templates.' },
+      { id: 'reference', title: 'Environment Reference (.env)', category: 'Config', snippet: 'Complete matrix of environment variables, defaults, and security keys.' }
+    ];
+
+    function showSection(targetId) {
+      const targetSec = sections.find(s => s.id === targetId) || sections[0];
+      
+      // Update DOM section visibility
+      document.querySelectorAll('.content-section').forEach(sec => {
+        sec.style.display = sec.id === targetSec.id ? 'block' : 'none';
+      });
+
+      // Update sidebar active link
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.toggle('active', link.getAttribute('data-section') === targetSec.id);
+      });
+
+      // Update breadcrumbs
+      document.getElementById('crumbParent').textContent = targetSec.parent;
+      document.getElementById('crumbCurrent').textContent = targetSec.title;
+
+      // Update Prev / Next cards
+      const idx = sections.findIndex(s => s.id === targetSec.id);
+      const prevSec = idx > 0 ? sections[idx - 1] : null;
+      const nextSec = idx < sections.length - 1 ? sections[idx + 1] : null;
+
+      const prevCard = document.getElementById('prevCard');
+      const nextCard = document.getElementById('nextCard');
+
+      if (prevSec) {
+        prevCard.style.visibility = 'visible';
+        prevCard.href = '#' + prevSec.id;
+        document.getElementById('prevTitle').textContent = prevSec.title;
+      } else {
+        prevCard.style.visibility = 'hidden';
+      }
+
+      if (nextSec) {
+        nextCard.style.visibility = 'visible';
+        nextCard.href = '#' + nextSec.id;
+        document.getElementById('nextTitle').textContent = nextSec.title;
+      } else {
+        nextCard.style.visibility = 'hidden';
+      }
+
+      // Update right rail TOC
+      buildToc(targetSec.id);
+
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Close mobile drawer if open
+      document.getElementById('sidebarNav').classList.remove('drawer-open');
+    }
+
+    function buildToc(sectionId) {
+      const activeSecEl = document.getElementById(sectionId);
+      const tocList = document.getElementById('tocList');
+      tocList.innerHTML = '';
+      if (!activeSecEl) return;
+
+      const headings = activeSecEl.querySelectorAll('h2, h3');
+      headings.forEach((h, index) => {
+        if (!h.id) {
+          h.id = sectionId + '-h-' + index;
+        }
+        const li = document.createElement('li');
+        li.className = 'toc-item';
+        const a = document.createElement('a');
+        a.className = 'toc-link';
+        a.href = '#' + h.id;
+        a.textContent = h.textContent.replace(/^[0-9A-Z\.\s]+:\s*/, '');
+        a.onclick = (e) => {
+          e.preventDefault();
+          h.scrollIntoView({ behavior: 'smooth' });
+        };
+        li.appendChild(a);
+        tocList.appendChild(li);
+      });
+    }
+
+    // Routing based on hash
+    window.addEventListener('hashchange', () => {
+      const rawHash = window.location.hash.replace('#', '');
+      if (rawHash) {
+        // If hash matches a section id directly
+        const matched = sections.find(s => s.id === rawHash);
+        if (matched) {
+          showSection(matched.id);
+        } else {
+          // If hash is an anchor inside a section
+          const el = document.getElementById(rawHash);
+          if (el) {
+            const parentSection = el.closest('.content-section');
+            if (parentSection) {
+              showSection(parentSection.id);
+              setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 50);
+            }
+          }
+        }
+      }
+    });
+
+    // Nav click handlers
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        const secId = link.getAttribute('data-section');
+        if (secId) {
+          e.preventDefault();
+          window.location.hash = secId;
+        }
+      });
+    });
+
+    // Copy to clipboard functionality
+    document.querySelectorAll('.btn-copy').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-target');
+        const codeEl = document.getElementById(targetId);
+        if (codeEl) {
+          const text = codeEl.innerText || codeEl.textContent;
+          navigator.clipboard.writeText(text).then(() => {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '✓ Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+              btn.innerHTML = originalText;
+              btn.classList.remove('copied');
+            }, 2000);
+          });
+        }
+      });
+    });
+
+    // Mobile Hamburger
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    const sidebar = document.getElementById('sidebarNav');
+    mobileBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('drawer-open');
+    });
+
+    // Search Modal (Linear Cmd+K)
+    const searchModal = document.getElementById('searchModal');
+    const searchTrigger = document.getElementById('searchTriggerBtn');
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+
+    function openSearch() {
+      searchModal.classList.add('open');
+      searchInput.value = '';
+      renderSearchResults('');
+      setTimeout(() => searchInput.focus(), 50);
+    }
+
+    function closeSearch() {
+      searchModal.classList.remove('open');
+    }
+
+    searchTrigger.addEventListener('click', openSearch);
+    searchModal.addEventListener('click', (e) => {
+      if (e.target === searchModal) closeSearch();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchModal.classList.contains('open') ? closeSearch() : openSearch();
+      }
+      if (e.key === 'Escape' && searchModal.classList.contains('open')) {
+        closeSearch();
+      }
+    });
+
+    function renderSearchResults(query) {
+      searchResults.innerHTML = '';
+      const q = query.toLowerCase().trim();
+      const filtered = q ? searchIndex.filter(item => 
+        item.title.toLowerCase().includes(q) || 
+        item.snippet.toLowerCase().includes(q) ||
+        item.category.toLowerCase().includes(q)
+      ) : searchIndex;
+
+      if (filtered.length === 0) {
+        searchResults.innerHTML = '<li style="padding: 16px; text-align: center; color: var(--text-tertiary); font-size: 13px;">No documentation results found for "' + q + '"</li>';
+        return;
+      }
+
+      filtered.forEach((item, idx) => {
+        const li = document.createElement('li');
+        li.className = 'search-result-item' + (idx === 0 ? ' selected' : '');
+        li.innerHTML = `
+          <div class="search-result-head">
+            <span class="search-result-title">${item.title}</span>
+            <span class="search-result-category">${item.category}</span>
+          </div>
+          <div class="search-result-snippet">${item.snippet}</div>
+        `;
+        li.addEventListener('click', () => {
+          closeSearch();
+          window.location.hash = item.id;
+        });
+        searchResults.appendChild(li);
+      });
+    }
+
+    searchInput.addEventListener('input', (e) => {
+      renderSearchResults(e.target.value);
+    });
+
+    // Keyboard navigation in search
+    searchInput.addEventListener('keydown', (e) => {
+      const items = searchResults.querySelectorAll('.search-result-item');
+      if (!items.length) return;
+      let currentIndex = Array.from(items).findIndex(item => item.classList.contains('selected'));
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (currentIndex < items.length - 1) {
+          items[currentIndex].classList.remove('selected');
+          items[currentIndex + 1].classList.add('selected');
+          items[currentIndex + 1].scrollIntoView({ block: 'nearest' });
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (currentIndex > 0) {
+          items[currentIndex].classList.remove('selected');
+          items[currentIndex - 1].classList.add('selected');
+          items[currentIndex - 1].scrollIntoView({ block: 'nearest' });
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (currentIndex >= 0 && items[currentIndex]) {
+          items[currentIndex].click();
+        }
+      }
+    });
+
+    // Initial load
+    const initialHash = window.location.hash.replace('#', '') || 'overview';
+    showSection(initialHash);
+  </script>
+</body>
+</html>

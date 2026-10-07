@@ -1359,6 +1359,7 @@ function renderDashboard() {
         </div>
       </div>
       <div class="status-cluster">
+        <a href="/docs" target="_blank" style="display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.35rem 0.85rem; background: rgba(94, 106, 210, 0.22); border: 1px solid rgba(94, 106, 210, 0.5); border-radius: 9999px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; color: #b4beff; text-decoration: none; transition: all 0.2s; box-shadow: 0 0 12px rgba(94, 106, 210, 0.25);" onmouseover="this.style.background='rgba(94, 106, 210, 0.38)'; this.style.color='#ffffff';" onmouseout="this.style.background='rgba(94, 106, 210, 0.22)'; this.style.color='#b4beff';">📖 DEV & SUPPORT DOCS</a>
         <div class="live-badge">
           <span class="live-dot"></span>
           <span id="stack-status-label">STACK ALL HEALTHY</span>
@@ -2335,6 +2336,34 @@ const server = http.createServer(async (req, res) => {
       res.end(renderDashboard());
     }
     return;
+  }
+
+  // Linear-Style Developer & Support Docs Mini-Site
+  if ((pathname === '/docs' || pathname === '/docs/' || pathname.startsWith('/docs')) && (req.method === 'GET' || req.method === 'HEAD')) {
+    const docsCandidates = [
+      path.join(__dirname, 'docs', 'index.html'),
+      path.join(__dirname, '../docs', 'index.html'),
+      path.join(process.cwd(), 'docs', 'index.html'),
+      '/app/docs/index.html'
+    ];
+    let docsHtml = '';
+    for (const cand of docsCandidates) {
+      if (fs.existsSync(cand)) {
+        try {
+          docsHtml = fs.readFileSync(cand, 'utf8');
+          if (docsHtml) break;
+        } catch (_) {}
+      }
+    }
+    if (docsHtml) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      if (req.method === 'HEAD') {
+        res.end();
+      } else {
+        res.end(docsHtml);
+      }
+      return;
+    }
   }
 
   // Healthcheck endpoint (Watchdog, Caddy, and UI)

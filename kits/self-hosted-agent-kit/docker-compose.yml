@@ -33,6 +33,7 @@ services:
       - ./data/agent:/app/data
       - ./logs/agent:/app/logs
       - ./backups:/app/backups:ro
+      - ./docs:/app/docs:ro
     environment:
       - NODE_ENV=production
       - PORT=3000

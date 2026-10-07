@@ -86,3 +86,31 @@ You should see:
 ```
 
 The watchdog automatically runs every 5 minutes in the background via `systemd/agent-watchdog.timer`. If any container dies or memory spikes, you will receive an alert in Telegram immediately.
+
+---
+
+## 6. One-Click Connect Your Agents (Zero YAML Editing)
+
+You don't need to manually configure Docker networks or craft database connection strings.
+
+### Option A: From the Web Operations Dashboard
+1. Open your dashboard in your browser (e.g. `https://agent.yourdomain.com`).
+2. Go to the **⚡ ONE-CLICK AGENT QUICK CONNECT** hub at the top of the workspace.
+3. Select your framework:
+   - **🟣 Claude Code / Claude Desktop:** Click **"Download claude_desktop_config.json"** or copy the pre-filled MCP snippet.
+   - **🔵 Cursor / Windsurf AI IDE:** Click **"Download .mcp.json"** and place it into your `.cursor/` folder.
+   - **🐍 Python (LangChain / CrewAI):** Click **"Download agent_starter.py"** and run `python3 agent_starter.py`.
+   - **🟩 Node.js / OpenClaw:** Click **"Download agent_starter.js"** and run `node agent_starter.js`.
+   - **⚡ No-Code Webhooks (n8n / Make / Zapier):** Copy your universal endpoint `POST https://agent.yourdomain.com/api/agent/dispatch`.
+4. Click **"⚡ Send One-Click Test Ping"** to verify round-trip connectivity live in the browser!
+
+### Option B: From the Terminal
+Run the interactive connection helper:
+```bash
+./scripts/quick-connect.sh
+```
+Or run the 1-line curl installer:
+```bash
+curl -fsSL https://agent.yourdomain.com/connect.sh | bash
+```
+

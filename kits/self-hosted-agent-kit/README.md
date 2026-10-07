@@ -22,6 +22,7 @@ When you purchase the **Self-Hosted Agent Infrastructure Kit**, you receive a pr
 | **5** | **Zero-Public-Port Tailscale Mesh** | Tailscale WireGuard | Automated helper (`tailscale-setup.sh`) allowing you to run your agent infrastructure completely hidden behind private WireGuard mesh—zero open ports visible on Shodan. |
 | **6** | **Self-Healing Incident Watchdog** | Python 3 + systemd | Autonomous background daemon monitoring container status, memory leaks, and restart flapping every 5 minutes, dispatches instant Markdown alerts to Telegram. |
 | **7** | **Zero-Downtime Backup Engine** | Bash + pg_dump | Scheduled database and cache snapshots with automated 7-day retention pruning and offsite cloud storage hooks (S3/R2/MinIO). |
+| **8** | **Frontier AI & Agent Quick Connect** | Web HUD + Shell Helper | Plug-and-play connection gateway for non-technical users. Connect **OpenAI/Codex**, **Google Antigravity**, **Claude (MCP)**, **Cursor AI IDE**, **Google Gemini**, **LangChain/CrewAI**, or **n8n Webhooks** in 1 click without touching YAML files or Docker networks. |
 
 ---
 
@@ -51,6 +52,7 @@ self-hosted-agent-kit/
 │   └── server.js                   # High-aesthetic operations dashboard & streaming API
 ├── scripts/
 │   ├── setup.sh                    # 1-command installer script for Ubuntu
+│   ├── quick-connect.sh            # 1-click interactive agent connection wizard
 │   ├── backup.sh                   # Automated PostgreSQL 17 & Redis backup routine
 │   ├── watchdog.py                 # Self-healing supervisor with Telegram alerts
 │   ├── tailscale-setup.sh          # Zero-public-port WireGuard mesh configurator
@@ -58,6 +60,14 @@ self-hosted-agent-kit/
 │       ├── validate-bash.sh        # Shell guardrail blocking destructive commands
 │       ├── validate-db-safety.sh   # SQL guardrail intercepting accidental table drops
 │       └── validate-backup-freshness.sh # Gate requiring fresh backups before updates
+├── templates/
+│   ├── openai_agent.py             # 1-click OpenAI / Codex starter with tool calling
+│   ├── antigravity_mcp.json        # 1-click Google DeepMind Antigravity MCP config
+│   ├── gemini_agent.py             # 1-click Google Gemini GenAI SDK starter
+│   ├── claude_desktop_config.json  # 1-click Claude Desktop & Claude Code MCP config
+│   ├── cursor_mcp.json             # 1-click Cursor & Windsurf AI IDE MCP config
+│   ├── agent_starter.py            # 1-click Python starter (LangChain/CrewAI)
+│   └── agent_starter.js            # 1-click Node.js starter (OpenClaw)
 ├── systemd/
 │   ├── agent-stack.service         # Ensures stack persists across host reboots
 │   ├── agent-watchdog.service      # Triggers watchdog health inspection

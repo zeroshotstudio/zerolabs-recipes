@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "zerolabs-agent-stack": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://agent:your_secret_here@127.0.0.1:5432/agentdb"
+      ]
+    }
+  }
+}

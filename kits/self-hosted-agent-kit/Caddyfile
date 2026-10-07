@@ -3,7 +3,7 @@
     admin off
 }
 
-{$APP_DOMAIN:agent.example.com} {
+{$APP_DOMAIN::80} {
     encode gzip zstd
 
     # Production Security Headers

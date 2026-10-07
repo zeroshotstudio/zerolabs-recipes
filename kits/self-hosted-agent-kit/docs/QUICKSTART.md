@@ -64,7 +64,7 @@ Expected output:
 ```text
 NAME             IMAGE              STATUS                   PORTS
 agent-caddy      caddy:2-alpine     Up (healthy)             0.0.0.0:80->80/tcp, 0.0.0.0:443->443/tcp
-agent-postgres   postgres:16-alpine Up (healthy)             5432/tcp
+agent-postgres   postgres:17-alpine Up (healthy)             5432/tcp
 agent-redis      redis:7-alpine     Up (healthy)             6379/tcp
 agent-runtime    node:22-alpine     Up (healthy)             
 ```

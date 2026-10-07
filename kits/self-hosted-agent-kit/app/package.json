@@ -1,0 +1,13 @@
+{
+  "name": "agent-runtime",
+  "version": "1.0.0",
+  "description": "ZeroShot Studio Self-Hosted Agent Runtime",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.1",
+    "pg": "^8.13.1"
+  }
+}

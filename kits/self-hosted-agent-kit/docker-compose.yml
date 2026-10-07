@@ -4,27 +4,38 @@ services:
     container_name: agent-caddy
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "${PORT_HTTP:-80}:80"
+      - "${PORT_HTTPS:-443}:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+      - ./logs/caddy:/var/log/caddy
     networks:
       - agent-net
     depends_on:
       - agent-runtime
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:80/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   agent-runtime:
-    image: node:22-alpine
+    build:
+      context: ./app
+      dockerfile: Dockerfile
     container_name: agent-runtime
     restart: unless-stopped
     working_dir: /app
     volumes:
       - ./data/agent:/app/data
-      - ./logs:/app/logs
+      - ./logs/agent:/app/logs
+      - ./backups:/app/backups:ro
     environment:
       - NODE_ENV=production
+      - PORT=3000
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_NAME=${POSTGRES_DB:-agentdb}
@@ -45,14 +56,14 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "node -e 'process.exit(0)'"]
-      interval: 30s
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 15s
       timeout: 5s
       retries: 3
       start_period: 10s
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     container_name: agent-postgres
     restart: unless-stopped
     environment:

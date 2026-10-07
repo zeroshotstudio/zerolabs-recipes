@@ -1,0 +1,11 @@
+[Unit]
+Description=Autonomous Agent Watchdog Healthcheck Service
+After=docker.service network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/agent-stack
+EnvironmentFile=-/opt/agent-stack/.env
+ExecStart=/usr/bin/python3 /opt/agent-stack/scripts/watchdog.py
+StandardOutput=journal
+StandardError=journal

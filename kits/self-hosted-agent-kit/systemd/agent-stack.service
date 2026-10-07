@@ -1,0 +1,25 @@
+[Unit]
+Description=Autonomous Agent Docker Compose Stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/agent-stack
+User=root
+Group=root
+
+# Start stack with compose
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecStop=/usr/bin/docker compose down
+
+# Reload Caddy config on SIGHUP
+ExecReload=/usr/bin/docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+
+TimeoutStartSec=300
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

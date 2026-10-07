@@ -2532,9 +2532,10 @@ const server = http.createServer(async (req, res) => {
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       try {
-        const { name, framework, version } = JSON.parse(body || '{}');
+        const parsed = JSON.parse(body || '{}');
+        const agentName = parsed.name || parsed.agentName || parsed.agent_name || 'unnamed-agent';
         const ip = req.socket.remoteAddress || '127.0.0.1';
-        const agent = registerAgent(name, framework, version, ip);
+        const agent = registerAgent(agentName, parsed.framework, parsed.version, ip);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, message: `Connected agent ${agent.name}`, agent, timestamp: Date.now() }));
       } catch (e) {

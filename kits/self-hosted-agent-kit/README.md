@@ -76,6 +76,8 @@ self-hosted-agent-kit/
 │   └── mcp-config.json             # Model Context Protocol schemas for Claude & Cursor
 └── docs/
     ├── QUICKSTART.md               # 15-minute deployment runbook
+    ├── DEVELOPER-GUIDE.md          # In-depth API, database schemas, and AI integration recipes
+    ├── SUPPORT-GUIDE.md            # Buyer troubleshooting runbook & customer support playbooks
     ├── HARDENING-CHECKLIST.md      # Linux host & firewall security checklist
     └── ZEROVPS-FEATURES.md         # Deep-dive into ZeroVPS operational guardrails
 ```

@@ -49,7 +49,7 @@ ufw --force enable
 # Deploy stack directory
 echo "[+] Deploying files to ${STACK_DIR}..."
 mkdir -p "${STACK_DIR}"
-cp -r "${INSTALL_SOURCE_DIR}"/* "${STACK_DIR}/"
+cp -a "${INSTALL_SOURCE_DIR}/." "${STACK_DIR}/"
 
 cd "${STACK_DIR}"
 

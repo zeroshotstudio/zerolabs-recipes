@@ -24,8 +24,22 @@ echo "[BACKUP] Starting backup at $(date)..."
 # 1. PostgreSQL dump via docker exec
 if docker ps --format '{{.Names}}' | grep -q "^agent-postgres$"; then
     echo "[BACKUP] Dumping PostgreSQL..."
-    docker exec agent-postgres pg_dumpall -U "${DB_USER}" | gzip > "${BACKUP_DIR}/postgres_${TIMESTAMP}.sql.gz"
-    echo "[BACKUP] Postgres backup saved to ${BACKUP_DIR}/postgres_${TIMESTAMP}.sql.gz"
+    TMP_DUMP="${BACKUP_DIR}/.tmp_pg_${TIMESTAMP}.sql"
+    if docker exec agent-postgres pg_dumpall -U "${DB_USER}" > "${TMP_DUMP}"; then
+        if [[ -s "${TMP_DUMP}" ]]; then
+            gzip -c "${TMP_DUMP}" > "${BACKUP_DIR}/postgres_${TIMESTAMP}.sql.gz"
+            rm -f "${TMP_DUMP}"
+            echo "[BACKUP] Postgres backup saved to ${BACKUP_DIR}/postgres_${TIMESTAMP}.sql.gz"
+        else
+            rm -f "${TMP_DUMP}"
+            echo "[-] [BACKUP ERROR] Postgres dump produced an empty file. Backup failed." >&2
+            exit 1
+        fi
+    else
+        rm -f "${TMP_DUMP}"
+        echo "[-] [BACKUP ERROR] pg_dumpall failed with non-zero exit code." >&2
+        exit 1
+    fi
 fi
 
 # 2. Redis RDB snapshot

@@ -13,6 +13,9 @@ services:
       - ./logs/caddy:/var/log/caddy
     networks:
       - agent-net
+    environment:
+      - APP_DOMAIN=${APP_DOMAIN:-:80}
+      - ACME_EMAIL=${ACME_EMAIL:-admin@example.com}
     depends_on:
       - agent-runtime
     healthcheck:

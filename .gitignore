@@ -25,6 +25,9 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+backups/
+*.rdb
+*.sql.gz
 
 # Environments
 .env

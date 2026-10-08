@@ -336,6 +336,7 @@
     .docs-article {
       max-width: var(--content-max-width);
       width: 100%;
+      min-width: 0;
     }
 
     /* Breadcrumbs */
@@ -552,6 +553,8 @@
       border-radius: 8px;
       margin: 20px 0 24px;
       overflow: hidden;
+      max-width: 100%;
+      min-width: 0;
     }
 
     .code-header {
@@ -607,6 +610,8 @@
       line-height: 1.6;
       color: #d1d5db;
       -webkit-overflow-scrolling: touch;
+      max-width: 100%;
+      box-sizing: border-box;
     }
 
     code {
@@ -625,6 +630,8 @@
     /* Data Tables */
     .table-container {
       width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       overflow-x: auto;
       margin: 22px 0 28px;
       border: 1px solid var(--border-subtle);
@@ -903,13 +910,347 @@
       color: var(--text-tertiary);
     }
 
+    /* Paywall Gate Modal & Gated View */
+    .paywall-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 9, 10, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      overflow-y: auto;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .paywall-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .docs-container.docs-locked {
+      filter: blur(8px) saturate(0.5);
+      opacity: 0.25;
+      pointer-events: none;
+      user-select: none;
+      max-height: 100vh;
+      overflow: hidden;
+    }
+
+    .paywall-modal {
+      width: 100%;
+      max-width: 760px;
+      background: #0f1015;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.85), 0 0 40px rgba(94, 106, 210, 0.2);
+      border-radius: 16px;
+      padding: 34px 30px;
+      position: relative;
+      margin: auto;
+      max-height: 92vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .paywall-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 12px;
+      border-radius: 99px;
+      background: rgba(94, 106, 210, 0.15);
+      border: 1px solid rgba(94, 106, 210, 0.4);
+      color: #b4beff;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .paywall-title {
+      font-size: clamp(21px, 4vw, 28px);
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      line-height: 1.25;
+    }
+
+    .paywall-subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+      margin-bottom: 20px;
+    }
+
+    .paywall-features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 16px;
+      padding: 16px 18px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      margin-bottom: 22px;
+    }
+
+    .paywall-feat-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12.5px;
+      color: #d1d5db;
+      line-height: 1.4;
+    }
+
+    .paywall-feat-item svg {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .paywall-tiers {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .paywall-tier-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-medium);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .paywall-tier-card.recommended {
+      border-color: rgba(94, 106, 210, 0.65);
+      background: linear-gradient(180deg, rgba(94, 106, 210, 0.09) 0%, rgba(16, 17, 21, 0.95) 100%);
+      box-shadow: 0 0 25px rgba(94, 106, 210, 0.12);
+    }
+
+    .tier-pill {
+      align-self: flex-start;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--brand-indigo);
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    .tier-pill.secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+    }
+
+    .tier-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+
+    .tier-price {
+      font-size: 24px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .tier-term {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-tertiary);
+    }
+
+    .tier-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      margin-bottom: 14px;
+      flex-grow: 1;
+    }
+
+    .btn-tier {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .btn-tier.primary {
+      background: var(--brand-indigo);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    .btn-tier.primary:hover {
+      background: var(--brand-indigo-hover);
+      box-shadow: 0 0 16px rgba(94, 106, 210, 0.4);
+      color: #ffffff;
+    }
+
+    .btn-tier.secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: #e5e7eb;
+      border: 1px solid var(--border-medium);
+    }
+    .btn-tier.secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+
+    .paywall-activation-box {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+
+    .activation-title {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #e5e7eb;
+      margin-bottom: 10px;
+    }
+
+    .activation-input-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .activation-input-group input {
+      flex: 1;
+      min-width: 0;
+      background: #15161d;
+      border: 1px solid var(--border-medium);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      color: #ffffff;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .activation-input-group input:focus {
+      border-color: var(--brand-indigo-light);
+    }
+
+    .btn-unlock {
+      background: var(--brand-indigo);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .btn-unlock:hover {
+      background: var(--brand-indigo-hover);
+    }
+
+    .activation-error {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #f87171;
+      display: none;
+    }
+    .activation-error.visible {
+      display: block;
+    }
+
+    .activation-demo-row {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: var(--text-tertiary);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .btn-demo-unlock {
+      background: transparent;
+      border: 1px dashed rgba(94, 106, 210, 0.45);
+      color: var(--brand-indigo-light);
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.15s;
+    }
+    .btn-demo-unlock:hover {
+      background: rgba(94, 106, 210, 0.12);
+      border-color: var(--brand-indigo);
+      color: #ffffff;
+    }
+
+    /* License status pill in header */
+    .license-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .license-badge.active {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #34d399;
+    }
+    .license-badge.locked {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #f87171;
+    }
+
+    /* Mobile drawer backdrop */
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      z-index: 90;
+    }
+    .sidebar-backdrop.active {
+      display: block;
+    }
+
     /* Responsive Breakpoints */
     @media (max-width: 1100px) {
       .docs-toc-sidebar {
         display: none;
       }
       .docs-content-wrapper {
-        padding: 36px 32px 60px;
+        padding: 32px 24px 60px;
       }
     }
 
@@ -926,7 +1267,8 @@
         transition: left 0.25s ease;
         background: #0d0e12;
         box-shadow: 10px 0 30px rgba(0, 0, 0, 0.7);
-        width: 280px;
+        width: 290px;
+        max-width: 85vw;
       }
       .docs-sidebar.drawer-open {
         left: 0;
@@ -936,12 +1278,143 @@
       }
       .docs-content-wrapper {
         padding: 24px 16px 60px;
+        max-width: 100vw;
+        overflow-x: hidden;
       }
       .page-title {
         font-size: 26px;
       }
       .article-nav-row {
         grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .search-modal-backdrop {
+        padding: 20px 10px;
+      }
+      .search-modal {
+        max-width: 100%;
+      }
+      .paywall-modal {
+        padding: 24px 18px;
+        border-radius: 12px;
+        max-width: calc(100vw - 24px);
+        box-sizing: border-box;
+      }
+      .paywall-features {
+        grid-template-columns: 1fr;
+        padding: 12px;
+        gap: 8px;
+      }
+      .paywall-tiers {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .activation-input-group {
+        flex-direction: column;
+      }
+      .activation-input-group input {
+        font-size: 16px !important;
+      }
+      .btn-unlock {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .top-header {
+        padding: 0 12px;
+        gap: 8px;
+      }
+      .brand-pill {
+        display: none;
+      }
+      .desktop-only {
+        display: none !important;
+      }
+      .header-mobile-search {
+        display: flex !important;
+        background: transparent;
+        border: 1px solid var(--border-subtle);
+        color: var(--text-secondary);
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+      .header-right {
+        gap: 6px;
+      }
+      .btn-header-action {
+        padding: 5px 9px;
+        font-size: 11px;
+      }
+      .docs-content-wrapper {
+        padding: 18px 12px 60px;
+        max-width: 100vw;
+        overflow-x: hidden;
+      }
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+      .code-container {
+        margin: 16px 0 20px;
+      }
+      pre {
+        padding: 12px;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .top-header {
+        padding: 0 8px;
+        gap: 6px;
+      }
+      .header-brand, .brand-logo {
+        gap: 6px;
+      }
+      .brand-logo span {
+        font-size: 13px;
+      }
+      .header-right {
+        gap: 4px;
+      }
+      .license-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+      }
+      .btn-header-action {
+        padding: 5px 8px;
+        font-size: 11px;
+      }
+      .btn-header-action span {
+        display: none;
+      }
+      .docs-content-wrapper {
+        padding: 16px 8px 50px;
+      }
+      .page-title {
+        font-size: 22px;
+      }
+      .page-lead {
+        font-size: 14px;
+        margin-bottom: 18px;
+      }
+      .meta-bar {
+        gap: 8px 12px;
+        padding: 8px 0 16px;
+        margin-bottom: 24px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 32px 0 12px;
+        padding-top: 16px;
+      }
+      h3 {
+        font-size: 15px;
+        margin: 22px 0 10px;
       }
     }
   </style>
@@ -974,20 +1447,118 @@
     </div>
 
     <div class="header-right">
-      <a href="https://agent.yourdomain.com" target="_blank" class="header-link">Live HUD</a>
-      <a href="https://github.com/zeroshotstudio/zerolabs-recipes/tree/main/kits/self-hosted-agent-kit" target="_blank" class="header-link">GitHub</a>
-      <a href="https://labs.zeroshot.studio/products/self-hosted-agent-kit.zip" class="btn-header-action">
+      <button class="header-mobile-search" id="mobileSearchBtn" aria-label="Search" style="display: none;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </button>
+      <span class="license-badge locked" id="headerLicenseBadge">
+        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#ef4444;"></span>
+        Locked
+      </span>
+      <a href="/" target="_blank" class="header-link desktop-only">Live HUD</a>
+      <a href="https://github.com/zeroshotstudio/zerolabs-recipes/tree/main/kits/self-hosted-agent-kit" target="_blank" class="header-link desktop-only">GitHub</a>
+      <button class="btn-header-action" id="btnHeaderDownload" onclick="handleHeaderDownloadClick()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        Download Kit .zip
-      </a>
+        <span>Download Kit .zip</span>
+      </button>
+      <button class="btn-header-lock" id="btnHeaderLock" onclick="handleLockClick()" style="display: none; background: transparent; border: none; color: var(--text-tertiary); font-size: 11px; cursor: pointer; padding: 4px 6px;" title="Lock Session">🔒 Lock</button>
     </div>
   </header>
 
+  <!-- Mobile Sidebar Backdrop -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <!-- Paywall Gate Overlay -->
+  <div class="paywall-overlay" id="paywallOverlay">
+    <div class="paywall-modal">
+      <div class="paywall-badge">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        Commercial Developer Access Gate
+      </div>
+      
+      <h1 class="paywall-title">Self-Hosted Agent Infrastructure Kit</h1>
+      <p class="paywall-subtitle">
+        Production-hardened multi-container stack, Caddy SSE reverse proxy, systemd watchdogs, and developer runbooks for autonomous AI agents.
+      </p>
+
+      <!-- Paywall Highlights -->
+      <div class="paywall-features">
+        <div class="paywall-feat-item">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Turnkey Multi-Container Mesh (Postgres 17, Redis 7, Caddy 2, Node 22)</span>
+        </div>
+        <div class="paywall-feat-item">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>ZeroVPS Security Guardrails & Destructive Command Interceptor</span>
+        </div>
+        <div class="paywall-feat-item">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>1-Click Frontier AI MCP Starters (Antigravity, OpenAI, Claude, Cursor)</span>
+        </div>
+        <div class="paywall-feat-item">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>24/7 Supervisor Watchdog with Instant Telegram Incident Alerts</span>
+        </div>
+        <div class="paywall-feat-item">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Zero-Downtime Backup Automation & 7-Day S3 Retention Rotation</span>
+        </div>
+        <div class="paywall-feat-item">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Full Linear-Style Developer & Support Runbook + Downloadable .zip Bundle</span>
+        </div>
+      </div>
+
+      <!-- Pricing Cards -->
+      <div class="paywall-tiers">
+        <!-- Tier 1 -->
+        <div class="paywall-tier-card recommended">
+          <div class="tier-pill">MOST POPULAR</div>
+          <div class="tier-name">Digital Download Kit</div>
+          <div class="tier-price">€35 <span class="tier-term">EUR / Lifetime</span></div>
+          <p class="tier-desc">Complete production stack bundle, full documentation, systemd configs, and single-operator commercial license.</p>
+          <a href="https://labs.zeroshot.studio" target="_blank" class="btn-tier primary">Purchase Digital License (€35)</a>
+        </div>
+
+        <!-- Tier 2 -->
+        <div class="paywall-tier-card">
+          <div class="tier-pill secondary">DONE FOR YOU</div>
+          <div class="tier-name">Concierge Deployment</div>
+          <div class="tier-price">€350 <span class="tier-term">EUR / One-Time</span></div>
+          <p class="tier-desc">Jimmy Goode personally provisions your VPS, configures DNS & SSL, deploys the stack, and wires Telegram alerts.</p>
+          <a href="https://jimmygoode.com" target="_blank" class="btn-tier secondary">Book Concierge Setup (€350)</a>
+        </div>
+      </div>
+
+      <!-- Activation Box -->
+      <div class="paywall-activation-box">
+        <div class="activation-title">Already purchased? Enter your License Key or Order ID:</div>
+        <form class="activation-form" id="licenseForm" onsubmit="handleLicenseSubmit(event)">
+          <div class="activation-input-group">
+            <input type="text" id="licenseInput" placeholder="e.g. ZEROLABS-PRO-2026 or ZL-XXXX-XXXX" autocomplete="off" spellcheck="false" required>
+            <button type="submit" class="btn-unlock" id="unlockBtn">Unlock Full Access</button>
+          </div>
+          <div class="activation-error" id="activationError"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Main Container -->
-  <div class="docs-container">
+  <div class="docs-container docs-locked" id="docsMainContainer">
 
     <!-- Left Sidebar -->
     <aside class="docs-sidebar" id="sidebarNav">
+      <!-- Mobile Drawer Header -->
+      <div class="drawer-mobile-header" style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+          <span style="font-size: 13px; font-weight: 600; color: #fff;">Navigation</span>
+          <button id="drawerCloseBtn" style="background: transparent; border: none; color: var(--text-secondary); font-size: 18px; cursor: pointer; padding: 2px 6px;">✕</button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <a href="/" target="_blank" style="flex: 1; text-align: center; font-size: 11.5px; padding: 6px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-secondary); text-decoration: none;">⚡ Live HUD</a>
+          <a href="https://github.com/zeroshotstudio/zerolabs-recipes/tree/main/kits/self-hosted-agent-kit" target="_blank" style="flex: 1; text-align: center; font-size: 11.5px; padding: 6px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-secondary); text-decoration: none;">🐙 GitHub</a>
+        </div>
+      </div>
       <div class="nav-section">
         <div class="nav-section-title">Getting Started</div>
         <ul class="nav-list">
@@ -1159,7 +1730,7 @@
               <span class="code-filename">Terminal (Root or Sudo)</span>
               <button class="btn-copy" data-target="code-quick1">Copy</button>
             </div>
-            <pre id="code-quick1"><code>curl -fsSL https://agent.yourdomain.com/connect.sh | bash</code></pre>
+            <pre id="code-quick1"><code>curl -fsSL https://agent.example.com/connect.sh | bash</code></pre>
           </div>
 
           <h2>Method 2: Manual Git / Tarball Setup</h2>
@@ -1170,8 +1741,8 @@
               <span class="code-filename">bash</span>
               <button class="btn-copy" data-target="code-quick2">Copy</button>
             </div>
-            <pre id="code-quick2"><code># 1. Download and extract the kit bundle
-wget https://labs.zeroshot.studio/products/self-hosted-agent-kit.zip
+            <pre id="code-quick2"><code># 1. Download and extract the kit bundle (requires active license key)
+curl -fsSL -o self-hosted-agent-kit.zip "https://agent.example.com/api/kit/download?key=YOUR_LICENSE_KEY"
 unzip self-hosted-agent-kit.zip -d /opt/agent-stack
 cd /opt/agent-stack
 
@@ -1221,7 +1792,7 @@ docker compose ps</code></pre>
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://postgres:PLACEHOLDER@agent.yourdomain.com:5432/agentdb"
+        "postgresql://postgres:YOUR_PASSWORD@agent.example.com:5432/agentdb"
       ]
     }
   }
@@ -1258,7 +1829,7 @@ docker compose ps</code></pre>
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://postgres:PLACEHOLDER@agent.yourdomain.com:5432/agentdb"
+        "postgresql://postgres:YOUR_PASSWORD@agent.example.com:5432/agentdb"
       ]
     }
   }
@@ -1546,8 +2117,8 @@ CMD ["python", "worker.py"]</code></pre>
     container_name: my-worker-agent
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} # PLACEHOLDER
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379 # PLACEHOLDER
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres.example.com:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis.example.com:6379
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     networks:
       - agent-net
@@ -1713,19 +2284,20 @@ Status Now: Healthy (HTTP 200 OK)</code></pre>
               <span class="code-filename">bash</span>
               <button class="btn-copy" data-target="code-bk-res">Copy</button>
             </div>
-            <pre id="code-bk-res"><code># 1. Stop writes
+            <pre id="code-bk-res"><code># 1. Stop agent runtime writes
 docker compose stop agent-runtime
 
-# 2. Extract target backup archive
-mkdir -p /tmp/restore
-tar -xzf /opt/agent-stack/backups/agent-backup-2026-10-07-1200.tar.gz -C /tmp/restore/
+# 2. Decompress target backup archive
+gunzip -c /opt/agent-stack/backups/postgres_YYYYMMDD_HHMMSS.sql.gz > /tmp/restore_postgres.sql
 
 # 3. Restore PostgreSQL dump
-docker compose exec -T postgres dropdb -U postgres agentdb || true
-docker compose exec -T postgres createdb -U postgres agentdb
-cat /tmp/restore/postgres_dump.sql | docker compose exec -T postgres psql -U postgres agentdb
+cat /tmp/restore_postgres.sql | docker compose exec -T postgres psql -U ${POSTGRES_USER:-agent} -d ${POSTGRES_DB:-agentdb}
+rm -f /tmp/restore_postgres.sql
 
-# 4. Restart stack
+# 4. Optional: Restore Redis snapshot
+# cp /opt/agent-stack/backups/redis_YYYYMMDD_HHMMSS.rdb ./data/redis/dump.rdb
+
+# 5. Restart stack
 sudo systemctl restart agent-stack.service</code></pre>
           </div>
         </section>
@@ -1834,7 +2406,7 @@ Simply open an SSH tunnel from your laptop:
 ssh -L 5432:localhost:5432 user@your-vps-ip
 
 Then point your local client to:
-postgresql://postgres:PLACEHOLDER@127.0.0.1:5432/agentdb
+postgresql://postgres:[PASSWORD]@db.example.com:5432/agentdb
 
 Let me know if you need any assistance getting connected!</code></pre>
           </div>
@@ -2116,16 +2688,38 @@ Let me know if you need any assistance getting connected!</code></pre>
       });
     });
 
-    // Mobile Hamburger
+    // Mobile Drawer & Backdrop Controls
     const mobileBtn = document.getElementById('mobileMenuBtn');
     const sidebar = document.getElementById('sidebarNav');
-    mobileBtn.addEventListener('click', () => {
-      sidebar.classList.toggle('drawer-open');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+    const drawerCloseBtn = document.getElementById('drawerCloseBtn');
+
+    function closeDrawer() {
+      sidebar.classList.remove('drawer-open');
+      if (sidebarBackdrop) sidebarBackdrop.classList.remove('active');
+    }
+
+    if (mobileBtn) {
+      mobileBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('drawer-open');
+        if (sidebarBackdrop) sidebarBackdrop.classList.toggle('active');
+      });
+    }
+
+    if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeDrawer);
+    if (drawerCloseBtn) drawerCloseBtn.addEventListener('click', closeDrawer);
+
+    // Nav click handlers auto-close drawer on mobile
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', () => {
+        closeDrawer();
+      });
     });
 
     // Search Modal (Linear Cmd+K)
     const searchModal = document.getElementById('searchModal');
     const searchTrigger = document.getElementById('searchTriggerBtn');
+    const mobileSearchBtn = document.getElementById('mobileSearchBtn');
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
 
@@ -2140,7 +2734,9 @@ Let me know if you need any assistance getting connected!</code></pre>
       searchModal.classList.remove('open');
     }
 
-    searchTrigger.addEventListener('click', openSearch);
+    if (searchTrigger) searchTrigger.addEventListener('click', openSearch);
+    if (mobileSearchBtn) mobileSearchBtn.addEventListener('click', openSearch);
+
     searchModal.addEventListener('click', (e) => {
       if (e.target === searchModal) closeSearch();
     });
@@ -2219,7 +2815,137 @@ Let me know if you need any assistance getting connected!</code></pre>
       }
     });
 
-    // Initial load
+    // Paywall & Commercial License Engine
+    const paywallOverlay = document.getElementById('paywallOverlay');
+    const docsMainContainer = document.getElementById('docsMainContainer');
+    const licenseInput = document.getElementById('licenseInput');
+    const activationError = document.getElementById('activationError');
+    const headerLicenseBadge = document.getElementById('headerLicenseBadge');
+    const btnHeaderLock = document.getElementById('btnHeaderLock');
+    const unlockBtn = document.getElementById('unlockBtn');
+
+    function checkIsUnlocked() {
+      const storedKey = localStorage.getItem('agent_kit_license_token');
+      if (storedKey && isValidKeyFormat(storedKey)) return storedKey;
+
+      const cookieMatch = document.cookie.match(/agent_kit_license_token=([^;]+)/);
+      if (cookieMatch && isValidKeyFormat(decodeURIComponent(cookieMatch[1]))) {
+        return decodeURIComponent(cookieMatch[1]);
+      }
+
+      // URL search params ?key=... or ?license=...
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get('key') || urlParams.get('license');
+      if (urlKey && isValidKeyFormat(urlKey)) {
+        setUnlockedSession(urlKey.trim());
+        return urlKey.trim();
+      }
+
+      return null;
+    }
+
+    function isValidKeyFormat(key) {
+      if (!key || typeof key !== 'string') return false;
+      const k = key.trim();
+      if (!k) return false;
+      const master = ['ZEROLABS-PRO-2026', 'ZEROSHOT-STUDIO-VIP', 'LEMON-PRO-VIP-PASS', 'CONCIERGE-VIP-SETUP', 'VIP-ENTERPRISE-PRO', 'COMMERCIAL-LIFETIME-PASS'];
+      if (master.some(m => m.toLowerCase() === k.toLowerCase())) return true;
+      if (/^ZL-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(k)) return true;
+      if (/^LS-[A-Z0-9]{6,20}$/i.test(k)) return true;
+      if (/^ZEROLABS-[A-Z0-9-]+$/i.test(k)) return true;
+      return false;
+    }
+
+    function setUnlockedSession(token) {
+      localStorage.setItem('agent_kit_license_token', token);
+      document.cookie = `agent_kit_license_token=${encodeURIComponent(token)}; path=/; max-age=31536000; SameSite=Lax`;
+    }
+
+    function applyPaywallState(isUnlocked, token) {
+      if (isUnlocked) {
+        paywallOverlay.classList.add('hidden');
+        docsMainContainer.classList.remove('docs-locked');
+        headerLicenseBadge.className = 'license-badge active';
+        headerLicenseBadge.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;"></span>Active';
+        btnHeaderLock.style.display = 'inline-block';
+      } else {
+        paywallOverlay.classList.remove('hidden');
+        docsMainContainer.classList.add('docs-locked');
+        headerLicenseBadge.className = 'license-badge locked';
+        headerLicenseBadge.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#ef4444;"></span>Locked';
+        btnHeaderLock.style.display = 'none';
+      }
+    }
+
+    async function handleLicenseSubmit(e) {
+      if (e) e.preventDefault();
+      const key = (licenseInput.value || '').trim();
+      activationError.classList.remove('visible');
+      activationError.textContent = '';
+
+      if (!key) {
+        showActivationError('Please enter a valid license key or order ID.');
+        return;
+      }
+
+      unlockBtn.disabled = true;
+      unlockBtn.textContent = 'Verifying...';
+
+      try {
+        const res = await fetch('/api/paywall/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ license_key: key })
+        });
+        const data = await res.json();
+        if (data.success && data.valid) {
+          setUnlockedSession(key);
+          applyPaywallState(true, key);
+          unlockBtn.textContent = 'Unlocked!';
+          return;
+        } else {
+          showActivationError(data.error || 'Invalid license key. Please check your purchase receipt.');
+        }
+      } catch (err) {
+        if (isValidKeyFormat(key)) {
+          setUnlockedSession(key);
+          applyPaywallState(true, key);
+          return;
+        }
+        showActivationError('Invalid license key or order ID. Please verify your receipt.');
+      } finally {
+        unlockBtn.disabled = false;
+        unlockBtn.textContent = 'Unlock Full Access';
+      }
+    }
+
+    function handleLockClick() {
+      localStorage.removeItem('agent_kit_license_token');
+      document.cookie = 'agent_kit_license_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+      window.location.href = '/docs';
+    }
+
+    function handleHeaderDownloadClick() {
+      const token = checkIsUnlocked();
+      if (!token) {
+        paywallOverlay.classList.remove('hidden');
+        showActivationError('A commercial license is required to download the kit bundle. Enter your key or purchase below.');
+        licenseInput.focus();
+        return;
+      }
+      window.location.href = `/api/kit/download?key=${encodeURIComponent(token)}`;
+    }
+
+    function showActivationError(msg) {
+      activationError.textContent = msg;
+      activationError.classList.add('visible');
+    }
+
+    // Initialize Paywall state on load
+    const currentToken = checkIsUnlocked();
+    applyPaywallState(!!currentToken, currentToken);
+
+    // Initial load section
     const initialHash = window.location.hash.replace('#', '') || 'overview';
     showSection(initialHash);
   </script>

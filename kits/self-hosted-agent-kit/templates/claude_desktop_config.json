@@ -1,20 +1,14 @@
 {
   "mcpServers": {
-    "zerolabs-postgres": {
-      "command": "npx",
+    "agent-kit": {
+      "command": "node",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-postgres",
-        "postgresql://agent:your_secret_here@127.0.0.1:5432/agentdb"
-      ]
-    },
-    "zerolabs-filesystem": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "/home/ubuntu/workspace"
-      ]
+        "/ABSOLUTE/PATH/TO/self-hosted-agent-kit/integrations/mcp/index.js"
+      ],
+      "env": {
+        "AGENTKIT_URL": "http://localhost:3080",
+        "AGENTKIT_TOKEN": "CREATE_A_SCOPED_TOKEN_IN_CONNECTIONS"
+      }
     }
   }
 }

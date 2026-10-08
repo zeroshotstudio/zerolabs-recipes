@@ -1,0 +1,19 @@
+services:
+  caddy:
+    ports: !override ["127.0.0.1:${TEST_PORT:-13080}:8080"]
+  worker:
+    environment:
+      OPENAI_API_KEY: fixture-not-a-real-provider-key
+      OPENAI_MODEL: fixture-model
+      MAX_TASK_SECONDS: 10
+      OPENAI_BASE_URL: http://fixture:8081/v1
+      ALLOW_INSECURE_MODEL_ENDPOINT: "true"
+      NO_PROXY: fixture,postgres,api,localhost,127.0.0.1
+      no_proxy: fixture,postgres,api,localhost,127.0.0.1
+    depends_on:
+      fixture: { condition: service_started }
+  fixture:
+    image: zerolabs-agentkit:2.0.0
+    command: [node, /fixture.mjs]
+    volumes: [./tests/fixture.mjs:/fixture.mjs:ro]
+    networks: [backend]

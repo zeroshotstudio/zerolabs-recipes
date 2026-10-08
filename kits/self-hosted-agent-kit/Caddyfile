@@ -1,38 +1,13 @@
 {
-    email {$ACME_EMAIL:admin@example.com}
-    admin off
+  admin off
+  auto_https off
 }
-
-{$APP_DOMAIN::80} {
-    encode gzip zstd
-
-    # Production Security Headers
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        Referrer-Policy "strict-origin-when-cross-origin"
-        Permissions-Policy "camera=(), microphone=(), geolocation=()"
-        -Server
-    }
-
-    # Reverse proxy to Agent Runtime with streaming SSE support
-    reverse_proxy agent-runtime:3000 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-
-        # Essential for streaming LLM responses (Server-Sent Events)
-        flush_interval -1
-    }
-
-    # Logging
-    log {
-        output file /var/log/caddy/access.log {
-            roll_size 50mb
-            roll_keep 5
-        }
-        format json
-    }
+:8080 {
+  encode zstd gzip
+  request_body {
+    max_size 192KB
+  }
+  reverse_proxy api:3000 {
+    header_up X-AgentKit-Client-IP {remote_host}
+  }
 }

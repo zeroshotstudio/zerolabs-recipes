@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Agent Kit · ZeroLabs</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div id="boot" class="boot">Connecting to your workspace…</div>
+    <section id="login" class="login-screen" hidden>
+      <div class="login-brand">
+        <span class="brand-icon">Z</span> ZeroLabs
+        <span class="muted">/ Agent Kit</span>
+      </div>
+      <form id="login-form" class="login-card">
+        <span class="eyebrow">YOUR PRIVATE WORKSPACE</span>
+        <h1>Welcome back.</h1>
+        <p>
+          Sign in to run tasks, inspect results, and keep your agent workspace
+          in view.
+        </p>
+        <label for="access-key">Operator access key</label
+        ><input
+          id="access-key"
+          name="key"
+          type="password"
+          autocomplete="current-password"
+          required
+          placeholder="Enter your access key"
+          maxlength="512"
+        />
+        <p class="help">
+          Use the ADMIN_TOKEN generated during setup. Your key stays on this
+          server.
+        </p>
+        <div id="login-error" class="form-error" role="alert"></div>
+        <button class="button primary full" type="submit">
+          Open workspace <span aria-hidden="true">→</span>
+        </button>
+        <a class="subtle-link" href="/docs#access">Help with access</a>
+      </form>
+      <p class="login-foot">Self-hosted infrastructure. Work you can verify.</p>
+    </section>
+    <div id="app" class="app-shell" hidden>
+      <button
+        id="nav-backdrop"
+        class="nav-backdrop"
+        aria-label="Close navigation"
+        hidden
+      ></button>
+      <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+        <a href="#overview" class="workspace-brand"
+          ><span class="brand-icon">Z</span
+          ><span>Agent Kit<small>ZeroLabs workspace</small></span
+          ><span class="edition">2.0</span></a
+        >
+        <button class="search-launch" data-action="command">
+          <span data-icon="search"></span><span>Go to…</span><kbd>⌘ K</kbd>
+        </button>
+        <div class="nav-label">Workspace</div>
+        <nav>
+          <a href="#overview" data-nav="overview"
+            ><span data-icon="overview"></span>Overview</a
+          >
+          <a href="#tasks" data-nav="tasks"
+            ><span data-icon="tasks"></span>Tasks<span
+              id="queue-count"
+              class="nav-count"
+            ></span
+          ></a>
+          <a href="#documents" data-nav="documents"
+            ><span data-icon="document"></span>Documents</a
+          >
+          <a href="#connections" data-nav="connections"
+            ><span data-icon="connect"></span>Connections</a
+          >
+        </nav>
+        <div class="nav-label second">Manage</div>
+        <nav>
+          <a href="#recovery" data-nav="recovery"
+            ><span data-icon="shield"></span>Recovery</a
+          >
+          <a href="#settings" data-nav="settings"
+            ><span data-icon="settings"></span>Settings</a
+          >
+          <a href="/docs" target="_blank" rel="noopener"
+            ><span data-icon="book"></span>Documentation<span
+              class="external"
+              aria-hidden="true"
+              >↗</span
+            ></a
+          >
+        </nav>
+        <div class="sidebar-footer">
+          <div id="worker-status" class="worker-status">
+            <span class="dot unknown"></span>Checking worker
+          </div>
+          <div class="operator-row">
+            <span class="avatar">O</span
+            ><span>Operator<small>Private workspace</small></span
+            ><button
+              class="icon-button"
+              data-action="logout"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <span data-icon="logout"></span>
+            </button>
+          </div>
+        </div>
+      </aside>
+      <div class="workspace">
+        <header class="topbar">
+          <div class="breadcrumb">
+            <button
+              id="mobile-nav"
+              class="icon-button mobile-only"
+              aria-label="Open navigation"
+              aria-controls="sidebar"
+              aria-expanded="false"
+            >
+              <span data-icon="menu"></span></button
+            ><span class="muted breadcrumb-root">Workspace</span
+            ><span class="divider breadcrumb-root">/</span
+            ><span id="page-name">Overview</span>
+          </div>
+          <div class="top-actions">
+            <button
+              class="icon-button"
+              data-action="refresh"
+              aria-label="Refresh workspace"
+              title="Refresh"
+            >
+              <span data-icon="refresh"></span></button
+            ><button
+              class="icon-button"
+              data-action="theme"
+              aria-label="Switch color theme"
+              title="Switch color theme"
+            >
+              <span data-icon="theme"></span></button
+            ><button class="button primary small" data-action="new-task">
+              <span data-icon="plus"></span>New task
+            </button>
+          </div>
+        </header>
+        <div
+          id="connection-banner"
+          class="connection-banner"
+          role="status"
+          hidden
+        >
+          Connection lost. Displayed data may be out of date. Retrying…
+        </div>
+        <main id="main" tabindex="-1"><div id="page"></div></main>
+        <footer class="workspace-foot">
+          <span>ZeroLabs Agent Kit</span
+          ><span id="last-updated">Waiting for measured activity</span>
+        </footer>
+      </div>
+    </div>
+    <dialog id="modal" aria-labelledby="modal-title">
+      <div class="dialog-head">
+        <h2 id="modal-title"></h2>
+        <button
+          class="icon-button"
+          data-action="close-dialog"
+          aria-label="Close dialog"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <div id="modal-body"></div>
+    </dialog>
+    <div id="toast" class="toast" role="status" hidden></div>
+  </body>
+</html>

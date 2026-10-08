@@ -1,64 +1,39 @@
 #!/usr/bin/env bash
-# backup.sh — Zero-downtime backup script for Agent Stack Postgres & Redis
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STACK_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-
-# Source .env if present
-if [[ -f "${STACK_DIR}/.env" ]]; then
-    set -a
-    source "${STACK_DIR}/.env"
-    set +a
+source "$(dirname -- "${BASH_SOURCE[0]}")/lib.sh"
+require_tools docker python3 flock
+umask 077
+mkdir -p "$ROOT/backups" "$ROOT/state"
+chmod 0700 "$ROOT/backups"
+chmod 0755 "$ROOT/state"
+exec 9>"$ROOT/backups/.backup.lock"
+flock -n 9 || { echo 'A backup is already running' >&2; exit 1; }
+TMP="$(mktemp -d "$ROOT/backups/.pending.XXXXXXXX")"
+SUCCESS=false
+cleanup() {
+  local rc=$?
+  rm -rf -- "$TMP"
+  if [[ "$SUCCESS" != true ]]; then
+    python3 "$ROOT/scripts/archives.py" failed "$ROOT/state/backup-status.json" || true
+    echo 'Backup failed. Existing backups were retained.' >&2
+    [[ "$rc" -ne 0 ]] || rc=1
+  fi
+  exit "$rc"
+}
+trap cleanup EXIT
+compose exec -T postgres sh -ec 'pg_dump --format=custom --no-owner --no-acl -U agent_admin -d "$POSTGRES_DB"' > "$TMP/database.dump"
+[[ -s "$TMP/database.dump" ]] || { echo 'Database dump is empty' >&2; exit 1; }
+compose exec -T postgres pg_restore --list < "$TMP/database.dump" >/dev/null
+ARCHIVE="$(python3 "$ROOT/scripts/archives.py" pack "$TMP/database.dump" "$ROOT/backups")"
+REMOTE="$(read_env BACKUP_REMOTE)"
+OFFSITE='not configured'
+if [[ -n "$REMOTE" ]]; then
+  require_tools rclone
+  rclone copyto "$ARCHIVE" "${REMOTE%/}/$(basename "$ARCHIVE")"
+  # Download-and-hash verification works for remotes without comparable native hashes.
+  rclone cat "${REMOTE%/}/$(basename "$ARCHIVE")" | python3 "$ROOT/scripts/archives.py" compare "$ARCHIVE"
+  OFFSITE=verified
 fi
-
-BACKUP_DIR="${BACKUP_DIR:-${STACK_DIR}/backups}"
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-RETENTION_DAYS=7
-DB_USER="${POSTGRES_USER:-agent}"
-
-mkdir -p "${BACKUP_DIR}"
-
-echo "[BACKUP] Starting backup at $(date)..."
-
-# 1. PostgreSQL dump via docker exec
-if docker ps --format '{{.Names}}' | grep -q "^agent-postgres$"; then
-    echo "[BACKUP] Dumping PostgreSQL..."
-    TMP_DUMP="${BACKUP_DIR}/.tmp_pg_${TIMESTAMP}.sql"
-    if docker exec agent-postgres pg_dumpall -U "${DB_USER}" > "${TMP_DUMP}"; then
-        if [[ -s "${TMP_DUMP}" ]]; then
-            gzip -c "${TMP_DUMP}" > "${BACKUP_DIR}/postgres_${TIMESTAMP}.sql.gz"
-            rm -f "${TMP_DUMP}"
-            echo "[BACKUP] Postgres backup saved to ${BACKUP_DIR}/postgres_${TIMESTAMP}.sql.gz"
-        else
-            rm -f "${TMP_DUMP}"
-            echo "[-] [BACKUP ERROR] Postgres dump produced an empty file. Backup failed." >&2
-            exit 1
-        fi
-    else
-        rm -f "${TMP_DUMP}"
-        echo "[-] [BACKUP ERROR] pg_dumpall failed with non-zero exit code." >&2
-        exit 1
-    fi
-fi
-
-# 2. Redis RDB snapshot
-if docker ps --format '{{.Names}}' | grep -q "^agent-redis$"; then
-    echo "[BACKUP] Triggering Redis BGSAVE..."
-    docker exec agent-redis redis-cli -a "${REDIS_PASSWORD:-}" bgsave || true
-    sleep 2
-    # Copy RDB directly from container volume if needed
-    docker exec agent-redis cat /data/dump.rdb > "${BACKUP_DIR}/redis_${TIMESTAMP}.rdb" 2>/dev/null || true
-    if [[ -s "${BACKUP_DIR}/redis_${TIMESTAMP}.rdb" ]]; then
-        echo "[BACKUP] Redis snapshot saved to ${BACKUP_DIR}/redis_${TIMESTAMP}.rdb"
-    else
-        rm -f "${BACKUP_DIR}/redis_${TIMESTAMP}.rdb"
-    fi
-fi
-
-# 3. Prune old backups older than 7 days
-echo "[BACKUP] Pruning backups older than ${RETENTION_DAYS} days..."
-find "${BACKUP_DIR}" -type f -name "*.gz" -mtime +${RETENTION_DAYS} -delete 2>/dev/null || true
-find "${BACKUP_DIR}" -type f -name "*.rdb" -mtime +${RETENTION_DAYS} -delete 2>/dev/null || true
-
-echo "[BACKUP] Completed successfully at $(date)."
+python3 "$ROOT/scripts/archives.py" status "$ARCHIVE" "$ROOT/state/backup-status.json" "$OFFSITE"
+python3 "$ROOT/scripts/archives.py" prune "$ROOT/backups" "$(read_env BACKUP_KEEP 14)"
+SUCCESS=true
+printf 'Verified backup: %s\nOffsite: %s\n' "$ARCHIVE" "$OFFSITE"

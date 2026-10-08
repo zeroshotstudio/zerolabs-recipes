@@ -64,6 +64,27 @@ async function until(fn, seconds = 45) {
   throw new Error("Condition timed out");
 }
 try {
+  await compose(
+    "exec",
+    "-T",
+    "worker",
+    "node",
+    "--input-type=module",
+    "-e",
+    `
+    import net from 'node:net'; import {setTimeout as delay} from 'node:timers/promises';
+    const socket=net.connect(8081,'fixture',()=>{
+      socket.write('POST /v1/responses HTTP/1.1\\r\\nHost: fixture\\r\\nAuthorization: Bearer fixture-not-a-real-provider-key\\r\\nContent-Length: 1000\\r\\nContent-Type: application/json\\r\\n\\r\\n{');
+      setTimeout(()=>socket.destroy(),50);
+    });
+    socket.on('error',()=>{}); await delay(500);
+    const response=await fetch('http://fixture:8081/v1/responses');
+    if(response.status!==401)throw new Error('Fixture did not survive an interrupted request upload');
+  `,
+  );
+  console.log(
+    "PASS provider fixture survives interrupted HTTP request uploads",
+  );
   await compose("stop", "worker");
   const queued = await request("/api/tasks", "POST", {
     kind: "audit",
@@ -150,6 +171,8 @@ try {
     tasks.push(
       await until(async () => {
         const t = (await request("/api/tasks/" + id)).data.task;
+        if (["failed", "cancelled"].includes(t.status))
+          throw new Error(`Concurrent task ${id}: ${t.status}: ${t.error}`);
         return t.status === "completed" && t;
       }),
     );

@@ -1,6 +1,6 @@
 // A deterministic provider protocol fixture. Never used by the production compose file.
 import http from "node:http";
-const server = http.createServer(async (req, res) => {
+async function respond(req, res) {
   if (
     req.url !== "/v1/responses" ||
     req.headers.authorization !== "Bearer fixture-not-a-real-provider-key"
@@ -86,5 +86,15 @@ const server = http.createServer(async (req, res) => {
       usage: { input_tokens: 40, output_tokens: 25 },
     }),
   );
+}
+const server = http.createServer((req, res) => {
+  // Abrupt worker termination can interrupt the HTTP request body itself.
+  // The fixture must survive that just as a real provider endpoint would.
+  respond(req, res).catch((error) => {
+    if (req.aborted || res.destroyed) return;
+    console.error("Fixture rejected a request:", error.name);
+    if (!res.headersSent) res.writeHead(400);
+    res.end("{}");
+  });
 });
 server.listen(8081, "0.0.0.0");

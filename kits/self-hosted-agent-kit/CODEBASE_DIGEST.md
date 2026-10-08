@@ -6211,12 +6211,12 @@ services:
 
 ## tests/fixture.mjs
 
-SHA-256: `182886be1f17661f22ead710bd3bab78a6fd856a176d5715113965f807d32702`
+SHA-256: `24cb4ae0a62f273dcb24861b6d8eb728e7989a162cb6947f827946270d6bbb05`
 
 ~~~~mjs
 // A deterministic provider protocol fixture. Never used by the production compose file.
 import http from "node:http";
-const server = http.createServer(async (req, res) => {
+async function respond(req, res) {
   if (
     req.url !== "/v1/responses" ||
     req.headers.authorization !== "Bearer fixture-not-a-real-provider-key"
@@ -6302,6 +6302,16 @@ const server = http.createServer(async (req, res) => {
       usage: { input_tokens: 40, output_tokens: 25 },
     }),
   );
+}
+const server = http.createServer((req, res) => {
+  // Abrupt worker termination can interrupt the HTTP request body itself.
+  // The fixture must survive that just as a real provider endpoint would.
+  respond(req, res).catch((error) => {
+    if (req.aborted || res.destroyed) return;
+    console.error("Fixture rejected a request:", error.name);
+    if (!res.headersSent) res.writeHead(400);
+    res.end("{}");
+  });
 });
 server.listen(8081, "0.0.0.0");
 
@@ -6568,7 +6578,7 @@ with tempfile.TemporaryDirectory(prefix='agentkit-package-') as tmp:
 
 ## tests/resilience.mjs
 
-SHA-256: `2312cc01a966ae76c048677748d92c27caf546fc810a834913b21389f3c44646`
+SHA-256: `b3e9710ae6c2a94e1eaf41c6195c96dbc7de18c3aa22ccaabd3277627433583a`
 
 ~~~~mjs
 import assert from "node:assert/strict";
@@ -6637,6 +6647,27 @@ async function until(fn, seconds = 45) {
   throw new Error("Condition timed out");
 }
 try {
+  await compose(
+    "exec",
+    "-T",
+    "worker",
+    "node",
+    "--input-type=module",
+    "-e",
+    `
+    import net from 'node:net'; import {setTimeout as delay} from 'node:timers/promises';
+    const socket=net.connect(8081,'fixture',()=>{
+      socket.write('POST /v1/responses HTTP/1.1\\r\\nHost: fixture\\r\\nAuthorization: Bearer fixture-not-a-real-provider-key\\r\\nContent-Length: 1000\\r\\nContent-Type: application/json\\r\\n\\r\\n{');
+      setTimeout(()=>socket.destroy(),50);
+    });
+    socket.on('error',()=>{}); await delay(500);
+    const response=await fetch('http://fixture:8081/v1/responses');
+    if(response.status!==401)throw new Error('Fixture did not survive an interrupted request upload');
+  `,
+  );
+  console.log(
+    "PASS provider fixture survives interrupted HTTP request uploads",
+  );
   await compose("stop", "worker");
   const queued = await request("/api/tasks", "POST", {
     kind: "audit",
@@ -6723,6 +6754,8 @@ try {
     tasks.push(
       await until(async () => {
         const t = (await request("/api/tasks/" + id)).data.task;
+        if (["failed", "cancelled"].includes(t.status))
+          throw new Error(`Concurrent task ${id}: ${t.status}: ${t.error}`);
         return t.status === "completed" && t;
       }),
     );

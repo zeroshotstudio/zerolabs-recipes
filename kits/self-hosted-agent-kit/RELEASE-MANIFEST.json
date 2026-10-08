@@ -370,8 +370,8 @@
     },
     {
       "path": "tests/fixture.mjs",
-      "bytes": 3191,
-      "sha256": "182886be1f17661f22ead710bd3bab78a6fd856a176d5715113965f807d32702",
+      "bytes": 3590,
+      "sha256": "24cb4ae0a62f273dcb24861b6d8eb728e7989a162cb6947f827946270d6bbb05",
       "mode": "0644"
     },
     {
@@ -406,8 +406,8 @@
     },
     {
       "path": "tests/resilience.mjs",
-      "bytes": 6051,
-      "sha256": "2312cc01a966ae76c048677748d92c27caf546fc810a834913b21389f3c44646",
+      "bytes": 7008,
+      "sha256": "b3e9710ae6c2a94e1eaf41c6195c96dbc7de18c3aa22ccaabd3277627433583a",
       "mode": "0644"
     },
     {

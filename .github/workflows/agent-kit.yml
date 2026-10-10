@@ -1,0 +1,78 @@
+name: Agent Kit acceptance
+on:
+  pull_request:
+    paths: ['kits/self-hosted-agent-kit/**', '.github/workflows/agent-kit.yml']
+  push:
+    branches: [main]
+    paths: ['kits/self-hosted-agent-kit/**', '.github/workflows/agent-kit.yml']
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: kits/self-hosted-agent-kit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Install locked dependencies
+        run: |
+          npm ci --prefix app
+          npm ci --prefix integrations/mcp
+          npm ci --prefix tests
+          cd tests
+          npx playwright install --with-deps chromium
+      - name: Validate source and generate documentation
+        run: |
+          find scripts -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          python3 -m compileall -q scripts examples tests
+          npm test --prefix app
+          python3 tests/systemd.py
+          npm audit --prefix app --omit=dev
+          npm audit --prefix integrations/mcp --omit=dev
+          python3 scripts/build-docs.py
+          git diff --exit-code -- app/public/docs.html docs/index.html
+      - name: Create isolated fixture stack
+        run: |
+          ROOT="$PWD" python3 scripts/config.py init
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.env');s=p.read_text().replace('COMPOSE_PROJECT_NAME=agentkit','COMPOSE_PROJECT_NAME=agentkit-ci-test').replace('PUBLIC_ORIGIN=http://localhost:3080','PUBLIC_ORIGIN=http://localhost:13080').replace('PORT=3080','PORT=13080');p.write_text(s);p.chmod(0o600)
+          PY
+          mkdir -p state backups
+          docker compose -f docker-compose.yml -f tests/compose.test.yml up -d --build --wait --wait-timeout 180
+      - name: API, MCP and browser workflows
+        run: |
+          node tests/acceptance.mjs
+          node tests/mcp.mjs
+          SCREENSHOT_DIR=/tmp/agentkit-browser node tests/browser.mjs
+          node tests/auth-rate.mjs
+      - name: Failure recovery and database privileges
+        run: node tests/resilience.mjs
+      - name: Backups, installation and restore
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y rclone
+          python3 tests/operations.py
+      - name: Build and validate release artifact
+        run: |
+          python3 scripts/release.py
+          python3 tests/package.py
+      - name: Service diagnostics
+        if: failure()
+        run: docker compose -f docker-compose.yml -f tests/compose.test.yml logs --no-color --tail 100 > /tmp/agentkit-services.log
+      - name: Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-kit-acceptance
+          path: |
+            /tmp/agentkit-browser
+            /tmp/agentkit-services.log
+            kits/self-hosted-agent-kit/release/*
+      - name: Stop isolated services
+        if: always()
+        run: docker compose -f docker-compose.yml -f tests/compose.test.yml down --volumes

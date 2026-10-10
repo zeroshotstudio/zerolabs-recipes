@@ -1,0 +1,140 @@
+<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent Kit documentation · ZeroLabs</title><link rel="stylesheet" href="/style.css"><link rel="icon" href="/favicon.svg"></head><body><main class="doc-layout"><a href="/">← Open workspace</a><h1>Agent Kit documentation</h1><p>Version 2.0 · Install, operate, connect and recover your workspace.</p><nav class="doc-nav" aria-label="Guide sections"><a href="#start">Overview</a><a href="#access">Setup & access</a><a href="#models">AI models</a><a href="#api">API</a><a href="#mcp">MCP</a><a href="#recovery">Recovery</a><a href="#support">Troubleshooting</a></nav><section id="start"><h2>ZeroLabs Agent Kit 2.0</h2>
+<p>A self-hosted task workspace for a single technical operator. Run a bounded AI assistant, follow its actual execution, and keep its results and documents in your own PostgreSQL database.</p>
+<p>The kit supplies an application, a real background worker, deployment files, a local MCP bridge, verified backups, and a recovery procedure. You supply a Linux host, Docker, and (for AI tasks) an OpenAI API key and a model supporting the Responses API and function calling. Model calls leave your server and are billed separately by the provider.</p>
+<h3>What works</h3>
+<ul>
+<li>Durable tasks with queued / running / completed / failed / cancelled states. Completion requires a saved result.</li>
+<li>A worker that calls the OpenAI Responses API and executes four bounded tools: list documents, read a document, calculate, and save a text artifact.</li>
+<li>A genuine local system check that needs no model key.</li>
+<li>Task history, execution traces, provider-reported token usage, cancellation, manual retries, artifact downloads, search and filters.</li>
+<li>Operator sessions, CSRF protection, revocable API tokens with explicit permissions, and an access audit trail.</li>
+<li>A responsive, keyboard-accessible dashboard inspired by Linear&#x27;s hierarchy, spacing and restrained visual design. No affiliation with Linear.</li>
+<li>Private networking by default; optional public HTTPS or private Tailscale Serve.</li>
+<li>Atomic PostgreSQL backups with checksums, optional verified rclone copies, a daily systemd timer, and a clean-workspace restore command.</li>
+<li>An MCP stdio bridge and a dependency-free Python task client.</li>
+</ul>
+<p>This is a single-host, single-workspace product. It is <strong>not</strong> a general autonomous server administrator, OpenClaw runtime, multi-tenant platform, local model bundle, high-availability cluster, or guarantee of correct AI output. The assistant cannot execute shell commands, browse the web, send messages, access arbitrary files, or deploy software. Documents are context, not a vector search/RAG service. You can build external clients against the task API.</p>
+<h3>Start</h3>
+<p>Target: Ubuntu 22.04/24.04 or Debian 12 with Docker Engine and Docker Compose <strong>2.24.4+</strong>, Python 3, Bash, <code>flock</code>, 2 CPU cores, 2 GiB RAM minimum (4 GiB recommended), and 10 GiB free disk plus your backup storage. The included containers support amd64 and arm64 through their upstream images; the release acceptance run records the architecture actually tested.</p>
+<ul>
+<li>Verify the release&#x27;s <code>SHA256SUMS</code> and extract the ZIP. Review the included license and release notes.</li>
+<li>Install Docker using its <a href="https://docs.docker.com/engine/install/" target="_blank" rel="noopener">official instructions</a>.</li>
+<li>From the extracted kit, run <code>sudo ./scripts/setup.sh</code>. It installs to <code>/opt/agentkit</code>, generates private credentials, builds and starts the stack, and enables a daily backup timer on systemd hosts.</li>
+<li>For a remote host, open an SSH tunnel: <code>ssh -L 3080:127.0.0.1:3080 your-server</code>. Open <strong>http://localhost:3080</strong> and sign in using <code>ADMIN_TOKEN</code> from <code>/opt/agentkit/.env</code>.</li>
+<li>Run <strong>System check</strong>. To enable AI tasks, set <code>OPENAI_API_KEY</code> and <code>OPENAI_MODEL</code> in <code>.env</code>, then run <code>docker compose up -d --force-recreate worker</code> in <code>/opt/agentkit</code>.</li>
+<li>Run <code>sudo ./scripts/backup.sh</code>. Save <code>.env</code> separately in an encrypted password vault and rehearse a restore into another installation.</li>
+</ul>
+<p><code>setup.sh --dest /path</code> also works from inside that same directory; existing <code>.env</code> and runtime data are preserved. <code>--no-start --no-timer</code> prepares files without starting services. A pre-existing <code>.env</code> must have valid v2 credentials; setup will not silently overwrite it. The installer never changes your firewall or SSH port.</p>
+<h3>Documentation and integrations</h3>
+<p>Open <code>/docs</code> on the running app, or docs/index.html offline. See Quickstart, Developer guide, Recovery and security, Support, and Release acceptance.</p>
+<p>For MCP, run <code>npm ci</code> in <code>integrations/mcp</code>, create a token in <strong>Connections</strong>, and adapt the client configuration. This is a local Node program shipped with the kit; no unpublished registry package is required. OpenClaw can be integrated as an external API client where supported by your configuration, but this release does not execute OpenClaw agent sessions.</p>
+<h3>Development and verification</h3>
+<pre class="code">npm ci --prefix app
+npm test --prefix app
+npm ci --prefix integrations/mcp
+# On a dedicated test installation with a project name containing &quot;test&quot;:
+docker compose -f docker-compose.yml -f tests/compose.test.yml up -d --build --wait
+node tests/acceptance.mjs</pre>
+<p>The test override uses a deterministic local provider fixture. It is never included in the production service configuration. The acceptance record distinguishes protocol tests from a paid live-model test. Run <code>python3 scripts/release.py</code> to create a versioned ZIP, a code digest, and SHA-256 checksums. The packager includes dotfiles and executable modes and excludes secrets, dependency folders and runtime data.</p>
+<h3>Moving from 1.x</h3>
+<p>Use a <strong>separate v2 installation</strong>. The previous release used simulated dispatch records, different credentials and a Redis service. Do not run v2 setup over a running v1 directory or attach v1 volumes to v2 without an explicit migration plan. Export and retain the old installation and data as historical records. If an administrator imports the old <code>agent_tasks</code> table into v2 PostgreSQL before running migrations, rows are labelled <strong>archived / unverified</strong>, never completed work. Existing public 1.x releases are not automatically secured by installing this code elsewhere.</p>
+<p>The kit&#x27;s commercial license covers this directory. Third-party software retains its own licenses; see THIRD-PARTY-NOTICES. Hosting, model charges, provider accounts, offsite storage, domain registration, and ongoing administration are separate.</p></section>
+<section id="access"><h2>Quickstart</h2>
+<p>Follow the six steps in the root README. No checkout, license activation server, tailnet membership or pre-seeded demo data is required to run the downloaded code. Purchase and distribution belong to the storefront, outside the operations application.</p>
+<h3 id="models">Configuration</h3>
+<p>Credentials are generated only for a new <code>.env</code>, which is mode <code>0600</code>. Existing configuration is validated and preserved. Read the operator key on your host with your editor; do not paste it into shared logs or screenshots. The browser exchanges it for an HttpOnly session cookie; it is not stored in browser localStorage.</p>
+<p>Choose a model that supports the OpenAI <strong>Responses API</strong>, function calling and <code>max_output_tokens</code>. Set <code>OPENAI_API_KEY</code> and <code>OPENAI_MODEL</code>, and recreate the worker. A configured key does not prove provider access: run <code>./scripts/provider-smoke.sh</code> for a small billable calculation-and-artifact test. It verifies the actual worker, model, tool calls and saved output. Set provider-side project budgets and alerts; the kit&#x27;s time, call and output limits are not a currency budget.</p>
+<h3>Private access</h3>
+<p>Default Caddy binding: <code>127.0.0.1:3080</code>; PostgreSQL and the API have no published ports. On your own machine open <code>http://localhost:3080</code>. For a server use <code>ssh -L 3080:127.0.0.1:3080 your-server</code>.</p>
+<p>For Tailscale, install and authenticate its client on the host, then run <code>sudo ./scripts/tailscale-setup.sh</code>. It reads the host&#x27;s actual DNS name, sets <code>PUBLIC_ORIGIN</code>, restarts the API, and enables persistent <strong>Serve</strong> to port 3080. It does not enable Funnel. This requires Tailscale HTTPS to be enabled for your tailnet. Operator login remains required. Tailscale provisioning requires your own account and is verified separately on your network.</p>
+<h3>Public HTTPS</h3>
+<p>Point your domain&#x27;s A/AAAA records to the host. Set <code>ENABLE_PUBLIC=true</code>, <code>PUBLIC_DOMAIN=agents.example.com</code>, <code>ACME_EMAIL=you@example.com</code> and <code>PUBLIC_ORIGIN=https://agents.example.com</code> in <code>.env</code>. Open TCP 80 and 443 in the host/cloud firewall. Then run:</p>
+<pre class="code">docker compose -f docker-compose.yml -f compose.public.yml up -d --force-recreate caddy api</pre>
+<p>The helper scripts include the public override whenever <code>ENABLE_PUBLIC=true</code>. <strong>Raw docker compose commands do not read ENABLE_PUBLIC</strong>; use both <code>-f</code> files for subsequent public-mode operations. The public override replaces the loopback port mapping. Its Caddy health probe stays on an internal HTTP port, so it does not follow a redirect to an IP address with an invalid TLS certificate.</p>
+<p>Do not bind port 3000, publish PostgreSQL, or use a remote HTTP <code>PUBLIC_ORIGIN</code>. The application rejects insecure remote origins. The installer does not change firewall rules, so custom SSH ports remain your responsibility.</p>
+<h3>Daily operations</h3>
+<p><code>./scripts/status.sh</code> checks readiness and exits nonzero if the worker or database is unavailable. <code>docker compose logs --tail 100 api worker</code> shows bounded service logs. Docker restarts crashed processes; health checks alone do not restart a stuck process. Monitor <code>/health/ready</code> with your preferred external uptime service and monitor disk capacity. Use <code>./scripts/backup.sh</code> and check <code>systemctl list-timers agentkit-backup.timer</code>.</p>
+<p>If setup used <code>--no-timer</code>, or the host does not run systemd, schedule the backup yourself. Every backup includes a checksum-verified database dump. Credentials are intentionally not embedded in archives; keep <code>.env</code> in a separate encrypted password vault.</p></section>
+<section id="api"><h2>Developer guide · 2.0</h2>
+<h3>Runtime</h3>
+<p>Four long-running services: Caddy, API, worker and PostgreSQL. A one-shot migration service creates the schema and a non-superuser <code>agent_app</code> role. The API and worker receive only the application database password; only the worker receives the model key. Neither has a host filesystem or Docker socket mount. The API reads a non-secret backup status file. Runtime containers are unprivileged, read-only, drop capabilities, and have memory/CPU/process limits.</p>
+<p>PostgreSQL is the canonical queue and document/result store. Enqueue commits before HTTP 202. <code>FOR UPDATE SKIP LOCKED</code> claims one task per worker. A 30-second lease is renewed every two seconds. Actual worker heartbeats expire in the UI after 15 seconds. An expired running task is marked failed (or cancelled) by the API sweep or a worker; the API sweeps every five seconds even when all workers are offline. It is never automatically replayed. Multiple workers can be started with <code>--scale worker=N</code>. Idempotency prevents duplicate <strong>submission</strong>, not a universal exactly-once guarantee for external provider effects.</p>
+<p>Cancellation signals an AbortController and records the final status after the worker stops. Aborting HTTP cannot guarantee the provider has stopped computation or billing. Partial artifacts and reported token counts remain available for inspection. Manual retry creates a new task with <code>parent_job_id</code>.</p>
+<p>The assistant uses the Responses API with <code>store:false</code>, explicit function definitions, strict JSON schemas and an execution allowlist. All response output items, including encrypted reasoning, are carried forward during tool continuations. Each request&#x27;s usage is accumulated only if the provider reports it. Tool calls are bounded by the model-step and time limits; artifact and document sizes are capped. No tool can execute code, issue arbitrary SQL, browse, or access arbitrary host paths. This limits consequences of prompt injection; it does not guarantee factual answers or prevent the model from reading any document in this shared workspace.</p>
+<h3>HTTP contract</h3>
+<p>Authenticated endpoints accept <code>Authorization: Bearer &lt;scoped-token&gt;</code>. Browsers use an HttpOnly SameSite=Strict session plus <code>X-CSRF-Token</code> and an exact Origin match for mutations. Only the operator can manage documents and tokens. <code>ADMIN_TOKEN</code> is a break-glass administrative bearer credential; integrations should use scoped tokens.</p>
+<table tabindex="0"><tbody>
+<tr><td>Method / path</td><td>Permission</td><td>Result</td></tr>
+<tr><td>GET /health/live</td><td>Public</td><td>200 if API process responds</td></tr>
+<tr><td>GET /health/ready</td><td>Public</td><td>200 if DB and worker are ready; otherwise 503</td></tr>
+<tr><td>POST /api/auth/login</td><td>Exact Origin</td><td><code>{key}</code> → session cookie and CSRF token</td></tr>
+<tr><td>GET /api/auth/session</td><td>Authenticated</td><td>Operator/scopes context and CSRF token for browser sessions</td></tr>
+<tr><td>POST /api/auth/logout</td><td>Authenticated + browser CSRF</td><td>Invalidates current session</td></tr>
+<tr><td>GET /api/overview</td><td>tasks:read</td><td>Recorded counts, recent tasks, heartbeats, backup status</td></tr>
+<tr><td>GET /api/tasks?status=&amp;q=&amp;offset=</td><td>tasks:read</td><td>Up to 30 task summaries and total</td></tr>
+<tr><td>POST /api/tasks</td><td>tasks:write</td><td><code>{kind:&quot;assistant&quot;,prompt,title?}</code> or <code>{kind:&quot;audit&quot;}</code> → 202 after commit</td></tr>
+<tr><td>GET /api/tasks/:id</td><td>tasks:read</td><td>Task record and artifact metadata</td></tr>
+<tr><td>GET /api/tasks/:id/events?after=0</td><td>tasks:read</td><td>Up to 250 ordered persisted events</td></tr>
+<tr><td>POST /api/tasks/:id/cancel</td><td>tasks:write</td><td>202; queued task cancels immediately, running task receives abort</td></tr>
+<tr><td>POST /api/tasks/:id/retry</td><td>tasks:write</td><td>New linked task; only failed/cancelled tasks</td></tr>
+<tr><td>GET /api/artifacts/:id</td><td>tasks:read</td><td>Plain text attachment</td></tr>
+<tr><td>GET /api/documents[/:id]</td><td>documents:read</td><td>Document list / full document</td></tr>
+<tr><td>POST /api/documents</td><td>Operator</td><td><code>{title,content}</code> → 201; maximum 100 × 64 KiB</td></tr>
+<tr><td>DELETE /api/documents/:id</td><td>Operator</td><td>Deletes current document; earlier results/backups may retain text</td></tr>
+<tr><td>GET /api/tokens</td><td>Operator</td><td>Token metadata, never values or hashes</td></tr>
+<tr><td>POST /api/tokens</td><td>Operator</td><td><code>{name,scopes}</code> → token shown once</td></tr>
+<tr><td>DELETE /api/tokens/:id</td><td>Operator</td><td>Immediate revocation</td></tr>
+<tr><td>GET /api/recovery</td><td>Operator</td><td>Last verified backup / last failed attempt</td></tr>
+<tr><td>GET /api/audit</td><td>Operator</td><td>Latest 50 access/operator events</td></tr>
+</tbody></table>
+<p>Use a unique <code>Idempotency-Key</code> (8–128 letters/digits or <code>._:-</code>) on task creation and retries. Reuse it for the same submission after a network failure. Identical replay returns 200 and the original task ID/summary; changed input returns 409. Submission responses never include saved results, so a write-only token cannot read them by replaying a request. The queue admits at most 100 unfinished tasks. All operator/API tokens belong to one shared workspace; there is no per-user or per-document tenancy. A token with tasks:write can ask the assistant to use any workspace document. Combining tasks:write with tasks:read can therefore reveal document-derived content in results even without the direct documents:read endpoint scope.</p>
+<p>Errors return <code>{error,request_id}</code>. 400 invalid input, 401 no valid identity, 403 permission/origin/CSRF failure, 404 missing object, 409 conflict, 413 oversized request, 415 wrong content type, 429 rate/queue limit, 503 unavailable dependency. The reverse proxy may return its own plain-text 413 for oversized bodies. Callers must handle a failed HTTP request before parsing success data. A request accepted with 202 is not a finished task.</p>
+<h3 id="mcp">MCP</h3>
+<p><code>integrations/mcp/index.js</code> is an actual stdio MCP server using the official SDK. It advertises <code>submit_task</code>, <code>get_task</code>, <code>list_tasks</code>, <code>list_documents</code> and <code>read_document</code>; it performs authenticated requests to this API. It does not expose PostgreSQL credentials. Install its locked dependencies on the client machine with <code>npm ci</code>, use Node 22 or 24, and set <code>AGENTKIT_URL</code> and <code>AGENTKIT_TOKEN</code>. The provided client configs use an absolute local path; adjust it for your installation.</p>
+<h3>Verification</h3>
+<p>Unit tests cover input boundaries and tool execution restrictions. <code>tests/acceptance.mjs</code> exercises authentication, permissions, durable execution, tool calls, cancellation, artifacts and errors against the running Docker app. The fixture implements the provider protocol deterministically; it does not establish compatibility with every model. Release tests additionally exercise outage recovery, backups, restore, the MCP transport and the browser. See RELEASE-ACCEPTANCE.md for actual results and remaining environment checks.</p></section>
+<section id="recovery"><h2>Security and recovery</h2>
+<h3>Access and credentials</h3>
+<ul>
+<li>Run a private loopback deployment, a private Tailscale Serve deployment, or the public HTTPS override. Do not expose the application over remote HTTP.</li>
+<li>Keep <code>.env</code> mode 0600. Keep its values out of tickets, screenshots, shell tracing and git. The release ZIP must not contain <code>.env</code>.</li>
+<li>Integrations use separately named tokens with minimum scopes. Revoke them in Connections. Protect client MCP configuration because it contains that client&#x27;s token.</li>
+<li>To rotate the operator key, generate a new random 32+ character value, update <code>.env</code>, clear browser sessions using <code>docker compose exec -T postgres sh -c &#x27;psql -U agent_admin -d &quot;$POSTGRES_DB&quot; -c &quot;DELETE FROM sessions&quot;&#x27;</code>, and recreate the API. Rotating a value in <code>.env</code> alone does not revoke already-issued sessions.</li>
+<li>Database administrator password rotation also requires PostgreSQL <code>ALTER ROLE</code>; changing the environment on an existing volume alone does not change the database password. Re-running migrations rotates the application role to the new DB_PASSWORD. Use a planned maintenance window and a verified backup.</li>
+<li>Update pinned image digests and dependency lockfiles deliberately, and rerun acceptance tests. Dependency audits do not establish that the whole product is secure.</li>
+</ul>
+<h3>Backups</h3>
+<p>From the installed directory run <code>sudo ./scripts/backup.sh</code>. It takes an exclusive lock, writes a custom-format PostgreSQL dump into a private temporary directory, checks pg_dump&#x27;s exit code, validates the archive catalogue, calculates a SHA-256 checksum, packages and verifies the archive, and atomically renames it. The final archive contains exactly <code>database.dump</code> and <code>manifest.json</code>.</p>
+<p>The dashboard summary is atomically updated only after verification. A failed attempt is shown as failed even when an older backup exists. Retention (default 14 verified archives, minimum 2) runs only after the new local archive and any configured offsite copy have succeeded. Backups contain sensitive workspace data and credential hashes: local files are mode 0600 under a mode-0700 directory. Local archives are <strong>not encrypted</strong>. Use encrypted disks and a private encrypted offsite destination.</p>
+<p>For offsite backup, install/configure rclone as the same account that runs the systemd service (root by default). Prefer an rclone <code>crypt</code> remote backed by your storage provider. Set <code>BACKUP_REMOTE=your-crypt-remote:agentkit</code> in <code>.env</code>. Each upload is read back and SHA-256 checked; this uses download bandwidth. Offsite retention is owned by your storage policy, not automatically pruned by the kit. Keep the crypt keys separately so recovery remains possible.</p>
+<p>The generated <code>.env</code> is excluded from the archive. Store it, provider recovery information, and rclone crypt configuration in a separate encrypted password vault. A database-only archive cannot recover credentials you have lost.</p>
+<h3>Restore rehearsal</h3>
+<ul>
+<li>Obtain the same kit version and a verified archive; recover <code>.env</code> separately.</li>
+<li>Install in a <strong>separate</strong> directory/project/host. For same-host rehearsals use a different <code>COMPOSE_PROJECT_NAME</code>, <code>PORT</code> and loopback <code>PUBLIC_ORIGIN</code>; use <code>setup.sh --no-start --no-timer</code> to avoid replacing the production backup timer.</li>
+<li>Build the image with <code>docker compose build api</code>; run <code>./scripts/restore.sh /absolute/path/agentkit-TIMESTAMP.tar.gz</code>.</li>
+<li>The script rejects unexpected archive members, version mismatches and checksum failures before database work. It refuses a destination containing tasks, documents or tokens. pg_restore runs in one transaction with exit-on-error. Schema permissions are reapplied.</li>
+<li>Sessions, API tokens and worker registrations are cleared. Queued/running tasks become failed with an interruption explanation; they are not replayed. Sign in with the recovered or newly generated operator key, confirm known documents/results/artifacts, create fresh integration tokens, and run a system check.</li>
+<li>Record the restore date, archive, verified content and time to recovery outside the database being tested. Repeat after significant upgrades.</li>
+</ul>
+<p>The backup process validates an archive; only a rehearsal proves recovery for your host and storage setup. The product does not promise zero data loss or a fixed recovery time. Daily backups imply up to roughly a day of lost changes, subject to successful schedule execution.</p>
+<h3>Upgrade and rollback</h3>
+<p>Extract and verify a new release separately. Read its migration notes. Run <code>./scripts/update.sh /path/to/new/extracted/kit</code> from the old v2 installation; it takes a verified backup before copying package files and preserves <code>.env</code>. If anything fails, inspect service state and logs; do not repeatedly rerun migrations without understanding the failure. Keep the old release and the pre-upgrade archive. A schema rollback uses a clean installation of the matching old version plus its matching archive, not merely an old Docker image. v1→v2 is a separate-install migration; it is not supported as an in-place update.</p>
+<h3>Capacity and availability</h3>
+<p>This is a single host. Monitor free disk, <code>/health/ready</code>, and timer failures externally. Application container logs rotate at 3 × 10 MiB per service; PostgreSQL data and task history grow until you deliberately prune them. Backups cover data, not a bootable host image. No availability SLA, autonomous incident remediation, host patch management, secrets manager or SOC2 certification is included.</p></section>
+<section id="support"><h2>Support and troubleshooting</h2>
+<p>Collect: kit version, host OS/architecture, Docker/Compose versions, failing operation, timestamp, request ID, task ID, <code>scripts/status.sh</code> output, and relevant API/worker/backup log excerpts. Redact prompts, document content, tokens, passwords and provider keys. Never upload <code>.env</code> or a database backup to a public issue.</p>
+<table tabindex="0"><tbody>
+<tr><td>Symptom</td><td>Action</td></tr>
+<tr><td>Cannot connect remotely</td><td>Default access is loopback only. Open the SSH tunnel, use Tailscale Serve, or configure the documented public HTTPS override.</td></tr>
+<tr><td>Login says origin mismatch</td><td>Match PUBLIC_ORIGIN exactly to the URL in the browser, including scheme and port; recreate the API after editing it.</td></tr>
+<tr><td>AI option disabled</td><td>Set OPENAI_API_KEY and OPENAI_MODEL, recreate the worker, and confirm its current heartbeat. System checks work without a model.</td></tr>
+<tr><td>Task queued</td><td>Check the worker with scripts/status.sh and Docker logs. Accepted jobs remain in PostgreSQL.</td></tr>
+<tr><td>Provider HTTP error</td><td>Check provider credentials, model capability/access and account limits. The task fails visibly; review before retrying.</td></tr>
+<tr><td>Task interrupted</td><td>A worker lease expired or execution stopped. Read the trace and any partial artifacts; only a manual retry starts another task.</td></tr>
+<tr><td>Backup unknown/stale/failed</td><td>Check the systemd timer and journal, free disk, PostgreSQL health, and rclone access. A configured timer is not proof of a successful backup.</td></tr>
+<tr><td>Restore refused</td><td>Use a separate clean workspace with the same kit version. Never delete production volumes to make room for a rehearsal.</td></tr>
+<tr><td>Container healthy but readiness fails</td><td>Liveness and readiness differ. /health/ready also requires PostgreSQL and an actual recent worker heartbeat.</td></tr>
+<tr><td>MCP connection fails</td><td>Run npm ci in integrations/mcp; check Node version, absolute script path, HTTPS/loopback URL, token permissions and token revocation.</td></tr>
+</tbody></table>
+<p>Support should cover reproducible defects in the shipped installer, app, scripts, and documented integration contract. Hosting administration, model quality, third-party outages, custom tools, runtime extensions and migration of arbitrary existing data require separate work. Publish a real support address, response expectations and refund terms on the storefront before accepting payment; none are invented by the application.</p></section></main></body></html>

@@ -1,127 +1,57 @@
-# Self-Hosted Agent Infrastructure Kit ⚡
-### Production-Hardened Autonomous AI Agent Stack with ZeroVPS Guardrails
+# ZeroLabs Agent Kit 2.0
 
-> **Turnkey, production-hardened infrastructure templates to run autonomous AI agents 24/7 on a cheap ($5–$10/mo) Ubuntu VPS with zero vendor lock-in, unbuffered SSE streaming, automated backups, and strict execution guardrails.**
+A self-hosted task workspace for a single technical operator. Run a bounded AI assistant, follow its actual execution, and keep its results and documents in your own PostgreSQL database.
 
-Designed for AI engineers, founders, and vibe coders running autonomous agents (OpenClaw, Claude Code CLI, Cursor, Antigravity, or custom Node/Python runners) who need rock-solid reliability, predictable hosting costs, and hardened multi-container architecture.
+The kit supplies an application, a real background worker, deployment files, a local MCP bridge, verified backups, and a recovery procedure. You supply a Linux host, Docker, and (for AI tasks) an OpenAI API key and a model supporting the Responses API and function calling. Model calls leave your server and are billed separately by the provider.
 
----
+## What works
 
-## 📦 What Exactly Are You Buying?
+- Durable tasks with queued / running / completed / failed / cancelled states. Completion requires a saved result.
+- A worker that calls the OpenAI Responses API and executes four bounded tools: list documents, read a document, calculate, and save a text artifact.
+- A genuine local system check that needs no model key.
+- Task history, execution traces, provider-reported token usage, cancellation, manual retries, artifact downloads, search and filters.
+- Operator sessions, CSRF protection, revocable API tokens with explicit permissions, and an access audit trail.
+- A responsive, keyboard-accessible dashboard inspired by Linear's hierarchy, spacing and restrained visual design. No affiliation with Linear.
+- Private networking by default; optional public HTTPS or private Tailscale Serve.
+- Atomic PostgreSQL backups with checksums, optional verified rclone copies, a daily systemd timer, and a clean-workspace restore command.
+- An MCP stdio bridge and a dependency-free Python task client.
 
-When you purchase the **Self-Hosted Agent Infrastructure Kit**, you receive a production-tested, turnkey infrastructure package ready to deploy onto any Ubuntu 22.04 or 24.04 LTS VPS (Hetzner, DigitalOcean, Linode, AWS Lightsail, etc.).
+This is a single-host, single-workspace product. It is **not** a general autonomous server administrator, OpenClaw runtime, multi-tenant platform, local model bundle, high-availability cluster, or guarantee of correct AI output. The assistant cannot execute shell commands, browse the web, send messages, access arbitrary files, or deploy software. Documents are context, not a vector search/RAG service. You can build external clients against the task API.
 
-### The 7 Core Deliverables:
+## Start
 
-| # | Deliverable | Technology | What It Does For You |
-|---|---|---|---|
-| **1** | **Multi-Container Production Stack** | Docker Compose | Isolated bridge network running **Node.js 22 LTS**, **PostgreSQL 17.11**, **Redis 7.4.11**, and **Caddy 2.11**. One `docker compose up` brings up your entire agent backend. |
-| **2** | **Modern Agent Operations Dashboard** | Vanilla JS + HTML5 (Zero Bloat) | High-aesthetic Linear/Vercel-style dark HUD. Provides live SSE token streaming visualizer, real-time throughput gauge (`tok/sec`), container health telemetry, and PostgreSQL 17 task ledger. |
-| **3** | **ZeroVPS Guardrails Security Suite** | Bash + Pattern Matchers | Active defense scripts (`validate-bash.sh`, `validate-db-safety.sh`, `validate-backup-freshness.sh`) that shield your host and database from accidental destructive agent commands (`rm -rf`, `DROP TABLE`). |
-| **4** | **Unbuffered Streaming Reverse Proxy** | Caddy 2 Alpine | Automated Let's Encrypt / ZeroSSL TLS with `flush_interval -1` to eliminate proxy buffering lag on real-time Server-Sent Events (SSE) and WebSocket model streams. |
-| **5** | **Zero-Public-Port Tailscale Mesh** | Tailscale WireGuard | Automated helper (`tailscale-setup.sh`) allowing you to run your agent infrastructure completely hidden behind private WireGuard mesh—zero open ports visible on Shodan. |
-| **6** | **Self-Healing Incident Watchdog** | Python 3 + systemd | Autonomous background daemon monitoring container status, memory leaks, and restart flapping every 5 minutes, dispatches instant Markdown alerts to Telegram. |
-| **7** | **Zero-Downtime Backup Engine** | Bash + pg_dump | Scheduled database and cache snapshots with automated 7-day retention pruning and offsite cloud storage hooks (S3/R2/MinIO). |
-| **8** | **Frontier AI & Agent Quick Connect** | Web HUD + Shell Helper | Plug-and-play connection gateway for non-technical users. Connect **OpenAI/Codex**, **Google Antigravity**, **Claude (MCP)**, **Cursor AI IDE**, **Google Gemini**, **LangChain/CrewAI**, or **n8n Webhooks** in 1 click without touching YAML files or Docker networks. |
+Target: Ubuntu 22.04/24.04 or Debian 12 with Docker Engine and Docker Compose **2.24.4+**, Python 3, Bash, `flock`, 2 CPU cores, 2 GiB RAM minimum (4 GiB recommended), and 10 GiB free disk plus your backup storage. The included containers support amd64 and arm64 through their upstream images; the release acceptance run records the architecture actually tested.
 
----
+1. Verify the release's `SHA256SUMS` and extract the ZIP. Review the included license and release notes.
+2. Install Docker using its [official instructions](https://docs.docker.com/engine/install/).
+3. From the extracted kit, run `sudo ./scripts/setup.sh`. It installs to `/opt/agentkit`, generates private credentials, builds and starts the stack, and enables a daily backup timer on systemd hosts.
+4. For a remote host, open an SSH tunnel: `ssh -L 3080:127.0.0.1:3080 your-server`. Open **http://localhost:3080** and sign in using `ADMIN_TOKEN` from `/opt/agentkit/.env`.
+5. Run **System check**. To enable AI tasks, set `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env`, then run `docker compose up -d --force-recreate worker` in `/opt/agentkit`.
+6. Run `sudo ./scripts/backup.sh`. Save `.env` separately in an encrypted password vault and rehearse a restore into another installation.
 
-## 🛠️ Stack Component Versions
+`setup.sh --dest /path` also works from inside that same directory; existing `.env` and runtime data are preserved. `--no-start --no-timer` prepares files without starting services. A pre-existing `.env` must have valid v2 credentials; setup will not silently overwrite it. The installer never changes your firewall or SSH port.
 
-We only use the latest stable, production-ready versions:
-* **Database:** PostgreSQL `17-alpine` (PostgreSQL 17.11) with persistent volume storage.
-* **Cache & Queue:** Redis `7-alpine` (Redis 7.4.11) with Append-Only File (AOF) persistence.
-* **Reverse Proxy:** Caddy `2-alpine` (Caddy 2.11.7) with HTTP/2, HTTP/3, and modern cipher suites.
-* **Runtime:** Node.js `22-alpine` (Node 22 LTS).
-* **Host Compatibility:** Ubuntu 22.04 LTS & Ubuntu 24.04 LTS.
+## Documentation and integrations
 
----
+Open `/docs` on the running app, or [docs/index.html](docs/index.html) offline. See [Quickstart](docs/QUICKSTART.md), [Developer guide](docs/DEVELOPER-GUIDE.md), [Recovery and security](docs/HARDENING-CHECKLIST.md), [Support](docs/SUPPORT-GUIDE.md), and [Release acceptance](docs/RELEASE-ACCEPTANCE.md).
 
-## 📁 Repository & Package Structure
+For MCP, run `npm ci` in `integrations/mcp`, create a token in **Connections**, and adapt [the client configuration](templates/claude_desktop_config.json). This is a local Node program shipped with the kit; no unpublished registry package is required. OpenClaw can be integrated as an external API client where supported by your configuration, but this release does not execute OpenClaw agent sessions.
 
-```text
-self-hosted-agent-kit/
-├── docker-compose.yml              # Production 4-container stack definition
-├── Caddyfile                       # Reverse proxy with unbuffered SSE & security headers
-├── .env.example                    # Environment credentials & alert configuration
-├── LICENSE                         # Commercial Single-Operator License
-├── README.md                       # Comprehensive kit guide & architecture overview
-├── app/
-│   ├── Dockerfile                  # Lightweight Node 22 Alpine runtime
-│   ├── package.json                # Minimal dependencies (pg, ioredis)
-│   └── server.js                   # High-aesthetic operations dashboard & streaming API
-├── scripts/
-│   ├── setup.sh                    # 1-command installer script for Ubuntu
-│   ├── quick-connect.sh            # 1-click interactive agent connection wizard
-│   ├── backup.sh                   # Automated PostgreSQL 17 & Redis backup routine
-│   ├── watchdog.py                 # Self-healing supervisor with Telegram alerts
-│   ├── tailscale-setup.sh          # Zero-public-port WireGuard mesh configurator
-│   └── guardrails/
-│       ├── validate-bash.sh        # Shell guardrail blocking destructive commands
-│       ├── validate-db-safety.sh   # SQL guardrail intercepting accidental table drops
-│       └── validate-backup-freshness.sh # Gate requiring fresh backups before updates
-├── templates/
-│   ├── openai_agent.py             # 1-click OpenAI / Codex starter with tool calling
-│   ├── antigravity_mcp.json        # 1-click Google DeepMind Antigravity MCP config
-│   ├── gemini_agent.py             # 1-click Google Gemini GenAI SDK starter
-│   ├── claude_desktop_config.json  # 1-click Claude Desktop & Claude Code MCP config
-│   ├── cursor_mcp.json             # 1-click Cursor & Windsurf AI IDE MCP config
-│   ├── agent_starter.py            # 1-click Python starter (LangChain/CrewAI)
-│   └── agent_starter.js            # 1-click Node.js starter (OpenClaw)
-├── systemd/
-│   ├── agent-stack.service         # Ensures stack persists across host reboots
-│   ├── agent-watchdog.service      # Triggers watchdog health inspection
-│   └── agent-watchdog.timer        # 5-minute systemd timer unit
-├── mcp/
-│   └── mcp-config.json             # Model Context Protocol schemas for Claude & Cursor
-└── docs/
-    ├── QUICKSTART.md               # 15-minute deployment runbook
-    ├── DEVELOPER-GUIDE.md          # In-depth API, database schemas, and AI integration recipes
-    ├── SUPPORT-GUIDE.md            # Buyer troubleshooting runbook & customer support playbooks
-    ├── HARDENING-CHECKLIST.md      # Linux host & firewall security checklist
-    └── ZEROVPS-FEATURES.md         # Deep-dive into ZeroVPS operational guardrails
+## Development and verification
+
+```sh
+npm ci --prefix app
+npm test --prefix app
+npm ci --prefix integrations/mcp
+# On a dedicated test installation with a project name containing "test":
+docker compose -f docker-compose.yml -f tests/compose.test.yml up -d --build --wait
+node tests/acceptance.mjs
 ```
 
----
+The test override uses a deterministic local provider fixture. It is never included in the production service configuration. The acceptance record distinguishes protocol tests from a paid live-model test. Run `python3 scripts/release.py` to create a versioned ZIP, a code digest, and SHA-256 checksums. The packager includes dotfiles and executable modes and excludes secrets, dependency folders and runtime data.
 
-## 🚀 Quick Start (Deploy in Under 10 Minutes)
+## Moving from 1.x
 
-### 1. Unpack & Run the Installer
-On your fresh Ubuntu 22.04 or 24.04 VPS:
-```bash
-git clone https://github.com/zeroshotstudio/zerolabs-recipes.git
-cd zerolabs-recipes/kits/self-hosted-agent-kit
-sudo ./scripts/setup.sh
-```
+Use a **separate v2 installation**. The previous release used simulated dispatch records, different credentials and a Redis service. Do not run v2 setup over a running v1 directory or attach v1 volumes to v2 without an explicit migration plan. Export and retain the old installation and data as historical records. If an administrator imports the old `agent_tasks` table into v2 PostgreSQL before running migrations, rows are labelled **archived / unverified**, never completed work. Existing public 1.x releases are not automatically secured by installing this code elsewhere.
 
-### 2. Configure Environment
-Edit `.env` to configure your domain and Telegram bot for incident notifications:
-```bash
-nano .env
-```
-
-### 3. Start the Stack
-```bash
-sudo systemctl start agent-stack.service
-```
-
-### 4. Verify Live Status
-Visit your domain or Tailscale URL to access the live modern operations dashboard. Test real-time SSE token streaming and inspect persistent tasks committed directly into PostgreSQL 17.
-
----
-
-## 🔒 Security & Architecture Guarantees
-
-1. **Zero Open Ports (Optional):** Run behind Tailscale so no HTTP/HTTPS ports are visible on public IP ranges.
-2. **Crash Resilience:** If a container crashes, Docker restarts it. If the server reboots, `agent-stack.service` recovers the full stack.
-3. **Data Durability:** All PostgreSQL transactions are committed to persistent volume `pgdata`. Redis operates with `appendonly yes`. Daily snapshots are gzipped and retained for 7 days.
-4. **Execution Boundaries:** The included ZeroVPS guardrail scripts prevent autonomous AI agents with shell or database privileges from accidentally running destructive commands.
-
----
-
-## 📄 License & Commercial Rights
-
-Purchasing this kit grants you a **Commercial Single-Operator License**. You are licensed to deploy, modify, and run this infrastructure for unlimited personal, client, and commercial agent projects. Redistribution or reselling of the raw templates is prohibited.
-
-Created by Jimmy Goode · ZeroShot Studio  
-[labs.zeroshot.studio](https://labs.zeroshot.studio)
+The kit's [commercial license](LICENSE) covers this directory. Third-party software retains its own licenses; see [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES.md). Hosting, model charges, provider accounts, offsite storage, domain registration, and ongoing administration are separate.

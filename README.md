@@ -250,6 +250,6 @@ We welcome community recipe proposals, bug fixes, and workflow improvements! Ple
 
 ## 📄 License
 
-Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
+Recipes are distributed under the MIT License. The Self-Hosted Agent Kit 2.0 and later uses its [directory-specific commercial license](kits/self-hosted-agent-kit/LICENSE). See [`LICENSE`](LICENSE) for scope; earlier license grants are not revoked.
 
 Maintained with 🖤 by **[ZeroShot Studio](https://zeroshot.studio)**.

@@ -1,0 +1,420 @@
+{
+  "product": "ZeroLabs Agent Kit",
+  "version": "2.0.0",
+  "files": [
+    {
+      "path": ".env.example",
+      "bytes": 697,
+      "sha256": "b196ff0d15033cd03c2f90fe356e28be9c408478d8faccfea382bd471568969a",
+      "mode": "0644"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 157,
+      "sha256": "d1e50f509c2c377e05050fd3f068cfcc48638572e85a69a0d2646ddd0feb2a22",
+      "mode": "0644"
+    },
+    {
+      "path": ".prettierignore",
+      "bytes": 113,
+      "sha256": "05a11f32c234215eb2dbb3a6d7d19c2ea67fb25909762668ac65bc0fb258f59b",
+      "mode": "0644"
+    },
+    {
+      "path": "Caddyfile",
+      "bytes": 182,
+      "sha256": "99ddab68d434985ffadc944ad14178130e8cb431348457fef23952fd31ffd211",
+      "mode": "0644"
+    },
+    {
+      "path": "Caddyfile.public",
+      "bytes": 429,
+      "sha256": "ed447ea87ea0b853256f705708ea366116a601598c6623e2d41238397771c7c6",
+      "mode": "0644"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 702,
+      "sha256": "cdc001c71f97edf37874ee4d38c7c8a1ea27d6cc307dee2054d0109811de575f",
+      "mode": "0644"
+    },
+    {
+      "path": "README.md",
+      "bytes": 5970,
+      "sha256": "9fb8d3f1d00e62384bc11953e61b280b3fa8347dbd7437c5737975dc90d95dfd",
+      "mode": "0644"
+    },
+    {
+      "path": "THIRD-PARTY-NOTICES.md",
+      "bytes": 1161,
+      "sha256": "4efb57d559d6f6474d6890259fd1b245d6265869b87de489d0f561d7999d19b1",
+      "mode": "0644"
+    },
+    {
+      "path": "app/.dockerignore",
+      "bytes": 31,
+      "sha256": "9da2b886d491f6e293d98a8acf2c5bf2fe877b674e9afc1f6f087531ef13964c",
+      "mode": "0644"
+    },
+    {
+      "path": "app/Dockerfile",
+      "bytes": 568,
+      "sha256": "2c391f8ad145e59578544c5191f441418bbcaff061fda0134d925431f3ba718e",
+      "mode": "0644"
+    },
+    {
+      "path": "app/lib/auth.js",
+      "bytes": 5161,
+      "sha256": "47e37ef4478c08b189faf42fa8a149f35c1d78703a3fe11967fc4d4fd010d2ad",
+      "mode": "0644"
+    },
+    {
+      "path": "app/lib/config.js",
+      "bytes": 1819,
+      "sha256": "4881576867bfbd91e66fc1335a5552ef27103b6b035c24758013958ec922fb50",
+      "mode": "0644"
+    },
+    {
+      "path": "app/lib/db.js",
+      "bytes": 1259,
+      "sha256": "13a688f4f6c949860fb637f1317440384917a04d8d9cd3ee292ce8c3b7059fb1",
+      "mode": "0644"
+    },
+    {
+      "path": "app/lib/jobs.js",
+      "bytes": 4889,
+      "sha256": "8d5a9188260644f21cad26b31485d20c7fe5a84aea2084df2c3d3fb133b79846",
+      "mode": "0644"
+    },
+    {
+      "path": "app/lib/runner.js",
+      "bytes": 7505,
+      "sha256": "5c9dafcf7726bc0d687c6ee8bbf0e5ba3f3b7f99edb8a50f46b4e1a754b65a25",
+      "mode": "0644"
+    },
+    {
+      "path": "app/lib/tools.js",
+      "bytes": 4684,
+      "sha256": "6284e0e08dce0b9d2985eb91002bbd9696eaafef56adaf57e4f046c427a6d67e",
+      "mode": "0644"
+    },
+    {
+      "path": "app/migrate.js",
+      "bytes": 4372,
+      "sha256": "83157360302d48db68b2db367b9940beb10a19049909b0b2681b5a58868aa33c",
+      "mode": "0644"
+    },
+    {
+      "path": "app/package-lock.json",
+      "bytes": 6064,
+      "sha256": "7eed2ef349c4bee106b7ac2d7f47375defbd6cb67b305c62fc1214bbefe30fc1",
+      "mode": "0644"
+    },
+    {
+      "path": "app/package.json",
+      "bytes": 367,
+      "sha256": "a3aa52bdd2c7ebd5af180308e198163b2e76bbdd79bd54e38fc4a974dd47236d",
+      "mode": "0644"
+    },
+    {
+      "path": "app/public/app.js",
+      "bytes": 40056,
+      "sha256": "b008bf2935573bd0d15dbde6535157afbd216d9a88ae4fc34d0ab244f601efb6",
+      "mode": "0644"
+    },
+    {
+      "path": "app/public/docs.html",
+      "bytes": 27215,
+      "sha256": "82219a9183d0ad3e018155f854256ed9c22c59a4a70525f3c4bf1608d2ae3ed4",
+      "mode": "0644"
+    },
+    {
+      "path": "app/public/favicon.svg",
+      "bytes": 218,
+      "sha256": "12009f07f64d5ecd9f06301d247d171b071fe294633990c9efb76f66da2d68af",
+      "mode": "0644"
+    },
+    {
+      "path": "app/public/index.html",
+      "bytes": 6462,
+      "sha256": "569589b9e6284c651e815802562eea64410310777ee7c02a61c7b13d7dfb2b62",
+      "mode": "0644"
+    },
+    {
+      "path": "app/public/style.css",
+      "bytes": 25794,
+      "sha256": "a35440c82750de78e8a7041c3f8edf657d9392bb92626d0130e71327e1f67c61",
+      "mode": "0644"
+    },
+    {
+      "path": "app/server.js",
+      "bytes": 15741,
+      "sha256": "aec70da2ae85a0132c84511468c7b6e4db52eb903f59046bc0fe0e58cd7520b4",
+      "mode": "0644"
+    },
+    {
+      "path": "app/tests/tools.test.js",
+      "bytes": 2389,
+      "sha256": "00fe32695592cbe7cf1c36ca5e2debb8fe3c139fece7772284bfff33689aef6c",
+      "mode": "0644"
+    },
+    {
+      "path": "app/worker.js",
+      "bytes": 4834,
+      "sha256": "eac9c734b6c113a9714f7063e37848ff52f634a544e65fe28872c8da32cf2433",
+      "mode": "0644"
+    },
+    {
+      "path": "compose.public.yml",
+      "bytes": 352,
+      "sha256": "004e6d84d68c46a285adfeddc4548c9177d25776b7b437c8912520b30eeaa1d9",
+      "mode": "0644"
+    },
+    {
+      "path": "docker-compose.yml",
+      "bytes": 3925,
+      "sha256": "b4daa903f1210992e3a367631af491316d717fb067e5f79620cf05cb351fcb44",
+      "mode": "0644"
+    },
+    {
+      "path": "docs/DEVELOPER-GUIDE.md",
+      "bytes": 6471,
+      "sha256": "704e93e25d94068a2edf23252f2272d950336e42aa454f798b8138be36f1646d",
+      "mode": "0644"
+    },
+    {
+      "path": "docs/HARDENING-CHECKLIST.md",
+      "bytes": 5435,
+      "sha256": "dfef7c213f6c43b07c7969c660efa3a191bce13ac72e27432de9501b77906c3d",
+      "mode": "0644"
+    },
+    {
+      "path": "docs/LEMON-SQUEEZY-SETUP.md",
+      "bytes": 1176,
+      "sha256": "9f3b0fc458e073accffd15e2901df352870ff6757fa40295a542187177353fe0",
+      "mode": "0644"
+    },
+    {
+      "path": "docs/QUICKSTART.md",
+      "bytes": 3482,
+      "sha256": "80098e241d4e90ae5407c385c243eea976397cd402edf6a5ec3c5ad80b52259c",
+      "mode": "0644"
+    },
+    {
+      "path": "docs/RELEASE-ACCEPTANCE.md",
+      "bytes": 6833,
+      "sha256": "ebd7cc8a2ae57fb2b7939438d5ffacb12ae1fbd265f586298c4da55700a9b03c",
+      "mode": "0644"
+    },
+    {
+      "path": "docs/SUPPORT-GUIDE.md",
+      "bytes": 2321,
+      "sha256": "a6447353d5b8d409a38bfbe7afb1627d25834beeabd78711657ebf5212d47670",
+      "mode": "0644"
+    },
+    {
+      "path": "docs/ZEROVPS-FEATURES.md",
+      "bytes": 682,
+      "sha256": "8c027263b0b8e844c683e48cc71fcf9cc5c8d43e505da1f01818a51a1d8d48f3",
+      "mode": "0644"
+    },
+    {
+      "path": "docs/index.html",
+      "bytes": 27228,
+      "sha256": "f62d3785ce230f7f44b1c4043d3727c4b4441ec87464c9cc6df242acc6dd9f00",
+      "mode": "0644"
+    },
+    {
+      "path": "examples/task_client.py",
+      "bytes": 2020,
+      "sha256": "12c375cb11c25a15727977a33be4413191c744d60e4e11d9b9daa711f4d5cf2d",
+      "mode": "0644"
+    },
+    {
+      "path": "integrations/mcp/index.js",
+      "bytes": 4505,
+      "sha256": "5e100ed867fc9bba1ea6122e83a01de87010ed99d906a91cda00096e68ace844",
+      "mode": "0644"
+    },
+    {
+      "path": "integrations/mcp/package-lock.json",
+      "bytes": 42410,
+      "sha256": "bd0375ab08105b4dcf4462eb154d76c21b504109ba00259a6abdab8d0fb34778",
+      "mode": "0644"
+    },
+    {
+      "path": "integrations/mcp/package.json",
+      "bytes": 260,
+      "sha256": "21deacec409f5e4a31ef46f4c957dae28ce41522569bbb1a8089eb25f9fbf590",
+      "mode": "0644"
+    },
+    {
+      "path": "scripts/archives.py",
+      "bytes": 4664,
+      "sha256": "8a212ccc28842831041559e9a3e359d8bf3cfbad3749ecef335c825d6c2b255b",
+      "mode": "0644"
+    },
+    {
+      "path": "scripts/backup.sh",
+      "bytes": 1711,
+      "sha256": "ace9fd0335fc22cf30cbd6ccc7e730969204f91634e18a2110517de39a2358c2",
+      "mode": "0755"
+    },
+    {
+      "path": "scripts/build-docs.py",
+      "bytes": 3294,
+      "sha256": "e55b71b04eb54262db3e8f1a57e9f4a44202cf932f4decbb282c8f142f4c448b",
+      "mode": "0644"
+    },
+    {
+      "path": "scripts/config.py",
+      "bytes": 1697,
+      "sha256": "aeb05b69c359a413c3c20c8a8127ec42717cbff720a2d81f7d0336db6cfe39db",
+      "mode": "0644"
+    },
+    {
+      "path": "scripts/lib.sh",
+      "bytes": 595,
+      "sha256": "7fd6b44cbbf49ee9d416ad1ed654441fd4ef04564484adfe17cb302aa1519e8e",
+      "mode": "0755"
+    },
+    {
+      "path": "scripts/provider-smoke.sh",
+      "bytes": 2415,
+      "sha256": "fbbb8a921fc373be7abf8b9ef37f3ae3655fc1515813dff1145a2769520e8d13",
+      "mode": "0755"
+    },
+    {
+      "path": "scripts/release.py",
+      "bytes": 3847,
+      "sha256": "8481554a9795ced5b52189cf08d40ac7769aaf2b42bd0a5b4260d83bce775ca4",
+      "mode": "0644"
+    },
+    {
+      "path": "scripts/restore.sh",
+      "bytes": 2620,
+      "sha256": "be352a4f0e5172762a9970aae1af1235c0aa49a82c85b354520a9e89feb0a1cd",
+      "mode": "0755"
+    },
+    {
+      "path": "scripts/setup.sh",
+      "bytes": 3959,
+      "sha256": "2a7612d1f8e39c472da71f71a8b0eda3b6d42a5a9ead90e21acbbcd49521c108",
+      "mode": "0755"
+    },
+    {
+      "path": "scripts/status.sh",
+      "bytes": 302,
+      "sha256": "992129d78761c439d4f6352d7828e7d21c3e2be6a7be80dc1b515bab0ec9eb0c",
+      "mode": "0755"
+    },
+    {
+      "path": "scripts/tailscale-setup.sh",
+      "bytes": 1114,
+      "sha256": "69c60608c191b8a2d89db6ad517aadd57e961f1b51193504c81dc57af0bb6447",
+      "mode": "0755"
+    },
+    {
+      "path": "scripts/update.sh",
+      "bytes": 571,
+      "sha256": "97e0aecef0970077207ed24d58c039cfab1b36bc7c367465f1d6093af351eaba",
+      "mode": "0755"
+    },
+    {
+      "path": "systemd/agentkit-backup.service",
+      "bytes": 279,
+      "sha256": "a8e4fcfc77a3db186b5e0fcd005e8e6193e73459ba5c3b6c72d871368cf90cbd",
+      "mode": "0644"
+    },
+    {
+      "path": "systemd/agentkit-backup.timer",
+      "bytes": 148,
+      "sha256": "4e22ea4947109726769ca6f7a2ffb3d8b0a4aa0bafa72a6d84d177ace2f739ff",
+      "mode": "0644"
+    },
+    {
+      "path": "templates/claude_desktop_config.json",
+      "bytes": 314,
+      "sha256": "d58e79d7d43bdd849fb26b6e2ed6f8c3bb97142d842ac1e3024af27e95845d9c",
+      "mode": "0644"
+    },
+    {
+      "path": "templates/cursor_mcp.json",
+      "bytes": 314,
+      "sha256": "d58e79d7d43bdd849fb26b6e2ed6f8c3bb97142d842ac1e3024af27e95845d9c",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/acceptance.mjs",
+      "bytes": 10993,
+      "sha256": "d7de68b833cf62f5ac5971b669c54732aa3e6aba8b4fab04cf454fb8e7f3a12f",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/auth-rate.mjs",
+      "bytes": 1141,
+      "sha256": "ffe8b46f152dc2f47cc9a7d66d19431a4b29decd0cde17a2b2812d8a3e28003c",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/browser.mjs",
+      "bytes": 9596,
+      "sha256": "44f536f561022285d954190ededada395c14455cbf7f14bac55d197d4181c695",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/compose.test.yml",
+      "bytes": 642,
+      "sha256": "c6c53a19ad91ffd0b546c690471905f64fcc8577aee8de08a11b834126653e08",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/fixture.mjs",
+      "bytes": 3590,
+      "sha256": "24cb4ae0a62f273dcb24861b6d8eb728e7989a162cb6947f827946270d6bbb05",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/mcp.mjs",
+      "bytes": 2508,
+      "sha256": "92082561474075cb6c4735d455bc9f8833448b60f1130b62499db0519e6cb0b0",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/operations.py",
+      "bytes": 6923,
+      "sha256": "ef6fbe7314129bde4f9f534cd9c85a9bbd5e51acf0f410a7cf7d5f0e5f3d21e8",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/package-lock.json",
+      "bytes": 2612,
+      "sha256": "22ceae17c392e88b74793103caae8898c522b9831d950ebf6136db7dafe13b4e",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/package.json",
+      "bytes": 269,
+      "sha256": "70ef6b66846a2182f92d8c42964c09696f1bb84b3a780a1484762c2efa54ece0",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/package.py",
+      "bytes": 5219,
+      "sha256": "f6a170beb83947536333f923fb9d7ae1d25112cce3a73d60cbceff5e4c7c8e65",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/resilience.mjs",
+      "bytes": 7008,
+      "sha256": "b3e9710ae6c2a94e1eaf41c6195c96dbc7de18c3aa22ccaabd3277627433583a",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/systemd.py",
+      "bytes": 934,
+      "sha256": "ef36624666f6d1c39a9602980933a52413826ed1fb8699c5ddcb279480a4d190",
+      "mode": "0644"
+    }
+  ]
+}

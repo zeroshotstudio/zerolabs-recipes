@@ -9,197 +9,238 @@ Implements Anthropic's text editor specification:
 """
 
 import os
-import sys
+import stat
+import threading
+from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Tuple
 
 
 class TextEditorError(Exception):
     """Exception raised when an editor operation fails constraints."""
-    pass
 
 
 class TextEditorBackend:
+    """Single-writer editor for a private POSIX workspace.
+
+    Every path component is opened relative to a held directory descriptor with
+    O_NOFOLLOW. Symlinks, hard-linked files, special files, and shared writable
+    directories are rejected. This is not isolation from another process running
+    as the same user: use a dedicated container/mount for hostile host writers.
     """
-    Stateful text editor executing deterministic file modifications.
-    Maintains undo history per file path.
-    """
+
+    _LOCK_NAME = ".text-editor.lock"
 
     def __init__(self, workspace_root: str):
-        self.workspace_root = os.path.abspath(workspace_root)
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+            raise TextEditorError("This backend requires POSIX descriptor-relative, no-follow filesystem operations.")
+        self.workspace_root = os.path.realpath(workspace_root)
         self.history: Dict[str, List[str]] = {}
+        self._mutex = threading.RLock()
+        self._root_fd = None
+        self._lock_owned = False
+        try:
+            self._root_fd = os.open(self.workspace_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            self._check_private(os.fstat(self._root_fd), directory=True)
+            lock_fd = os.open(self._LOCK_NAME, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW,
+                              0o600, dir_fd=self._root_fd)
+            self._lock_owned = True
+            try:
+                os.write(lock_fd, f"{os.getpid()}\n".encode())
+            finally:
+                os.close(lock_fd)
+        except OSError as err:
+            self.close()
+            raise TextEditorError(f"Cannot acquire private workspace: {err}") from err
+        except Exception:
+            self.close()
+            raise
+
+    def close(self) -> None:
+        """Release the workspace lock. Call after the final operation."""
+        with self._mutex:
+            if self._root_fd is not None:
+                try:
+                    if self._lock_owned:
+                        os.unlink(self._LOCK_NAME, dir_fd=self._root_fd)
+                finally:
+                    self._lock_owned = False
+                    os.close(self._root_fd)
+                    self._root_fd = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _check_private(info, directory: bool = False) -> None:
+        if info.st_uid != os.geteuid() or info.st_mode & 0o022:
+            raise TextEditorError("Workspace entries must be owned by the editor user and not group/world writable.")
+        if directory:
+            if not stat.S_ISDIR(info.st_mode):
+                raise TextEditorError("Expected a workspace directory.")
+        elif not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise TextEditorError("Only regular files with one hard link can be edited or viewed.")
 
     def _resolve_safe_path(self, path: str) -> str:
-        """Resolves target path and ensures it stays within workspace root."""
-        if os.path.isabs(path):
-            target = os.path.abspath(path)
-        else:
-            target = os.path.abspath(os.path.join(self.workspace_root, path))
+        """Check lexical and canonical ancestry, including existing create parents.
 
-        if not target.startswith(self.workspace_root):
-            raise TextEditorError(
-                f"Path traversal detected: Path '{path}' resolves outside workspace root '{self.workspace_root}'."
-            )
+        This preflight improves diagnostics; descriptor traversal below enforces
+        the boundary even if a symlink is substituted after this check.
+        """
+        if not isinstance(path, str) or not path or "\0" in path:
+            raise TextEditorError("Path must be a nonempty string without NUL characters.")
+        target = os.path.abspath(os.path.join(self.workspace_root, path))
+        canonical = os.path.realpath(target)
+        if (os.path.commonpath([target, self.workspace_root]) != self.workspace_root
+                or os.path.commonpath([canonical, self.workspace_root]) != self.workspace_root):
+            raise TextEditorError(f"Path traversal detected: '{path}' resolves outside workspace root.")
+        if self._LOCK_NAME in os.path.relpath(target, self.workspace_root).split(os.sep):
+            raise TextEditorError("The workspace lock is reserved for the backend.")
         return target
 
+    @contextmanager
+    def _open_target(self, path: str, flags: int = os.O_RDONLY, create_parents: bool = False):
+        """Open without ever following a workspace symlink or re-resolving its root."""
+        with self._mutex:
+            if self._root_fd is None:
+                raise TextEditorError("The editor is closed.")
+            full_path = self._resolve_safe_path(path)
+            relative = os.path.relpath(full_path, self.workspace_root)
+            parts = [] if relative == "." else relative.split(os.sep)
+            parent_fd = os.dup(self._root_fd)
+            target_fd = None
+            try:
+                for part in parts[:-1]:
+                    if create_parents:
+                        try:
+                            os.mkdir(part, 0o700, dir_fd=parent_fd)
+                        except FileExistsError:
+                            pass
+                    next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent_fd)
+                    try:
+                        self._check_private(os.fstat(next_fd), directory=True)
+                    except Exception:
+                        os.close(next_fd)
+                        raise
+                    os.close(parent_fd)
+                    parent_fd = next_fd
+                if parts:
+                    target_fd = os.open(parts[-1], flags | os.O_NOFOLLOW | os.O_NONBLOCK,
+                                        0o600, dir_fd=parent_fd)
+                else:
+                    if flags != os.O_RDONLY:
+                        raise TextEditorError("Cannot modify the workspace directory.")
+                    target_fd = os.dup(parent_fd)
+                info = os.fstat(target_fd)
+                self._check_private(info, directory=stat.S_ISDIR(info.st_mode) and flags == os.O_RDONLY)
+                yield full_path, target_fd
+            except OSError as err:
+                raise TextEditorError(f"Unsafe or unavailable workspace path '{path}': {err.strerror}.") from err
+            finally:
+                if target_fd is not None:
+                    os.close(target_fd)
+                os.close(parent_fd)
+
+    @staticmethod
+    def _read(fd: int) -> str:
+        os.lseek(fd, 0, os.SEEK_SET)
+        with os.fdopen(os.dup(fd), "r", encoding="utf-8", newline="") as stream:
+            return stream.read()
+
+    @staticmethod
+    def _write(fd: int, content: str) -> None:
+        os.lseek(fd, 0, os.SEEK_SET)
+        with os.fdopen(os.dup(fd), "w", encoding="utf-8", newline="") as stream:
+            stream.write(content)
+            stream.flush()
+            stream.truncate()
+
     def _push_history(self, path: str, content: str) -> None:
-        """Stores a snapshot of file content before mutation."""
-        if path not in self.history:
-            self.history[path] = []
-        self.history[path].append(content)
+        snapshots = self.history.setdefault(path, [])
+        snapshots.append(content)
+        del snapshots[:-50]
 
-    def view(
-        self,
-        path: str,
-        view_range: Optional[List[int]] = None
-    ) -> str:
-        """
-        Views a file or directory listing.
-        Returns numbered lines starting at 1.
-        """
-        full_path = self._resolve_safe_path(path)
-
-        if not os.path.exists(full_path):
-            raise TextEditorError(f"Target path does not exist: {path}")
-
-        if os.path.isdir(full_path):
-            entries = os.listdir(full_path)
-            entries.sort()
-            lines = [f"Directory listing of {path}:"]
-            for entry in entries:
-                is_dir = os.path.isdir(os.path.join(full_path, entry))
-                lines.append(f"{entry}/" if is_dir else entry)
-            return "\n".join(lines)
-
-        try:
-            with open(full_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-        except UnicodeDecodeError:
-            raise TextEditorError(f"Cannot view binary file: {path}")
-
-        total_lines = len(lines)
-        if total_lines == 0:
+    def view(self, path: str, view_range: Optional[List[int]] = None) -> str:
+        """View numbered UTF-8 lines or a directory without following its entries."""
+        with self._open_target(path) as (_, fd):
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                lines = [f"Directory listing of {path}:"]
+                for entry in sorted(os.listdir(fd)):
+                    if entry == self._LOCK_NAME:
+                        continue
+                    info = os.stat(entry, dir_fd=fd, follow_symlinks=False)
+                    lines.append(f"{entry}/" if stat.S_ISDIR(info.st_mode) else entry)
+                return "\n".join(lines)
+            try:
+                lines = self._read(fd).splitlines()
+            except UnicodeDecodeError as err:
+                raise TextEditorError(f"Cannot view binary file: {path}") from err
+        if not lines:
             return f"File '{path}' is empty."
-
-        start_line = 1
-        end_line = total_lines
-
-        if view_range:
-            if len(view_range) != 2:
+        start_line, end_line = 1, len(lines)
+        if view_range is not None:
+            if len(view_range) != 2 or any(type(i) is not int for i in view_range):
                 raise TextEditorError("view_range must contain exactly two integers: [start_line, end_line].")
-            start_line, end_line = view_range
-            if start_line < 1:
-                start_line = 1
-            if end_line > total_lines or end_line == -1:
-                end_line = total_lines
+            start_line = max(1, view_range[0])
+            end_line = len(lines) if view_range[1] == -1 else min(len(lines), view_range[1])
             if start_line > end_line:
-                raise TextEditorError(
-                    f"Invalid view_range [{start_line}, {end_line}]: start line cannot exceed end line."
-                )
-
-        output = []
-        for i in range(start_line, end_line + 1):
-            line_text = lines[i - 1].rstrip("\r\n")
-            output.append(f"{i:6d}\t{line_text}")
-
-        return "\n".join(output)
+                raise TextEditorError("Invalid view_range: start line cannot exceed end line.")
+        return "\n".join(f"{i:6d}\t{lines[i - 1]}" for i in range(start_line, end_line + 1))
 
     def create(self, path: str, file_text: str) -> str:
-        """Creates a new file with specified content."""
-        full_path = self._resolve_safe_path(path)
-
-        if os.path.exists(full_path):
-            raise TextEditorError(
-                f"File already exists: {path}. Use str_replace or delete before recreating."
-            )
-
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        with open(full_path, "w", encoding="utf-8") as f:
-            f.write(file_text)
-
+        """Create exclusively; a late symlink or existing file is never overwritten."""
+        if not isinstance(file_text, str):
+            raise TextEditorError("file_text must be a string.")
+        with self._open_target(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, create_parents=True) as (_, fd):
+            self._write(fd, file_text)
         return f"File '{path}' created successfully ({len(file_text)} characters)."
 
     def str_replace(self, path: str, old_str: str, new_str: str) -> str:
-        """
-        Replaces exactly one unique occurrence of old_str with new_str.
-        Fails if old_str is not found or occurs multiple times.
-        """
-        full_path = self._resolve_safe_path(path)
-
-        if not os.path.exists(full_path):
-            raise TextEditorError(f"File not found: {path}")
-
-        if os.path.isdir(full_path):
-            raise TextEditorError(f"Cannot modify directory: {path}")
-
-        with open(full_path, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        match_count = content.count(old_str)
-        if match_count == 0:
-            raise TextEditorError(
-                f"Target string not found in '{path}'. "
-                "Verify line numbers, leading whitespace, and exact indentation using the 'view' command."
-            )
-        if match_count > 1:
-            raise TextEditorError(
-                f"Target string found {match_count} times in '{path}'. "
-                "str_replace requires a unique string match. Include more surrounding lines to disambiguate."
-            )
-
-        self._push_history(full_path, content)
-        updated_content = content.replace(old_str, new_str, 1)
-
-        with open(full_path, "w", encoding="utf-8") as f:
-            f.write(updated_content)
-
+        if not isinstance(old_str, str) or not old_str or not isinstance(new_str, str):
+            raise TextEditorError("old_str must be nonempty and both replacement parameters must be strings.")
+        with self._open_target(path, os.O_RDWR) as (full_path, fd):
+            content = self._read(fd)
+            matches = content.count(old_str)
+            if matches != 1:
+                raise TextEditorError(f"Target string found {matches} times in '{path}'; str_replace requires a unique match.")
+            self._write(fd, content.replace(old_str, new_str, 1))
+            self._push_history(full_path, content)
         return f"Successfully replaced 1 occurrence in '{path}'."
 
     def insert(self, path: str, insert_line: int, new_str: str) -> str:
-        """Inserts new_str after insert_line (0 inserts at the beginning)."""
-        full_path = self._resolve_safe_path(path)
-
-        if not os.path.exists(full_path):
-            raise TextEditorError(f"File not found: {path}")
-
-        with open(full_path, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        self._push_history(full_path, content)
-        lines = content.splitlines(keepends=True)
-        total_lines = len(lines)
-
-        if insert_line < 0 or insert_line > total_lines:
-            raise TextEditorError(
-                f"Invalid insert_line {insert_line}. File '{path}' has {total_lines} lines (valid range: 0 to {total_lines})."
-            )
-
-        insert_text = new_str
-        if not insert_text.endswith("\n") and (insert_line < total_lines or len(lines) > 0):
-            insert_text += "\n"
-
-        if insert_line == 0:
-            lines.insert(0, insert_text)
-        else:
+        if not isinstance(new_str, str):
+            raise TextEditorError("new_str must be a string.")
+        with self._open_target(path, os.O_RDWR) as (full_path, fd):
+            content = self._read(fd)
+            lines = content.splitlines(keepends=True)
+            if type(insert_line) is not int or insert_line < 0 or insert_line > len(lines):
+                raise TextEditorError(f"Invalid insert_line {insert_line}; valid range is 0 to {len(lines)}.")
+            insert_text = new_str
+            if not insert_text.endswith("\n") and lines:
+                insert_text += "\n"
+            if insert_line == len(lines) and lines and not lines[-1].endswith("\n"):
+                lines[-1] += "\n"
             lines.insert(insert_line, insert_text)
-
-        updated_content = "".join(lines)
-        with open(full_path, "w", encoding="utf-8") as f:
-            f.write(updated_content)
-
+            self._write(fd, "".join(lines))
+            self._push_history(full_path, content)
         return f"Successfully inserted text after line {insert_line} in '{path}'."
 
     def undo_edit(self, path: str) -> str:
-        """Reverts the most recent edit to the specified file."""
-        full_path = self._resolve_safe_path(path)
-
-        if full_path not in self.history or not self.history[full_path]:
-            raise TextEditorError(f"No edit history found to undo for '{path}'.")
-
-        previous_content = self.history[full_path].pop()
-        with open(full_path, "w", encoding="utf-8") as f:
-            f.write(previous_content)
-
-        return f"Reverted file '{path}' to previous state ({len(self.history[full_path])} undo snapshots remaining)."
+        with self._open_target(path, os.O_RDWR) as (full_path, fd):
+            history = self.history.get(full_path)
+            if not history:
+                raise TextEditorError(f"No edit history found to undo for '{path}'.")
+            self._write(fd, history[-1])
+            history.pop()
+        return f"Reverted file '{path}' to previous state ({len(history)} undo snapshots remaining)."
 
     def execute_command(self, tool_input: Dict[str, Any]) -> Tuple[bool, str]:
         """
@@ -238,7 +279,7 @@ class TextEditorBackend:
                 new_str = tool_input.get("new_str")
                 if insert_line is None or new_str is None:
                     return True, "Missing 'insert_line' or 'new_str' for 'insert' command."
-                res = self.insert(path, int(insert_line), new_str)
+                res = self.insert(path, insert_line, new_str)
                 return False, res
 
             elif command == "undo_edit":
@@ -304,4 +345,5 @@ if __name__ == "__main__":
         print(f"Undo: is_error={err} -> {out}")
 
     finally:
+        backend.close()
         shutil.rmtree(test_dir)

@@ -1,5 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import assert from "node:assert/strict";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -32,65 +33,76 @@ async function runClientVerification() {
     }
   );
 
-  await client.connect(transport);
-  console.log("Connected to MCP server via stdio.");
+  try {
+    await client.connect(transport);
+    console.log("Connected to MCP server via stdio.");
 
-  // 1. Tool discovery and invocation
-  const toolsResponse = await client.listTools();
-  console.log(`Discovered ${toolsResponse.tools.length} tools:`);
-  for (const tool of toolsResponse.tools) {
-    console.log(`  - ${tool.name}: ${tool.description}`);
-  }
-
-  // Invoke calculate_cluster_health
-  const healthResult = await client.callTool({
-    name: "calculate_cluster_health",
-    arguments: {
-      clusterId: "prod-us-east-1",
-      activeErrors: 2,
-      windowMinutes: 30
+    // 1. Tool discovery and invocation
+    const toolsResponse = await client.listTools();
+    assert.deepEqual(toolsResponse.tools.map(tool => tool.name).sort(), ["calculate_cluster_health", "drain_node"]);
+    console.log(`Discovered ${toolsResponse.tools.length} tools:`);
+    for (const tool of toolsResponse.tools) {
+      console.log(`  - ${tool.name}: ${tool.description}`);
     }
-  });
-  console.log("\nInvocation calculate_cluster_health result:");
-  console.log(JSON.stringify(healthResult, null, 2));
 
-  // 2. Resource inspection
-  const resourcesResponse = await client.listResources();
-  console.log(`\nDiscovered ${resourcesResponse.resources.length} static resources:`);
-  for (const res of resourcesResponse.resources) {
-    console.log(`  - ${res.uri} (${res.name})`);
-  }
+    // Invoke calculate_cluster_health
+    const healthResult = await client.callTool({
+      name: "calculate_cluster_health",
+      arguments: {
+        clusterId: "prod-us-east-1",
+        activeErrors: 2,
+        windowMinutes: 30
+      }
+    });
+    assert.notEqual(healthResult.isError, true);
+    console.log("\nInvocation calculate_cluster_health result:");
+    console.log(JSON.stringify(healthResult, null, 2));
 
-  // Read static resource
-  const staticRes = await client.readResource({ uri: "cluster://inventory/manifest" });
-  console.log("\nRead static resource cluster://inventory/manifest:");
-  console.log(JSON.stringify(staticRes, null, 2));
-
-  // Read dynamic template resource
-  const dynamicRes = await client.readResource({ uri: "cluster://nodes/node-02/telemetry" });
-  console.log("\nRead dynamic template resource cluster://nodes/node-02/telemetry:");
-  console.log(JSON.stringify(dynamicRes, null, 2));
-
-  // 3. Prompt templates
-  const promptsResponse = await client.listPrompts();
-  console.log(`\nDiscovered ${promptsResponse.prompts.length} prompt templates:`);
-  for (const p of promptsResponse.prompts) {
-    console.log(`  - ${p.name}: ${p.description}`);
-  }
-
-  // Retrieve prompt
-  const promptResult = await client.getPrompt({
-    name: "diagnose-incident",
-    arguments: {
-      clusterId: "prod-us-east-1",
-      alertName: "HighMemoryPressure",
-      observedMetric: "Worker node-02 memory allocation exceeded 92%"
+    // 2. Resource inspection
+    const resourcesResponse = await client.listResources();
+    assert.equal(resourcesResponse.resources.length, 1);
+    console.log(`\nDiscovered ${resourcesResponse.resources.length} static resources:`);
+    for (const res of resourcesResponse.resources) {
+      console.log(`  - ${res.uri} (${res.name})`);
     }
-  });
-  console.log("\nGet prompt diagnose-incident result:");
-  console.log(JSON.stringify(promptResult, null, 2));
 
-  await client.close();
+    // Read static resource
+    const staticRes = await client.readResource({ uri: "cluster://inventory/manifest" });
+    assert.equal(staticRes.contents[0]?.uri, "cluster://inventory/manifest");
+    console.log("\nRead static resource cluster://inventory/manifest:");
+    console.log(JSON.stringify(staticRes, null, 2));
+
+    // Read dynamic template resource
+    const dynamicRes = await client.readResource({ uri: "cluster://nodes/node-02/telemetry" });
+    assert.equal(dynamicRes.contents[0]?.uri, "cluster://nodes/node-02/telemetry");
+    console.log("\nRead dynamic template resource cluster://nodes/node-02/telemetry:");
+    console.log(JSON.stringify(dynamicRes, null, 2));
+
+    // 3. Prompt templates
+    const promptsResponse = await client.listPrompts();
+    assert.equal(promptsResponse.prompts[0]?.name, "diagnose-incident");
+    console.log(`\nDiscovered ${promptsResponse.prompts.length} prompt templates:`);
+    for (const p of promptsResponse.prompts) {
+      console.log(`  - ${p.name}: ${p.description}`);
+    }
+
+    // Retrieve prompt
+    const promptResult = await client.getPrompt({
+      name: "diagnose-incident",
+      arguments: {
+        clusterId: "prod-us-east-1",
+        alertName: "HighMemoryPressure",
+        observedMetric: "Worker node-02 memory allocation exceeded 92%"
+      }
+    });
+    assert.equal(promptResult.messages[0]?.role, "user");
+    console.log("\nGet prompt diagnose-incident result:");
+    console.log(JSON.stringify(promptResult, null, 2));
+
+  } finally {
+    await client.close();
+    await transport.close();
+  }
   console.log("\n=== MCP TypeScript Client Verification Complete: ALL CHECKS PASSED ===");
 }
 

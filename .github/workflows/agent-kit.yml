@@ -30,6 +30,7 @@ jobs:
           find scripts -name '*.sh' -print0 | xargs -0 -n1 bash -n
           python3 -m compileall -q scripts examples tests
           npm test --prefix app
+          node tests/provider-smoke.mjs
           python3 tests/systemd.py
           npm audit --prefix app --omit=dev
           npm audit --prefix integrations/mcp --omit=dev

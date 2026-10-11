@@ -34,8 +34,8 @@
     },
     {
       "path": "LICENSE",
-      "bytes": 702,
-      "sha256": "cdc001c71f97edf37874ee4d38c7c8a1ea27d6cc307dee2054d0109811de575f",
+      "bytes": 1150,
+      "sha256": "bd71f45225b014da2db37981b227927a39872f3b878122dd4ca3f666c54bf13f",
       "mode": "0644"
     },
     {
@@ -124,8 +124,8 @@
     },
     {
       "path": "app/public/docs.html",
-      "bytes": 28545,
-      "sha256": "46c78e948c1cfe2ef7a5d1c3098043b427df526f154d11d82a68be054600b1b0",
+      "bytes": 28696,
+      "sha256": "c93759e5030f9e447741a43ae5a272ae99db5ea62ac983d1cfec3d88c7f511b7",
       "mode": "0644"
     },
     {
@@ -250,14 +250,14 @@
     },
     {
       "path": "docs/RELEASE-ACCEPTANCE.md",
-      "bytes": 9779,
-      "sha256": "e6af10a50c1164602fa0ddb4aee1dbd3f2106267de6611c50cc66cb95f00236e",
+      "bytes": 10852,
+      "sha256": "b2bfb80b48405c7abb0615381cb8684da1b8a81b170df12b002720901bb672fd",
       "mode": "0644"
     },
     {
       "path": "docs/SUPPORT-GUIDE.md",
-      "bytes": 2321,
-      "sha256": "a6447353d5b8d409a38bfbe7afb1627d25834beeabd78711657ebf5212d47670",
+      "bytes": 2490,
+      "sha256": "da5ff60ace0442dc9ebc6629cf6fbff7634f3e44cccbc060abab853bb97d5d92",
       "mode": "0644"
     },
     {
@@ -268,8 +268,8 @@
     },
     {
       "path": "docs/index.html",
-      "bytes": 28558,
-      "sha256": "2a9732ba6e18d53cf3463e566bdc33a8fbe61327c5a497cb48742a52b5206a89",
+      "bytes": 28709,
+      "sha256": "2ccd701a8a352a1fd192245d10cc88eaf1d5f023c73a65b3f36ed30d07375473",
       "mode": "0644"
     },
     {
@@ -340,8 +340,8 @@
     },
     {
       "path": "scripts/provider-smoke.sh",
-      "bytes": 2415,
-      "sha256": "fbbb8a921fc373be7abf8b9ef37f3ae3655fc1515813dff1145a2769520e8d13",
+      "bytes": 4012,
+      "sha256": "c33ef2b5e19eab29902debbfae81673a7da8406786112a2aa0e6f9e93e33cafa",
       "mode": "0755"
     },
     {
@@ -474,6 +474,12 @@
       "path": "tests/package.py",
       "bytes": 4932,
       "sha256": "7d2bcce97e9f3f51b878df5ba98a18246d42a1bef9ba34303e8b00bfec5f7f99",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/provider-smoke.mjs",
+      "bytes": 5813,
+      "sha256": "8e11a6b55983d54695f835a2478cb52ea9318f1e5dd41f32af5a1d37ca1ac66a",
       "mode": "0644"
     },
     {

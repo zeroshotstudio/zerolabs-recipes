@@ -2,7 +2,7 @@
 
 Audit baseline: `85c24b7301a64fbe1714a4bf9483e83e334b4968` on `codex/agent-kit-overhaul`, [PR #1](https://github.com/zeroshotstudio/zerolabs-recipes/pull/1). Reviewed 2026-10-11 UTC. This register retains every original finding and recommendation and adds issues discovered during remediation. Public release remains on hold until the evidence below is complete.
 
-Local implementation and revalidation are complete: all ten original findings have fixes and regression evidence; the additional entries have corrections or documented image-advisory dispositions. Independent review found no remaining blocking code defect within the audited scope. The 85-file customer ZIP passes extracted-package acceptance. See [the revalidation report](reports/agent-kit-audit-revalidation.md) for evidence and remaining maintenance limits. Final-head CI and the account/deployment gates below still determine public-launch readiness.
+All ten original findings have fixes and regression evidence; additional kit/recipe findings have corrections or documented image-advisory dispositions. Independent review found no remaining blocking code defect within that audited scope. The follow-up 86-file customer ZIP passes strict verification and the new provider-receipt regressions; complete final-head CI must validate its runtime acceptance. Newly identified live-site privacy/identity defects remain open under N13. See [the revalidation report](reports/agent-kit-audit-revalidation.md) for evidence and remaining maintenance limits. Final-head CI and the account/deployment gates below still determine public-launch readiness.
 
 ## 1. Original findings: required fixes and closure evidence
 
@@ -34,6 +34,10 @@ Findings 7, 8 and 10 concern repository recipes outside the Agent Kit ZIP. They 
 | N7 | Container OS and bundled tooling were not covered by npm audits. A fresh Grype scan identifies additional image advisories. Triage every match, update compatible pinned images and remove unnecessary runtime package managers; preserve evidence for any residual upstream issue. | Scan the actual final app image and pinned PostgreSQL/Caddy images with a current vulnerability database. No unexplained blocking advisory; record limitations and any justified vendor-based disposition. Re-run affected runtime checks after image changes. |
 | N8 | A delayed document response replaces a newer palette/task dialog; a completed deletion or token mutation can replace a newly selected section. Guard all asynchronous dialog/route mutations using their original context and preserve newer navigation. | Actual-browser delayed-read and delayed-mutation regressions; newer dialog, route content and focus remain intact and background errors do not access removed form nodes. |
 | N9 | A staged filename beginning `0:` is interpreted as a Git revision and can make the scanner read a different clean blob. Read index entries with an explicit stage or resolved object ID. | Stage both a clean file and a synthetic credential-bearing `0:` filename; scanner must inspect the intended blob, return failure and redact output. |
+| N10 | Live article review exposed remaining unsupported Recipe 20 timing/token claims in the repository article. Replace the quantitative claims and benchmark framing with accurate qualitative descriptions. | Review the final article and CMS payload: no unsupported numerical performance guarantee remains; copied code links resolve to the audited branch. |
+| N11 | The live-provider smoke script could print a passing receipt despite missing per-response usage or inconsistent task totals. Require measured, safe-integer usage on every model response and reconcile the task totals before passing. | Execute the actual script's JavaScript offline against valid, missing, invalid, mismatched and overflowing usage responses. CI runs this regression; the actual account/model smoke remains a separate gate. |
+| N12 | The kit license's unqualified warranty disclaimer can mislead purchasers about mandatory consumer rights. Preserve non-excludable guarantees, remedies and digital-content updates, including Australian and applicable overseas protections. | Review against current official Australian/EU/German sources and independent clause checks. Preserve existing permission grants, prior public grants and third-party notices. Complete the actual storefront's legal presentation and withdrawal/refund flow separately. |
+| N13 / open live-site gate | The separately deployed ZeroLabs legal pages retain Berlin/contact details that conflict with the confirmed Australian operator, and GA4 initializes without a source-level consent condition. Existing analytics/privacy statements do not accurately establish the observed PostgreSQL/contact/newsletter/optional Turnstile flows. | Prepare exact application-source corrections and a fact-dependent privacy inventory; use the actual deployment route. Verify the final identity, vendor roles, retention/transfers and regional tracking/consent behavior in a real browser. These external application defects are not closed by recipe payloads, draft terms or kit CI. |
 
 ## 3. Automation and final-source validation
 
@@ -63,6 +67,39 @@ The product owner and deployment operator own this phase. Run it against the rel
 | Commerce | Set approved checkout URL, price/currency/billing basis, tax handling, purchaser entitlement and ZIP delivery. Perform a real end-to-end purchase and permitted refund flow. | Correct charge, entitlement, matching artifact download, published support contact/refund terms and successful delivery. Keep sales disabled until configured; do not invent pricing. |
 | Licensing | Settle commercial distribution expectations and earlier public license grants; align repository notice, kit license, sales copy and purchaser terms. | Owner-approved terms and scope. Earlier published rights are not revoked by a later license notice. Code review cannot settle the owner's distribution decision. |
 | External claims | Check any separately hosted Recipe 19/20/21 articles or sales pages for old sandbox, editor or desktop guarantees. | Published claims match final implementation. Repository corrections do not automatically update an external CMS. |
+
+### Owner configuration received after the initial audit
+
+The owner selected an Australian seller selling worldwide, including the EU,
+and supplied legal identity/contact information for the terms. Official ABN
+Lookup lists ABN 30 285 930 662 as an active individual/sole trader under James
+John Goode, not currently registered for GST. See
+[the official record](https://abr.business.gov.au/ABN/View?id=30285930662).
+This does not establish the tax treatment or contracting identity of an
+unselected merchant-of-record checkout.
+
+Prepare Australian base terms with EU consumer information; preserve mandatory
+local protections for targeted overseas consumers. The actual checkout must
+provide durable contract information, transparent total pricing and the required
+online withdrawal and acknowledgment function. A terms document or email link
+alone cannot satisfy [current § 356a BGB](https://www.gesetze-im-internet.de/bgb/__356a.html).
+Price, storefront account/product, authenticated ZeroVPS access, provider/model
+and encrypted backup/monitoring configuration remain necessary inputs.
+
+Public HTTP checks confirmed all three live Recipe 19/20/21 articles contain
+outdated claims. The live ZeroLabs site stores posts in PostgreSQL and exposes
+an authenticated article-update API; updating dead MDX source files does not
+correct published articles. Prepare complete body and structured-metadata
+payloads, preserve snapshots, and verify authenticated readback plus rendered
+pages after applying them through the owner's connected access.
+
+Reviewed prelaunch sales, withdrawal and privacy preparation is versioned in
+[marketing/agent-kit/legal](marketing/agent-kit/legal/README.md). Three separate
+drafting/source checks do not certify worldwide enforceability or the unselected
+checkout. Its actual seller/MoR, price, genuine contact, tax, durable confirmation,
+withdrawal/refund and privacy acceptance cases remain open. The live site's
+privacy/terms application pages and nonessential tracking require separate
+application deployment and browser verification; retain N13 until that succeeds.
 
 ## 5. Release sequence and rollback
 

@@ -17,9 +17,25 @@ while(Date.now()<deadline){
   const {events}=await api('/api/tasks/'+task.id+'/events');
   const artifact=result.artifacts.find(a=>a.name==='provider-smoke.txt');
   if(!artifact||!events.some(e=>e.type==='tool_finished'&&e.message==='calculate: completed'))throw new Error('The model completed without the required calculation and artifact tools. Inspect the task.');
+  const measured=n=>Number.isSafeInteger(n)&&n>=0;
+  // PostgreSQL bigint columns arrive as canonical decimal strings; JSON event
+  // usage remains numeric. Reject malformed/unsafe values before conversion.
+  const taskUsage=value=>{const n=typeof value==='string'&&/^(0|[1-9]\d*)$/.test(value)?Number(value):value;return measured(n)?n:null;};
+  const responses=events.filter(e=>e.type==='model_response');
+  if(typeof result.task.model!=='string'||!result.task.model.trim()||!responses.length)throw new Error('The completed task has no recorded model or model responses. Live-provider acceptance was not established.');
+  let inputTokens=0,outputTokens=0;
+  for(const event of responses){
+   const usage=event.data;
+   if(!measured(usage?.input_tokens)||!measured(usage?.output_tokens))throw new Error('Provider usage is missing or invalid for a model response. Live-provider acceptance requires measured usage for every call.');
+   inputTokens+=usage.input_tokens;outputTokens+=usage.output_tokens;
+   if(!measured(inputTokens)||!measured(outputTokens))throw new Error('Provider usage totals exceed the supported integer range.');
+  }
+  const taskInput=taskUsage(result.task.input_tokens),taskOutput=taskUsage(result.task.output_tokens);
+  if(taskInput===null||taskOutput===null||taskInput!==inputTokens||taskOutput!==outputTokens)throw new Error('Saved task usage does not match the measured model-response totals.');
+  if(!measured(inputTokens+outputTokens)||inputTokens+outputTokens===0)throw new Error('The completed provider task must have positive, safely measured token usage.');
   const response=await fetch(base+'/api/artifacts/'+artifact.id,{headers});
   if(!response.ok||(await response.text()).trim()!=='437')throw new Error('The saved artifact did not contain the expected result.');
-  console.log(JSON.stringify({passed:true,task_id:task.id,model:result.task.model,input_tokens:result.task.input_tokens,output_tokens:result.task.output_tokens}));process.exit(0);
+  console.log(JSON.stringify({passed:true,task_id:task.id,model:result.task.model,model_responses:responses.length,input_tokens:inputTokens,output_tokens:outputTokens}));process.exit(0);
  }
  await delay(1000);
 }

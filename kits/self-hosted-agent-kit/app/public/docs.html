@@ -125,6 +125,8 @@ node tests/acceptance.mjs</pre>
 <h3>Capacity and availability</h3>
 <p>This is a single host. Monitor free disk, <code>/health/ready</code>, and timer failures externally. Application container logs rotate at 3 × 10 MiB per service; PostgreSQL data and task history grow until you deliberately prune them. Backups cover data, not a bootable host image. No availability SLA, autonomous incident remediation, host patch management, secrets manager or SOC2 certification is included.</p></section>
 <section id="support"><h2>Support and troubleshooting</h2>
+<p>For purchase, download delivery and product support enquiries, contact</p>
+<p>hello@jimmygoode.com.</p>
 <p>Collect: kit version, host OS/architecture, Docker/Compose versions, failing operation, timestamp, request ID, task ID, <code>scripts/status.sh</code> output, and relevant API/worker/backup log excerpts. Redact prompts, document content, tokens, passwords and provider keys. Never upload <code>.env</code> or a database backup to a public issue.</p>
 <table tabindex="0"><tbody>
 <tr><td>Symptom</td><td>Action</td></tr>
@@ -139,4 +141,4 @@ node tests/acceptance.mjs</pre>
 <tr><td>Container healthy but readiness fails</td><td>Liveness and readiness differ. /health/ready also requires PostgreSQL and an actual recent worker heartbeat.</td></tr>
 <tr><td>MCP connection fails</td><td>Run npm ci in integrations/mcp; check Node version, absolute script path, HTTPS/loopback URL, token permissions and token revocation.</td></tr>
 </tbody></table>
-<p>Support should cover reproducible defects in the shipped installer, app, scripts, and documented integration contract. Hosting administration, model quality, third-party outages, custom tools, runtime extensions and migration of arbitrary existing data require separate work. Publish a real support address, response expectations and refund terms on the storefront before accepting payment; none are invented by the application.</p></section></main></body></html>
+<p>Support should cover reproducible defects in the shipped installer, app, scripts, and documented integration contract. Hosting administration, model quality, third-party outages, custom tools, runtime extensions and migration of arbitrary existing data require separate work. Publish response expectations and the applicable refund/withdrawal terms on the storefront before accepting payment. This scope description does not restrict mandatory consumer rights or remedies.</p></section></main></body></html>

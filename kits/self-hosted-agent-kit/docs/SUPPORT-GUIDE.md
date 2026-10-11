@@ -1,5 +1,8 @@
 # Support and troubleshooting
 
+For purchase, download delivery and product support enquiries, contact
+[hello@jimmygoode.com](mailto:hello@jimmygoode.com).
+
 Collect: kit version, host OS/architecture, Docker/Compose versions, failing operation, timestamp, request ID, task ID, `scripts/status.sh` output, and relevant API/worker/backup log excerpts. Redact prompts, document content, tokens, passwords and provider keys. Never upload `.env` or a database backup to a public issue.
 
 | Symptom | Action |
@@ -15,4 +18,4 @@ Collect: kit version, host OS/architecture, Docker/Compose versions, failing ope
 | Container healthy but readiness fails | Liveness and readiness differ. /health/ready also requires PostgreSQL and an actual recent worker heartbeat. |
 | MCP connection fails | Run npm ci in integrations/mcp; check Node version, absolute script path, HTTPS/loopback URL, token permissions and token revocation. |
 
-Support should cover reproducible defects in the shipped installer, app, scripts, and documented integration contract. Hosting administration, model quality, third-party outages, custom tools, runtime extensions and migration of arbitrary existing data require separate work. Publish a real support address, response expectations and refund terms on the storefront before accepting payment; none are invented by the application.
+Support should cover reproducible defects in the shipped installer, app, scripts, and documented integration contract. Hosting administration, model quality, third-party outages, custom tools, runtime extensions and migration of arbitrary existing data require separate work. Publish response expectations and the applicable refund/withdrawal terms on the storefront before accepting payment. This scope description does not restrict mandatory consumer rights or remedies.

@@ -14,6 +14,14 @@ Edit `SALES_CONFIG` near the end of `index.html`:
 
 The page does not invent pricing, collect leads or simulate checkout. Validate payment, entitlement/download delivery, support and refund terms before enabling a public sales flow. When the kit's status changes, update the release-candidate copy, FAQ and all branch-specific documentation links together.
 
+The [legal preparation package](legal/README.md) contains reviewed Australian
+sales drafts, EU/German consumer information, a withdrawal notice/form, primary
+sources and actual checkout/privacy acceptance requirements. It remains a
+prelaunch draft: choose the real contracting seller, fill every required field
+and verify the purchase/delivery/withdrawal/refund flow before publishing terms
+or enabling checkout. The page does not expose these incomplete drafts as
+approved customer terms.
+
 ## Product claims and preview
 
 Copy is grounded in `kits/self-hosted-agent-kit/README.md` and `docs/RELEASE-ACCEPTANCE.md`. It explains that model calls go to OpenAI, running costs are separate, the product is a single-operator workspace, and it does not install OpenClaw. The expandable interface preview uses clearly labelled illustrative data; it is not a live dashboard or a model execution demo.

@@ -30,12 +30,17 @@ Date: 2026-10-11 UTC. Baseline: `85c24b7301a64fbe1714a4bf9483e83e334b4968`, bran
 - N7: Patched image builds remove unnecessary application tooling, apply exact Alpine OpenSSL/zlib fixes, and rebuild Caddy with locked Go 1.27.2/x-net 0.60.0. Fresh scans of actual images have no detected High/Critical matches. Residual inventory and upstream work remain explicitly documented below.
 - N8: Additional document/token/task completion races could overwrite newer navigation and drafts. Context guards and a bounded pending token dialog preserve current views and the one-time token result. Eight frontend groups and independent reproductions pass.
 - N9: A staged `0:` filename could resolve to a different clean Git blob. Explicit index stage addressing and literal filename/type-change regressions close the ambiguity.
+- N10: Live article review exposed further unsupported Recipe 20 timing/token claims and misleading current-model compatibility wording. The repository article now uses qualitative claims and labels its API examples historical. Prepared CMS updates for all three affected articles also correct stale FAQ/HowTo/SEO metadata; authentication and actual application/readback remain required.
+- N11: The live-provider smoke could emit a passing receipt with incomplete usage. It now requires safe measured usage for every response, reconciles canonical PostgreSQL decimal-string task totals, rejects unsafe or zero combined usage, and records the response count. All 24 regressions execute the actual smoke script's JavaScript and pass.
+- N12: The kit license's blanket warranty disclaimer is replaced with an explicit preservation of non-excludable Australian and applicable overseas consumer rights, defect remedies, required updates and express sales commitments. Three checks against official sources support this correction; they are not a legal enforceability certification. Existing permission grants and earlier public grants are preserved.
+- N13 (open external gate): Separately deployed legal pages still give stale Berlin/contact details, and the site's global layout initializes GA4 without a consent condition. The observed analytics, contact/newsletter storage and optional Turnstile flows require an accurate privacy notice, applicability/transfer review and actual tracking/consent verification. A reviewable application patch and data inventory are prepared separately; no live application deployment has occurred.
 
 ## Validation evidence
 
 | Area | Result |
 | --- | --- |
 | Application units | 12 pass, including eight worker lifecycle cases; the database-only test is separately executed against PostgreSQL and passes without skips. |
+| Provider receipt | 24 actual-script offline regressions pass, including valid PostgreSQL string totals, missing usage/models, invalid numbers, mismatched aggregates, overflow and incorrect output. No paid model call was performed. |
 | API and worker | All 16 acceptance groups pass on the rebuilt stack and again from the extracted ZIP. |
 | Integrations | Actual MCP initialization, discovery, submission, lookup, documents and invalid-argument handling pass. |
 | Dashboard | Eight isolated regression groups; actual application workflows; all 16 axe/overflow views; authentication/rate/header-spoof checks pass. |
@@ -45,11 +50,13 @@ Date: 2026-10-11 UTC. Baseline: `85c24b7301a64fbe1714a4bf9483e83e334b4968`, bran
 | Marketing | Playback, chapters, eleven caption cues, seeking/replay, controls, checkout validation, media downloads/hashes and fallback paths pass; twelve axe/overflow combinations pass across four widths. |
 | Repository | 18 locked TypeScript packages build/audit clean; 17 Python requirement sets audit clean; maintained offline suites, scanner regressions, selective Python lint, Compose validation and workflow actionlint pass. |
 | Installer | Six regression groups pass under isolated root, plus independent review; syntax and systemd unit/dependency checks pass. Actual host timer firing remains untested. |
-| Distribution | Exact 85-file ZIP passes strict manifest/checksum/mode verification, clean-state assertions, full API/MCP/browser/rate workflows, frontend regressions and the default installer without a model key or fixture override. |
+| Distribution | The initial 85-file archive passed strict verification and full extracted API/MCP/browser/rate/frontend/default-installer acceptance. The follow-up 86-file archive includes the revised license, support contact and provider-receipt regression; it passes strict verification and that regression from the extracted bundle. Final-head CI must repeat complete runtime and extracted-package acceptance for the latest archive. |
 
 Validated local archive: `kits/self-hosted-agent-kit/release/self-hosted-agent-kit-2.0.0.zip`.
 
-SHA-256: `ad3c68780275d6efdf0b016ade4ae310fdae45e3ff61750f679197a3468c0244`.
+Follow-up archive SHA-256: `6a2f13f9385a4ebfc5d1dedef07b5975d0ff8aaabe67c7bfe7efbd48f7d79b39`.
+
+Initial acceptance at `662c74ea67fcaf84c11fe53817a71bcf721e5b3d` had green Recipes CI [38138527167](https://github.com/zeroshotstudio/zerolabs-recipes/actions/runs/38138527167) and Agent Kit acceptance [38138527172](https://github.com/zeroshotstudio/zerolabs-recipes/actions/runs/38138527172). Its CI product ZIP was byte-identical to the initial local archive (`ad3c68780275d6efdf0b016ade4ae310fdae45e3ff61750f679197a3468c0244`). These runs remain historical evidence; the follow-up source and archive require their own final-head CI.
 
 Generated documentation, source digest and manifest match the packaged source. CI now runs recipe builds/offline tests/dependency audits, marketing checks, deterministic regressions, real token concurrency, update/rollback and extracted-package acceptance. Its checksum-verified image scanner fails for High/Critical matches and retains JSON evidence. Require complete green runs associated with the final PR head; the baseline failure and earlier-commit successes are not acceptance evidence for this change.
 
@@ -66,7 +73,15 @@ Node 22.23.3 still embeds OpenSSL 3.5.8, which this scanner does not accurately 
 1. Intended live OpenAI account/model smoke, with actual calculation tool call, saved artifact and measured usage.
 2. Chosen Ubuntu/Debian host installation/restore, actual systemd timer firing, disk monitoring and external readiness monitoring.
 3. Intended real domain/ACME or Tailscale access, encrypted cloud offsite backup/restore and demonstrated key recovery.
-4. Approved checkout, price/tax/billing, purchase entitlement and exact ZIP delivery, published support/refund terms and purchaser licensing/distribution decisions, including earlier public grants.
-5. Review/correction of separately hosted recipe/sales claims where applicable; this repository does not control an external CMS.
+4. Approved checkout, price/tax/billing, purchase entitlement and exact ZIP delivery, published terms and functioning refund/withdrawal flow. The owner supplied an Australian seller identity/contact and selected worldwide sales including the EU; mandatory overseas protections remain applicable. Storefront contracting identity, telephone information where required, tax roles, actual privacy/consent and EU representation/accessibility applicability must match the operating setup. Preserve earlier public grants.
+5. Application and verification of prepared live Recipe 19/20/21 corrections, plus the separately hosted legal/privacy pages. Public checks found all three articles stale, and existing legal pages still contain outdated Berlin/contact details. Repository corrections and staged payloads do not update live content.
 
-This environment supplied no live provider credentials, target-host/account configuration or approved storefront terms. Fixture Responses traffic, local rclone storage, static TLS configuration and unit validation do not close those gates. Preserve v1 separately; cut over only after validation, retaining the matching application, pre-update backup and separately secured secrets.
+Australian base sales terms, a German/EU consumer addendum, statutory withdrawal
+notice/form, privacy preparation, primary sources and end-to-end commerce checks
+are versioned under [marketing/agent-kit/legal](../marketing/agent-kit/legal/README.md).
+They received three drafting/source passes and remain explicitly prelaunch until
+actual seller/checkout/data facts and operational evidence are complete. No
+all-country legal-validity certification, approved price or invented contact is
+claimed.
+
+The owner identified ZeroVPS as the access route. Its documented SSH/MCP routes require secure runtime connection bindings, which are absent from this session; GitHub repository access is not live-host or CMS authentication. The environment also has no live provider, backup or storefront credentials. Fixture Responses traffic, local rclone storage, static TLS configuration and unit validation do not close those gates. Preserve v1 separately; cut over only after validation, retaining the matching application, pre-update backup and separately secured secrets.

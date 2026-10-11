@@ -32,8 +32,8 @@ The video records the actual dashboard in an isolated deployment. Model response
 python3 marketing/agent-kit/preview.py --port 8080
 ```
 
-Open `http://127.0.0.1:8080`. The local preview helper supports byte-range requests, which browsers need for reliable video seeking. Use a static host with HTTP range support for deployment; the helper binds only to localhost and is not a production server. Copy `index.html` and `assets/` into the ZeroLabs website without changing the Agent Kit runtime or release bundle.
+Open `http://127.0.0.1:8080`. The local preview helper supports byte-range requests and binds only to localhost; it is not a production server. The enhanced player buffers the small MP4 (about 1.4 MB) into a browser object URL so chapter seeking also works on hosts that ignore HTTP range requests. A host with range support is preferable for the native player when JavaScript is disabled. Copy `index.html` and `assets/` into the ZeroLabs website without changing the Agent Kit runtime or release bundle.
 
 Validated in Chromium at 1440, 900, 390 and 320 px. All three walkthrough views passed automated WCAG A/AA and horizontal-overflow checks at each width. Keyboard tab navigation, the mobile menu, FAQ disclosures, valid/invalid checkout configuration and the no-JavaScript fallback were also exercised. This is automated browser evidence, not a full accessibility certification or real-device Safari test.
 
-The video player also passed playback, chapter seeking, captions, replay, accessibility and overflow checks at all four widths. Downloaded MP4/GIF hashes matched the source assets. Blocked-media fallback and no-JavaScript controls/transcript were verified, with no JavaScript page errors.
+The video player also passed playback, chapter seeking, captions, replay, accessibility and overflow checks at all four widths, both with and without server support for range requests. Downloaded MP4/GIF hashes matched the source assets. Blocked-media fallback and no-JavaScript controls/transcript were verified, with no JavaScript page errors.

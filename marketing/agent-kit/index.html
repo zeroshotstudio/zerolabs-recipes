@@ -2241,7 +2241,7 @@
                 id="walkthrough-video"
                 controls
                 playsinline
-                preload="metadata"
+                preload="none"
                 width="1440"
                 height="1020"
                 src="assets/agent-kit-walkthrough.mp4"
@@ -3178,6 +3178,8 @@
         const movieWrap = document.getElementById("video-wrap");
         const movieStatus = document.getElementById("video-status");
         const movieChapters = document.getElementById("video-chapters");
+        let movieObjectURL;
+        let movieRequest = 0;
         moviePlay.hidden = false;
         movieChapters.hidden = false;
         movieWrap.classList.add("enhanced");
@@ -3187,18 +3189,69 @@
           movieStatus.hidden = false;
           moviePlay.hidden = false;
         };
-        const playMovie = async (time) => {
-          movieStatus.hidden = true;
+        // Buffer this small clip once so seeking also works on static hosts
+        // that return the whole MP4 instead of honoring HTTP Range requests.
+        const prepareMovie = (async () => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 20000);
           try {
+            const response = await fetch(movie.src, {
+              signal: controller.signal,
+              credentials: "same-origin",
+            });
+            if (!response.ok) throw new Error("Video download failed");
+            const blob = await response.blob();
+            movieObjectURL = URL.createObjectURL(blob);
+            await new Promise((resolve, reject) => {
+              const cleanup = () => {
+                movie.removeEventListener("loadedmetadata", ready);
+                movie.removeEventListener("error", failed);
+              };
+              const ready = () => {
+                cleanup();
+                resolve();
+              };
+              const failed = () => {
+                cleanup();
+                reject(new Error("Video could not be decoded"));
+              };
+              movie.addEventListener("loadedmetadata", ready);
+              movie.addEventListener("error", failed);
+              movie.src = movieObjectURL;
+              movie.load();
+            });
+          } finally {
+            clearTimeout(timeout);
+          }
+        })();
+        prepareMovie.catch(playbackError);
+        const playMovie = async (time) => {
+          const request = ++movieRequest;
+          movieStatus.textContent = "Loading video…";
+          movieStatus.hidden = false;
+          movieWrap.setAttribute("aria-busy", "true");
+          try {
+            await prepareMovie;
+            if (request !== movieRequest) return;
             if (Number.isFinite(time)) movie.currentTime = time;
             else if (movie.ended) movie.currentTime = 0;
             await movie.play();
           } catch {
-            playbackError();
+            if (request === movieRequest) playbackError();
+          } finally {
+            if (request === movieRequest) {
+              movieWrap.removeAttribute("aria-busy");
+              if (!movie.paused) movieStatus.hidden = true;
+            }
           }
         };
         moviePlay.addEventListener("click", () => playMovie());
         movie.addEventListener("play", () => {
+          if (!movieObjectURL) {
+            movie.pause();
+            playMovie(movie.currentTime);
+            return;
+          }
           moviePlay.hidden = true;
           movieWrap.classList.add("has-started");
           movieStatus.hidden = true;

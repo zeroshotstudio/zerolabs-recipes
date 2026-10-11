@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Run the customer's extracted ZIP, including its real Docker build and task API."""
-import hashlib,json,os,pathlib,subprocess,tempfile,zipfile,urllib.request,time
+import json,os,pathlib,subprocess,tempfile,urllib.request,time
+from release_artifact import extract_verified_bundle
 ROOT=pathlib.Path(__file__).resolve().parent.parent
-archive=ROOT/'release/self-hosted-agent-kit-2.0.0.zip'
+version=json.loads((ROOT/'app/package.json').read_text())['version']
+archive=ROOT/'release'/f'self-hosted-agent-kit-{version}.zip'
 env=dict(os.environ)
 for key in ['DOCKER_HOST','DOCKER_CONTEXT','DOCKER_TLS','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH']:env.pop(key,None)
 env.update(DOCKER_HOST='unix:///var/run/docker.sock',NO_PROXY='localhost,127.0.0.1',no_proxy='localhost,127.0.0.1')
@@ -12,13 +14,7 @@ def run(args,cwd):
     return r.stdout
 with tempfile.TemporaryDirectory(prefix='agentkit-package-') as tmp:
     tmp=pathlib.Path(tmp)
-    with zipfile.ZipFile(archive) as z:
-        for info in z.infolist():
-            assert not pathlib.PurePosixPath(info.filename).is_absolute() and '..' not in pathlib.PurePosixPath(info.filename).parts
-            out=pathlib.Path(z.extract(info,tmp));out.chmod(info.external_attr>>16&0o777)
-    kit=tmp/'self-hosted-agent-kit'
-    manifest=json.loads((kit/'RELEASE-MANIFEST.json').read_text())
-    for entry in manifest['files']:assert hashlib.sha256((kit/entry['path']).read_bytes()).hexdigest()==entry['sha256']
+    kit=extract_verified_bundle(archive,tmp,version)
     assert not (kit/'.env').exists()
     run(['./scripts/setup.sh','--dest',kit,'--no-start','--no-timer'],kit)
     p=kit/'.env';s=p.read_text().replace('COMPOSE_PROJECT_NAME=agentkit','COMPOSE_PROJECT_NAME=agentkit-package-test').replace('PUBLIC_ORIGIN=http://localhost:3080','PUBLIC_ORIGIN=http://localhost:13082').replace('PORT=3080','PORT=13082');p.write_text(s);p.chmod(0o600)
@@ -26,7 +22,7 @@ with tempfile.TemporaryDirectory(prefix='agentkit-package-') as tmp:
     compose=['docker','compose','-f','docker-compose.yml','-f','tests/compose.test.yml']
     if os.environ.get('TEST_BUILD_OVERRIDE'):compose+=['-f',os.environ['TEST_BUILD_OVERRIDE']]
     try:
-        run(compose+['build','api'],kit)
+        run(compose+['build'],kit)
         run(compose+['up','-d','--no-build','--wait','--wait-timeout','120'],kit)
         config=dict(line.split('=',1) for line in (kit/'.env').read_text().splitlines() if '=' in line and not line.startswith('#'))
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -39,6 +35,7 @@ with tempfile.TemporaryDirectory(prefix='agentkit-package-') as tmp:
         run(['npm','ci','--prefix','integrations/mcp','--ignore-scripts'],kit)
         print(run(['node','tests/mcp.mjs'],kit),end='')
         run(['npm','ci','--prefix','tests','--ignore-scripts'],kit)
+        print(run(['node','tests/frontend-regressions.mjs'],kit),end='')
         print(run(['node','tests/browser.mjs'],kit),end='')
         print(run(['node','tests/auth-rate.mjs'],kit),end='')
         basekit=tmp/'private-install'

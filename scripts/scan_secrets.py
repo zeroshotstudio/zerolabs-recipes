@@ -10,11 +10,14 @@ import os
 import sys
 import re
 import argparse
+import subprocess
 from pathlib import Path
+from urllib.parse import urlsplit
 
 SENSITIVE_PATTERNS = [
     # 1. API Keys & Tokens
-    (r"\bsk-[a-zA-Z0-9]{20,}\b", "OpenAI / Anthropic Secret Key (`sk-...`)"),
+    # Modern provider keys include a prefix and URL-safe punctuation in the body.
+    (r"(?<![a-zA-Z0-9_-])sk-(?:(?:proj|svcacct)-|ant-api\d{2}-)?[a-zA-Z0-9_-]{20,}(?![a-zA-Z0-9_-])", "OpenAI / Anthropic Secret Key (`sk-...`)"),
     (r"\bghp_[a-zA-Z0-9]{36,}\b", "GitHub Personal Access Token (`ghp_...`)"),
     (r"\bgho_[a-zA-Z0-9]{36,}\b", "GitHub OAuth Access Token (`gho_...`)"),
     (r"\bgithub_pat_[a-zA-Z0-9_]{50,}\b", "GitHub Fine-Grained Personal Access Token"),
@@ -40,15 +43,13 @@ SENSITIVE_PATTERNS = [
 ]
 
 WHITELISTED_PATTERNS = [
-    r"your_anthropic_api_key_here",
-    r"your_api_key_here",
-    r"your-api-key-here",
-    r"your_secret_here",
-    r"dummy_key_for_testing",
-    r"mock-key",
-    r"example\.com",
+    # Exempt only entire placeholder values, never neighboring line content.
+    r"(?:sk-(?:(?:proj|svcacct)-|ant-(?:api\d{2}-)?)?)?your[-_](?:anthropic[-_])?(?:api[-_])?key(?:[-_]here)?",
+    r"your[-_]secret[-_]here",
+    r"dummy[-_]key[-_]for[-_]testing",
+    r"mock[-_]key",
     r"PLACEHOLDER",
-    r"0000000000",
+    r"sk-ant-api03-(?:placeholder-do-not-commit|sample-placeholder-do-not-commit-live-keys-here|placeholder-key-here)",
     r"\${[A-Z0-9_]+:-[a-zA-Z0-9_]+}",
 ]
 
@@ -64,17 +65,55 @@ EXCLUDED_DIRS = {
     ".cache",
 }
 
-EXCLUDED_FILES = {
-    "package-lock.json",
-    "pnpm-lock.yaml",
-    "yarn.lock",
-    "scan_secrets.py",
+TEXT_SUFFIXES = {
+    ".py", ".ts", ".js", ".mjs", ".cjs", ".sh", ".json", ".yaml", ".yml",
+    ".txt", ".md", ".html", ".css", ".svg", ".toml", ".ini", ".csv", ".sql",
+    ".env", ".example", ".service", ".timer", ".conf", ".xml",
 }
 
 
-def is_whitelisted(snippet: str) -> bool:
+class ScanError(RuntimeError):
+    """A scan could not complete; publishing must fail closed."""
+
+
+def redact(text: str) -> str:
+    """Paths and error messages can contain credentials too."""
+    for regex, _description in SENSITIVE_PATTERNS:
+        text = re.sub(regex, "[REDACTED]", text)
+    return text
+
+
+def decode_content(data: bytes, source_name: str) -> str:
+    # Git treats UTF-16/32 files as binary, so scan decoded blob content directly.
+    for signature, encoding in ((b"\xff\xfe\x00\x00", "utf-32"), (b"\x00\x00\xfe\xff", "utf-32"),
+                                (b"\xff\xfe", "utf-16"), (b"\xfe\xff", "utf-16"), (b"\xef\xbb\xbf", "utf-8-sig")):
+        if data.startswith(signature):
+            try:
+                return data.decode(encoding)
+            except UnicodeError as error:
+                raise ScanError(f"Cannot decode '{redact(source_name)}' as {encoding}.") from error
+    path = Path(source_name)
+    if b"\x00" in data and (path.suffix.lower() in TEXT_SUFFIXES or path.name in {".env", "Dockerfile", "Makefile"}):
+        raise ScanError(f"Unsupported text encoding in '{redact(source_name)}'; add a Unicode byte-order mark.")
+    # ASCII credential formats remain recognizable in NUL-padded binary data
+    # (including BOM-less UTF-16/32 blobs with an arbitrary filename).
+    data = data.replace(b"\x00", b"")
+    try:
+        return data.decode("utf-8")
+    except UnicodeError:
+        # Preserve every byte in other files, including ASCII keys in binary assets.
+        return data.decode("latin-1")
+
+
+def is_whitelisted(value: str) -> bool:
+    # A sample hostname is not evidence that an embedded password is a sample.
+    if value.startswith(("postgres://", "postgresql://", "redis://")):
+        try:
+            value = urlsplit(value).password or ""
+        except ValueError:
+            return False
     for pattern in WHITELISTED_PATTERNS:
-        if re.search(pattern, snippet, re.IGNORECASE):
+        if re.fullmatch(pattern, value, re.IGNORECASE):
             return True
     return False
 
@@ -83,81 +122,66 @@ def scan_text(text: str, source_name: str = "") -> list[dict]:
     findings = []
     lines = text.splitlines()
     for line_idx, line in enumerate(lines, 1):
-        if is_whitelisted(line):
-            continue
         for regex, desc in SENSITIVE_PATTERNS:
-            match = re.search(regex, line)
-            if match:
+            for match in re.finditer(regex, line):
+                if is_whitelisted(match.group(0)):
+                    continue
                 findings.append({
-                    "source": source_name,
+                    "source": redact(source_name),
                     "line": line_idx,
-                    "matched_text": match.group(0),
+                    "matched_text": "[REDACTED]",
                     "description": desc,
-                    "snippet": line.strip()[:100]
+                    # Do not send credentials or neighboring secrets to CI logs.
+                    "snippet": "[REDACTED]"
                 })
     return findings
 
 
 def scan_file(file_path: Path) -> list[dict]:
-    if file_path.name in EXCLUDED_FILES:
-        return []
     try:
-        content = file_path.read_text(encoding="utf-8", errors="ignore")
+        content = decode_content(file_path.read_bytes(), str(file_path))
         return scan_text(content, str(file_path))
-    except Exception as e:
-        return [{"source": str(file_path), "line": 0, "matched_text": "", "description": f"Read error: {e}", "snippet": ""}]
+    except OSError as e:
+        raise ScanError(f"Cannot read '{redact(str(file_path))}' ({type(e).__name__}).") from e
 
 
 def scan_directory(dir_path: Path) -> list[dict]:
     all_findings = []
-    for root, dirs, files in os.walk(dir_path):
+    def unreadable(error):
+        raise ScanError(f"Cannot traverse '{redact(str(error.filename))}' ({type(error).__name__}).") from error
+
+    for root, dirs, files in os.walk(dir_path, onerror=unreadable):
         dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
         for f in files:
-            if f in EXCLUDED_FILES:
-                continue
             p = Path(root) / f
             all_findings.extend(scan_file(p))
     return all_findings
 
 
 def scan_git_diff(cached: bool = True) -> list[dict]:
-    import subprocess
-    cmd = ["git", "diff", "--unified=0"]
+    cmd = ["git", "diff", "--no-ext-diff", "--no-textconv", "--name-only", "-z", "--diff-filter=ACMRT"]
     if cached:
         cmd.append("--cached")
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error running git diff: {e}")
-        return []
+        res = subprocess.run(cmd, capture_output=True, check=True)
+    except (OSError, subprocess.CalledProcessError) as e:
+        raise ScanError("Cannot read git diff; secret scan did not complete.") from e
 
     findings = []
-    current_file = ""
-    line_num = 0
-
-    for line in res.stdout.splitlines():
-        if line.startswith("+++ b/"):
-            current_file = line[6:]
-        elif line.startswith("@@"):
-            m = re.search(r"\+(\d+)", line)
-            if m:
-                line_num = int(m.group(1))
-        elif line.startswith("+") and not line.startswith("+++"):
-            if current_file.endswith("scan_secrets.py"):
-                continue
-            added_text = line[1:]
-            if not is_whitelisted(added_text):
-                for regex, desc in SENSITIVE_PATTERNS:
-                    match = re.search(regex, added_text)
-                    if match:
-                        findings.append({
-                            "source": current_file,
-                            "line": line_num,
-                            "matched_text": match.group(0),
-                            "description": desc,
-                            "snippet": added_text.strip()[:100]
-                        })
-            line_num += 1
+    # Scan whole changed files instead of only textual patch additions: a binary
+    # diff can contain credentials, and the staged blob can differ from disk.
+    for encoded_path in res.stdout.split(b"\x00"):
+        if not encoded_path:
+            continue
+        current_file = os.fsdecode(encoded_path)
+        if cached:
+            try:
+                blob = subprocess.run(["git", "cat-file", "blob", ":0:" + current_file], capture_output=True, check=True)
+            except (OSError, subprocess.CalledProcessError) as error:
+                raise ScanError(f"Cannot read staged blob '{redact(current_file)}'; scan did not complete.") from error
+            findings.extend(scan_text(decode_content(blob.stdout, current_file), current_file))
+        else:
+            findings.extend(scan_file(Path(current_file)))
     return findings
 
 
@@ -170,27 +194,30 @@ def main():
 
     findings = []
 
-    if args.git_staged:
-        findings = scan_git_diff(cached=True)
-    elif args.git_diff:
-        findings = scan_git_diff(cached=False)
-    elif args.path:
-        target = Path(args.path)
-        if target.is_file():
-            findings = scan_file(target)
-        elif target.is_dir():
-            findings = scan_directory(target)
+    try:
+        if args.git_staged:
+            findings = scan_git_diff(cached=True)
+        elif args.git_diff:
+            findings = scan_git_diff(cached=False)
+        elif args.path:
+            target = Path(args.path)
+            if target.is_file():
+                findings = scan_file(target)
+            elif target.is_dir():
+                findings = scan_directory(target)
+            else:
+                raise ScanError(f"Path '{args.path}' not found.")
         else:
-            print(f"Error: path '{args.path}' not found.")
-            sys.exit(1)
-    else:
-        findings = scan_directory(Path("."))
+            findings = scan_directory(Path("."))
+    except ScanError as error:
+        print(f"Error: {redact(str(error))}", file=sys.stderr)
+        sys.exit(2)
 
     if findings:
         print(f"\n🚨 SENSITIVE DATA LEAK DETECTED ({len(findings)} issue(s)):")
         print("=" * 60)
         for f in findings:
-            print(f"File: {f['source']}:{f['line']}")
+            print(f"File: {redact(f['source'])}:{f['line']}")
             print(f"Rule: {f['description']}")
             print(f"Text: {f['snippet']}")
             print("-" * 60)

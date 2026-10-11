@@ -79,6 +79,10 @@ export function zodToAnthropicTool<T extends z.ZodTypeAny>(
   const rawInputSchema =
     (jsonSchema as { definitions?: Record<string, unknown> }).definitions?.[name] || jsonSchema;
 
+  if (typeof rawInputSchema !== "object" || rawInputSchema === null || Array.isArray(rawInputSchema)) {
+    throw new Error("Expected an object JSON Schema from zod-to-json-schema.");
+  }
+
   // Remove top-level $schema metadata to avoid extra tokens
   const cleanSchema = { ...rawInputSchema } as Record<string, unknown>;
   delete cleanSchema.$schema;

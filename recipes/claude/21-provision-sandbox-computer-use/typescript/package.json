@@ -1,10 +1,12 @@
 {
   "name": "recipe-21-provision-sandbox-computer-use",
   "version": "1.0.0",
-  "description": "Claude Computer Use Virtual Desktop Sandbox Orchestrator",
+  "description": "Claude Computer Use in-memory protocol simulator (no desktop or isolation)",
   "main": "computer_use_orchestrator.ts",
+  "type": "module",
   "scripts": {
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "test": "node --experimental-strip-types computer_use_orchestrator.ts --offline-smoke"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0"

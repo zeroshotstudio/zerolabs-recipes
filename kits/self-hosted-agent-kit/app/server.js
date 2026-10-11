@@ -373,11 +373,7 @@ const server = http.createServer(async (req, res) => {
         });
       if (req.method === "POST") {
         const data = await body(req),
-          token = await auth.issue(data.name, data.scopes);
-        await pool.query(
-          "INSERT INTO audit_log(actor,action,target) VALUES($1,'token.create',$2)",
-          [identity.actor, token.id],
-        );
+          token = await auth.issue(data.name, data.scopes, identity.actor);
         return send(res, 201, token);
       }
     }

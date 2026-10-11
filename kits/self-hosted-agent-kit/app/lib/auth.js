@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import { ApiError, equal, hash } from "./config.js";
+import { transaction } from "./db.js";
 export const SCOPES = ["tasks:read", "tasks:write", "documents:read"];
 const mutations = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 export function authService(pool, adminKey, origin) {
@@ -92,7 +93,7 @@ export function authService(pool, adminKey, origin) {
         ]);
       return cookie("", 0);
     },
-    async issue(name, scopes) {
+    async issue(name, scopes, actor) {
       if (typeof name !== "string" || !name.trim() || name.length > 80)
         throw new ApiError(400, "Enter a token name of 1–80 characters");
       if (
@@ -101,16 +102,25 @@ export function authService(pool, adminKey, origin) {
         scopes.some((s) => !SCOPES.includes(s))
       )
         throw new ApiError(400, "Choose valid token scopes");
-      const count = await pool.query("SELECT count(*) FROM api_tokens");
-      if (Number(count.rows[0].count) >= 50)
-        throw new ApiError(409, "Revoke an unused token first (limit 50)");
       const token = "ak_" + randomBytes(32).toString("hex"),
-        id = randomUUID();
-      await pool.query(
-        "INSERT INTO api_tokens(id,name,token_hash,scopes) VALUES($1,$2,$3,$4)",
-        [id, name.trim(), hash(token), [...new Set(scopes)]],
-      );
-      return { id, token, name: name.trim(), scopes };
+        id = randomUUID(),
+        uniqueScopes = [...new Set(scopes)];
+      return transaction(pool, async (db) => {
+        // All issuers serialize the cap check and insert on the same connection.
+        await db.query("SELECT pg_advisory_xact_lock(82941004)");
+        const count = await db.query("SELECT count(*) FROM api_tokens");
+        if (Number(count.rows[0].count) >= 50)
+          throw new ApiError(409, "Revoke an unused token first (limit 50)");
+        await db.query(
+          "INSERT INTO api_tokens(id,name,token_hash,scopes) VALUES($1,$2,$3,$4)",
+          [id, name.trim(), hash(token), uniqueScopes],
+        );
+        await db.query(
+          "INSERT INTO audit_log(actor,action,target) VALUES($1,'token.create',$2)",
+          [actor, id],
+        );
+        return { id, token, name: name.trim(), scopes: uniqueScopes };
+      });
     },
   };
 }

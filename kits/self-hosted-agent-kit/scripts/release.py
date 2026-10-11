@@ -9,7 +9,7 @@ def included(path):
     relative=path.relative_to(ROOT)
     return path.is_file() and not path.is_symlink() and not any(p in EXCLUDE_DIRS for p in relative.parts) and path.name not in EXCLUDE_FILES and (not path.name.startswith('.env') or path.name=='.env.example') and path.suffix not in {'.pyc','.log','.zip','.pdf','.png'}
 def sha(data):return hashlib.sha256(data).hexdigest()
-subprocess.run(['python3',str(ROOT/'scripts/build-docs.py')],check=True)
+subprocess.run(['python3','-I',str(ROOT/'scripts/build-docs.py')],check=True)
 files=sorted(p for p in ROOT.rglob('*') if included(p))
 # Packaging fails if any current installation secret has entered a source file.
 secrets=[]

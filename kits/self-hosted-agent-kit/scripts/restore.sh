@@ -9,7 +9,7 @@ exec 9>"$ROOT/backups/.backup.lock"
 flock -n 9 || { echo 'A backup or restore is already running' >&2; exit 1; }
 TMP="$(mktemp -d)"
 trap 'rm -rf -- "$TMP"' EXIT
-python3 "$ROOT/scripts/archives.py" verify "$ARCHIVE" "$TMP/database.dump" >/dev/null
+python3 -I "$ROOT/scripts/archives.py" verify "$ARCHIVE" "$TMP/database.dump" >/dev/null
 compose up -d --wait postgres
 compose run --rm --no-deps migrate
 COUNT="$(compose exec -T postgres sh -ec 'psql -X -v ON_ERROR_STOP=1 -U agent_admin -d "$POSTGRES_DB" -Atc "SELECT (SELECT count(*) FROM jobs)+(SELECT count(*) FROM documents)+(SELECT count(*) FROM api_tokens);"')"

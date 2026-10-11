@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test Claude Computer Use tool schema registration and initial screenshot probe
+# Real API schema probe only: no desktop provisioning or screenshot capture.
 set -euo pipefail
 
 if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
@@ -13,9 +13,10 @@ DISPLAY_WIDTH="${DISPLAY_WIDTH_PX:-1024}"
 DISPLAY_HEIGHT="${DISPLAY_HEIGHT_PX:-768}"
 DISPLAY_NUMBER="${DISPLAY_NUM:-1}"
 
+echo "API SCHEMA PROBE ONLY: no desktop is attached and no screenshot is captured. This real request may incur API usage."
 echo "Probe: Dispatching initial Computer Use request to Anthropic API..."
 echo "Model: ${MODEL}"
-echo "Display: ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT} (display #${DISPLAY_NUMBER})"
+echo "Nominal display schema: ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT} (display #${DISPLAY_NUMBER})"
 
 curl -s https://api.anthropic.com/v1/messages \
   -H "x-api-key: ${ANTHROPIC_API_KEY}" \
@@ -37,7 +38,7 @@ curl -s https://api.anthropic.com/v1/messages \
     "messages": [
       {
         "role": "user",
-        "content": "Take a screenshot of the desktop to check the current window state."
+        "content": "This is a schema-only probe with no attached desktop. Demonstrate requesting a screenshot action."
       }
     ]
   }' | jq '.'

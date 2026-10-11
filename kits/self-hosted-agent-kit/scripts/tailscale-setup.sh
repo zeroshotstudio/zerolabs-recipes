@@ -2,9 +2,9 @@
 source "$(dirname -- "${BASH_SOURCE[0]}")/lib.sh"
 require_tools tailscale python3 docker
 [[ "$(read_env ENABLE_PUBLIC false)" != true ]] || { echo 'Disable public mode before using private Tailscale Serve.' >&2; exit 1; }
-DOMAIN="$(tailscale status --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("BackendState")=="Running", "Run tailscale up first"; print(d["Self"]["DNSName"].rstrip("."))')"
+DOMAIN="$(tailscale status --json | python3 -I -c 'import json,sys; d=json.load(sys.stdin); assert d.get("BackendState")=="Running", "Run tailscale up first"; print(d["Self"]["DNSName"].rstrip("."))')"
 [[ "$DOMAIN" =~ ^[a-zA-Z0-9.-]+\.ts\.net$ ]] || { echo 'Unexpected Tailscale DNS name' >&2; exit 1; }
-python3 - "$ROOT/.env" "$DOMAIN" <<'PY'
+python3 -I - "$ROOT/.env" "$DOMAIN" <<'PY'
 import pathlib,re,sys
 p=pathlib.Path(sys.argv[1]); text=p.read_text(); value='PUBLIC_ORIGIN=https://'+sys.argv[2]
 text=re.sub(r'^PUBLIC_ORIGIN=.*$',value,text,flags=re.M) if re.search(r'^PUBLIC_ORIGIN=',text,re.M) else text+'\n'+value+'\n'

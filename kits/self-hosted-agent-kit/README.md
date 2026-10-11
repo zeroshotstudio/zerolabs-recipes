@@ -22,6 +22,8 @@ This is a single-host, single-workspace product. It is **not** a general autonom
 
 Target: Ubuntu 22.04/24.04 or Debian 12 with Docker Engine and Docker Compose **2.24.4+**, Python 3, Bash, `flock`, 2 CPU cores, 2 GiB RAM minimum (4 GiB recommended), and 10 GiB free disk plus your backup storage. The included containers support amd64 and arm64 through their upstream images; the release acceptance run records the architecture actually tested.
 
+Setup builds the application, PostgreSQL and Caddy images locally from pinned upstream image digests. Exact Alpine package revisions fix OpenSSL/zlib advisories that predate those images. Caddy 2.11.7 is rebuilt with Go 1.27.2 and the committed module lockfiles to include the HTTP/2 security fixes. The initial build needs internet access and extra temporary build storage; Node package managers and Go tooling are absent from the application runtime. Caddy compilation uses at most two parallel compiler workers; allow several minutes for a cold build. Image updates still require a fresh vulnerability scan and acceptance run; see [the image security notes](docs/IMAGE-SECURITY.md) for the remaining advisories and scan limits.
+
 1. Verify the release's `SHA256SUMS` and extract the ZIP. Review the included license and release notes.
 2. Install Docker using its [official instructions](https://docs.docker.com/engine/install/).
 3. From the extracted kit, run `sudo ./scripts/setup.sh`. It installs to `/opt/agentkit`, generates private credentials, builds and starts the stack, and enables a daily backup timer on systemd hosts.
@@ -30,6 +32,8 @@ Target: Ubuntu 22.04/24.04 or Debian 12 with Docker Engine and Docker Compose **
 6. Run `sudo ./scripts/backup.sh`. Save `.env` separately in an encrypted password vault and rehearse a restore into another installation.
 
 `setup.sh --dest /path` also works from inside that same directory; existing `.env` and runtime data are preserved. `--no-start --no-timer` prepares files without starting services. A pre-existing `.env` must have valid v2 credentials; setup will not silently overwrite it. The installer never changes your firewall or SSH port.
+
+Root setup makes installed code, configuration, backup files and their directories root-owned, including reinstall and update. Choose a path with root-owned ancestors that other accounts cannot write, such as `/opt/agentkit`; symlinked installation/package paths are refused. A root-owned sticky temporary directory is allowed only when its existing child is root-owned. Verify a download before running its installer with `sudo`. A deliberately unprivileged setup keeps files owned by that operator and does not install the root backup timer; schedule backups as the same operator.
 
 ## Documentation and integrations
 

@@ -1,16 +1,16 @@
 name: Agent Kit acceptance
 on:
   pull_request:
-    paths: ['kits/self-hosted-agent-kit/**', '.github/workflows/agent-kit.yml']
+    paths: ['kits/self-hosted-agent-kit/**', 'marketing/agent-kit/**', '.github/workflows/agent-kit.yml']
   push:
     branches: [main]
-    paths: ['kits/self-hosted-agent-kit/**', '.github/workflows/agent-kit.yml']
+    paths: ['kits/self-hosted-agent-kit/**', 'marketing/agent-kit/**', '.github/workflows/agent-kit.yml']
 permissions:
   contents: read
 jobs:
   acceptance:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: kits/self-hosted-agent-kit
@@ -33,8 +33,15 @@ jobs:
           python3 tests/systemd.py
           npm audit --prefix app --omit=dev
           npm audit --prefix integrations/mcp --omit=dev
+          npm audit --prefix tests
           python3 scripts/build-docs.py
           git diff --exit-code -- app/public/docs.html docs/index.html
+      - name: Dashboard regressions and marketing workflows
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          node tests/frontend-regressions.mjs
+          node ../../marketing/agent-kit/tests/browser.mjs
       - name: Create isolated fixture stack
         run: |
           ROOT="$PWD" python3 scripts/config.py init
@@ -44,6 +51,25 @@ jobs:
           PY
           mkdir -p state backups
           docker compose -f docker-compose.yml -f tests/compose.test.yml up -d --build --wait --wait-timeout 180
+      - name: Audit actual runtime images
+        run: |
+          curl --fail --silent --show-error --location https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_linux_amd64.tar.gz --output /tmp/agentkit-grype.tar.gz
+          printf '%s  %s\n' '0a9ee97ef5ae2ee953b0a80098105052e846cdbe319a57d808b519c33cd1343d' /tmp/agentkit-grype.tar.gz | sha256sum --check -
+          tar -xzf /tmp/agentkit-grype.tar.gz -C /tmp grype
+          mkdir -p /tmp/agentkit-images
+          for component in app postgres caddy; do
+            image=zerolabs-agentkit:2.0.0
+            if [[ "$component" != app ]]; then image="zerolabs-agentkit-$component:2.0.0"; fi
+            /tmp/grype "docker:$image" --fail-on high -o json > "/tmp/agentkit-images/$component.json"
+          done
+      - name: Installer ownership boundaries
+        run: sudo python3 tests/installer.py
+      - name: Token transaction concurrency and rollback
+        run: >-
+          docker compose -f docker-compose.yml -f tests/compose.test.yml run --rm --no-deps
+          -v "$PWD/app/tests:/app/tests:ro" migrate
+          node --input-type=module -e
+          'process.env.AUTH_TEST_DATABASE_URL="postgresql://agent_admin:"+encodeURIComponent(process.env.POSTGRES_ADMIN_PASSWORD)+"@postgres/"+encodeURIComponent(process.env.DB_NAME); await import("./tests/auth-postgres.test.js")'
       - name: API, MCP and browser workflows
         run: |
           node tests/acceptance.mjs
@@ -60,6 +86,7 @@ jobs:
       - name: Build and validate release artifact
         run: |
           python3 scripts/release.py
+          python3 tests/update.py
           python3 tests/package.py
       - name: Service diagnostics
         if: failure()
@@ -71,6 +98,8 @@ jobs:
           name: agent-kit-acceptance
           path: |
             /tmp/agentkit-browser
+            /tmp/agentkit-marketing
+            /tmp/agentkit-images
             /tmp/agentkit-services.log
             kits/self-hosted-agent-kit/release/*
       - name: Stop isolated services

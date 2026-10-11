@@ -2,7 +2,9 @@
 set -Eeuo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 export ROOT
-read_env() { python3 "$ROOT/scripts/config.py" get "$1" "${2:-}"; }
+# Helpers import only the standard library. Isolated mode prevents script/cwd
+# caches and inherited PYTHONPATH from supplying modules to privileged backups.
+read_env() { python3 -I "$ROOT/scripts/config.py" get "$1" "${2:-}"; }
 compose() {
   local -a files=(-f "$ROOT/docker-compose.yml")
   if [[ "$(read_env ENABLE_PUBLIC false)" == true ]]; then files+=(-f "$ROOT/compose.public.yml"); fi

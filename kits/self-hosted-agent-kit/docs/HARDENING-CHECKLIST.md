@@ -23,7 +23,7 @@ The generated `.env` is excluded from the archive. Store it, provider recovery i
 
 1. Obtain the same kit version and a verified archive; recover `.env` separately.
 2. Install in a **separate** directory/project/host. For same-host rehearsals use a different `COMPOSE_PROJECT_NAME`, `PORT` and loopback `PUBLIC_ORIGIN`; use `setup.sh --no-start --no-timer` to avoid replacing the production backup timer.
-3. Build the image with `docker compose build api`; run `./scripts/restore.sh /absolute/path/agentkit-TIMESTAMP.tar.gz`.
+3. Build all included images with `docker compose build`; run `./scripts/restore.sh /absolute/path/agentkit-TIMESTAMP.tar.gz`.
 4. The script rejects unexpected archive members, version mismatches and checksum failures before database work. It refuses a destination containing tasks, documents or tokens. pg_restore runs in one transaction with exit-on-error. Schema permissions are reapplied.
 5. Sessions, API tokens and worker registrations are cleared. Queued/running tasks become failed with an interruption explanation; they are not replayed. Sign in with the recovered or newly generated operator key, confirm known documents/results/artifacts, create fresh integration tokens, and run a system check.
 6. Record the restore date, archive, verified content and time to recovery outside the database being tested. Repeat after significant upgrades.

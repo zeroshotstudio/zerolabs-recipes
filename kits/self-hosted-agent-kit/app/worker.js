@@ -25,36 +25,59 @@ process.on("SIGINT", stop);
 async function heartbeat() {
   if (heartbeating) return;
   heartbeating = true;
+  // A delayed heartbeat belongs only to the execution that existed at entry.
+  const current = active;
   try {
     await pool.query(
       `INSERT INTO workers(id,name,version,model,model_configured) VALUES($1,$2,$3,$4,$5)
       ON CONFLICT(id) DO UPDATE SET last_seen=now()`,
       [id, name, VERSION, process.env.OPENAI_MODEL || null, configured],
     );
-    if (active) {
-      const current = active;
-      const r = await pool.query(
-        `UPDATE jobs SET lease_until=now()+interval '30 seconds'
-        WHERE id=$1 AND worker_id=$2 AND status='running' AND lease_until>now() RETURNING cancel_requested`,
-        [current.task.id, id],
-      );
-      if (!r.rowCount)
-        current.controller.abort(new Error("Task lease was lost"));
-      else if (r.rows[0].cancel_requested)
-        current.controller.abort(new Error("Cancelled by operator"));
-    }
+    if (current && active === current) await renewLease(current);
     await writeFile("/tmp/agentkit-worker-heartbeat", String(Date.now()), {
       mode: 0o600,
     });
   } catch {
-    active?.controller.abort(
-      new Error(
-        "Database connection lost; task interrupted. Review before retrying.",
-      ),
-    );
+    if (current && active === current)
+      current.controller.abort(
+        new Error(
+          "Database connection lost; task interrupted. Review before retrying.",
+        ),
+      );
   } finally {
     heartbeating = false;
   }
+}
+async function renewLease(current) {
+  const r = await pool.query(
+    `UPDATE jobs SET lease_until=now()+interval '30 seconds'
+    WHERE id=$1 AND worker_id=$2 AND status='running' AND lease_until>now() RETURNING cancel_requested`,
+    [current.task.id, id],
+  );
+  if (active !== current) return;
+  if (!r.rowCount) current.controller.abort(new Error("Task lease was lost"));
+  else if (r.rows[0].cancel_requested)
+    current.controller.abort(new Error("Cancelled by operator"));
+}
+async function returnUnexecutedClaim(task) {
+  await transaction(pool, async (db) => {
+    const { rows } = await db.query(
+      `UPDATE jobs SET status=CASE WHEN cancel_requested THEN 'cancelled' ELSE 'queued' END,
+        worker_id=NULL,started_at=NULL,lease_until=NULL,
+        finished_at=CASE WHEN cancel_requested THEN now() ELSE NULL END
+        WHERE id=$1 AND worker_id=$2 AND status='running' RETURNING status`,
+      [task.id, id],
+    );
+    if (!rows.length) return;
+    await event(
+      db,
+      task.id,
+      rows[0].status,
+      rows[0].status === "cancelled"
+        ? "Cancelled by operator before execution"
+        : "Worker stopped before execution; task returned to the durable queue",
+    );
+  });
 }
 await heartbeat();
 const timer = setInterval(heartbeat, 2000);
@@ -70,6 +93,15 @@ try {
       console.error("Queue unavailable; waiting to reconnect");
       await delay(3000);
       continue;
+    }
+    if (stopping) {
+      if (task)
+        await returnUnexecutedClaim(task).catch(() =>
+          console.error(
+            "Could not return an unexecuted task; its lease will expire. Review before retrying.",
+          ),
+        );
+      break;
     }
     if (!task) {
       await delay(500);
@@ -87,6 +119,10 @@ try {
     let result = null,
       failure = null;
     try {
+      // A fresh operation must verify this claim even if an older idle heartbeat
+      // is still reconnecting. Never start provider work on an expired lease.
+      await renewLease(active);
+      controller.signal.throwIfAborted();
       result = await runTask(pool, task, id, controller.signal);
       controller.signal.throwIfAborted();
     } catch (error) {

@@ -40,8 +40,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 5970,
-      "sha256": "9fb8d3f1d00e62384bc11953e61b280b3fa8347dbd7437c5737975dc90d95dfd",
+      "bytes": 7286,
+      "sha256": "4a2c058b77fbd16aeb2e1268d28e6fbd97e9f9b22adb33bba0503ff232601c34",
       "mode": "0644"
     },
     {
@@ -58,14 +58,14 @@
     },
     {
       "path": "app/Dockerfile",
-      "bytes": 568,
-      "sha256": "2c391f8ad145e59578544c5191f441418bbcaff061fda0134d925431f3ba718e",
+      "bytes": 1305,
+      "sha256": "e54245cdb3c855857dce9a714684cd98e4ecdd40b0b396b09fe8bc104f5068b0",
       "mode": "0644"
     },
     {
       "path": "app/lib/auth.js",
-      "bytes": 5161,
-      "sha256": "47e37ef4478c08b189faf42fa8a149f35c1d78703a3fe11967fc4d4fd010d2ad",
+      "bytes": 5618,
+      "sha256": "8120bbfd10e638e0e6bedf829ba9b6278d622050637137348a81cc591ace584f",
       "mode": "0644"
     },
     {
@@ -118,14 +118,14 @@
     },
     {
       "path": "app/public/app.js",
-      "bytes": 40056,
-      "sha256": "b008bf2935573bd0d15dbde6535157afbd216d9a88ae4fc34d0ab244f601efb6",
+      "bytes": 44849,
+      "sha256": "d8e88d419c430f13a885e15ab7868dce67751089c17403f903f6e3ced230a62c",
       "mode": "0644"
     },
     {
       "path": "app/public/docs.html",
-      "bytes": 27215,
-      "sha256": "82219a9183d0ad3e018155f854256ed9c22c59a4a70525f3c4bf1608d2ae3ed4",
+      "bytes": 28545,
+      "sha256": "46c78e948c1cfe2ef7a5d1c3098043b427df526f154d11d82a68be054600b1b0",
       "mode": "0644"
     },
     {
@@ -136,8 +136,8 @@
     },
     {
       "path": "app/public/index.html",
-      "bytes": 6462,
-      "sha256": "569589b9e6284c651e815802562eea64410310777ee7c02a61c7b13d7dfb2b62",
+      "bytes": 6476,
+      "sha256": "3fba9a2cd2b6f0f6d3eedafee3a2ab8e59a5b00f22516f84ea38e7ae1b4b444b",
       "mode": "0644"
     },
     {
@@ -148,8 +148,14 @@
     },
     {
       "path": "app/server.js",
-      "bytes": 15741,
-      "sha256": "aec70da2ae85a0132c84511468c7b6e4db52eb903f59046bc0fe0e58cd7520b4",
+      "bytes": 15597,
+      "sha256": "dd6ea1ea286601eda9308d6703bdaa1b68155f89dbc49eae2455a99e53258f4d",
+      "mode": "0644"
+    },
+    {
+      "path": "app/tests/auth-postgres.test.js",
+      "bytes": 4841,
+      "sha256": "403b6413edd86e9af3829894c104e453a024915ba84a599c64a6c13c92394ffa",
       "mode": "0644"
     },
     {
@@ -159,9 +165,45 @@
       "mode": "0644"
     },
     {
+      "path": "app/tests/worker.test.js",
+      "bytes": 8278,
+      "sha256": "630b97810d0bb4f27434972c947bc7a8657470702f7f728df0728b68e1664a23",
+      "mode": "0644"
+    },
+    {
       "path": "app/worker.js",
-      "bytes": 4834,
-      "sha256": "eac9c734b6c113a9714f7063e37848ff52f634a544e65fe28872c8da32cf2433",
+      "bytes": 6253,
+      "sha256": "421f95088ad79deca4b6cef31139efb2bfdfcf4e8420258757373f8f6ac6da04",
+      "mode": "0644"
+    },
+    {
+      "path": "caddy/Dockerfile",
+      "bytes": 1017,
+      "sha256": "261a1fabbdfa31b4db581ec61852c9afa43710ca7aa05ce986a1ff3e617bbf8b",
+      "mode": "0644"
+    },
+    {
+      "path": "caddy/LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "mode": "0644"
+    },
+    {
+      "path": "caddy/go.mod",
+      "bytes": 8955,
+      "sha256": "fcac99511c75e27c5b33cd8432612e6cb8923afe436c27b31dc0cbeaab7c1b75",
+      "mode": "0644"
+    },
+    {
+      "path": "caddy/go.sum",
+      "bytes": 54335,
+      "sha256": "6af3a164233778b8a67386362356bfb312d26888ccee645b7180f07fc27e8574",
+      "mode": "0644"
+    },
+    {
+      "path": "caddy/main.go",
+      "bytes": 852,
+      "sha256": "b9a9a024392b23a7f0b710b3c1215a6769d5f0d2e7f208c4f9dbea86e6b2f933",
       "mode": "0644"
     },
     {
@@ -172,8 +214,8 @@
     },
     {
       "path": "docker-compose.yml",
-      "bytes": 3925,
-      "sha256": "b4daa903f1210992e3a367631af491316d717fb067e5f79620cf05cb351fcb44",
+      "bytes": 3881,
+      "sha256": "626cd76a6ba6750eb70c67e9e63f208601a5f55703f5ea21cf35f8d2a18169ff",
       "mode": "0644"
     },
     {
@@ -184,8 +226,14 @@
     },
     {
       "path": "docs/HARDENING-CHECKLIST.md",
-      "bytes": 5435,
-      "sha256": "dfef7c213f6c43b07c7969c660efa3a191bce13ac72e27432de9501b77906c3d",
+      "bytes": 5441,
+      "sha256": "5ad3be7961266905b0d870878a127095461f8fc3d514dbf1b9150f974ba57d16",
+      "mode": "0644"
+    },
+    {
+      "path": "docs/IMAGE-SECURITY.md",
+      "bytes": 4528,
+      "sha256": "7179165e8778a97263edc8a3ed983745dbd7b011d4c95b1ab74d41b5fa4848bc",
       "mode": "0644"
     },
     {
@@ -202,8 +250,8 @@
     },
     {
       "path": "docs/RELEASE-ACCEPTANCE.md",
-      "bytes": 6833,
-      "sha256": "ebd7cc8a2ae57fb2b7939438d5ffacb12ae1fbd265f586298c4da55700a9b03c",
+      "bytes": 9779,
+      "sha256": "e6af10a50c1164602fa0ddb4aee1dbd3f2106267de6611c50cc66cb95f00236e",
       "mode": "0644"
     },
     {
@@ -220,8 +268,8 @@
     },
     {
       "path": "docs/index.html",
-      "bytes": 27228,
-      "sha256": "f62d3785ce230f7f44b1c4043d3727c4b4441ec87464c9cc6df242acc6dd9f00",
+      "bytes": 28558,
+      "sha256": "2a9732ba6e18d53cf3463e566bdc33a8fbe61327c5a497cb48742a52b5206a89",
       "mode": "0644"
     },
     {
@@ -249,6 +297,12 @@
       "mode": "0644"
     },
     {
+      "path": "postgres/Dockerfile",
+      "bytes": 471,
+      "sha256": "3cf50689474b2ede0496a1c49e7cd3b303402dd80650f88cefe9214a6f154de2",
+      "mode": "0644"
+    },
+    {
       "path": "scripts/archives.py",
       "bytes": 4664,
       "sha256": "8a212ccc28842831041559e9a3e359d8bf3cfbad3749ecef335c825d6c2b255b",
@@ -256,8 +310,8 @@
     },
     {
       "path": "scripts/backup.sh",
-      "bytes": 1711,
-      "sha256": "ace9fd0335fc22cf30cbd6ccc7e730969204f91634e18a2110517de39a2358c2",
+      "bytes": 1726,
+      "sha256": "4dd53c0e4e5490348f9c533cfad64085fca698db5a51fccb196d63bc681e6545",
       "mode": "0755"
     },
     {
@@ -273,9 +327,15 @@
       "mode": "0644"
     },
     {
+      "path": "scripts/install-files.py",
+      "bytes": 7164,
+      "sha256": "a1f98e2ca1e9362851857832b7537333b27ebba7391e9e05d71bdd62a8faa2f7",
+      "mode": "0644"
+    },
+    {
       "path": "scripts/lib.sh",
-      "bytes": 595,
-      "sha256": "7fd6b44cbbf49ee9d416ad1ed654441fd4ef04564484adfe17cb302aa1519e8e",
+      "bytes": 756,
+      "sha256": "27a495c537512f1d582df17eebad55f55bf576b44d4d69a271cfb27091c181d7",
       "mode": "0755"
     },
     {
@@ -286,20 +346,20 @@
     },
     {
       "path": "scripts/release.py",
-      "bytes": 3847,
-      "sha256": "8481554a9795ced5b52189cf08d40ac7769aaf2b42bd0a5b4260d83bce775ca4",
+      "bytes": 3852,
+      "sha256": "39ddbfbd890f84f2e57944460ce3daefeb3afc2527d08324c94c6e2e7657fa39",
       "mode": "0644"
     },
     {
       "path": "scripts/restore.sh",
-      "bytes": 2620,
-      "sha256": "be352a4f0e5172762a9970aae1af1235c0aa49a82c85b354520a9e89feb0a1cd",
+      "bytes": 2623,
+      "sha256": "50b9a58102a10f27ce14721e601804d73c4dd93ff55ae3f53b818ad5b4e0c88c",
       "mode": "0755"
     },
     {
       "path": "scripts/setup.sh",
-      "bytes": 3959,
-      "sha256": "2a7612d1f8e39c472da71f71a8b0eda3b6d42a5a9ead90e21acbbcd49521c108",
+      "bytes": 3012,
+      "sha256": "3b6af7f6993bf979d473cf1c3682fa223b9122619f9a4850d4a1b0adaeec83bc",
       "mode": "0755"
     },
     {
@@ -310,8 +370,8 @@
     },
     {
       "path": "scripts/tailscale-setup.sh",
-      "bytes": 1114,
-      "sha256": "69c60608c191b8a2d89db6ad517aadd57e961f1b51193504c81dc57af0bb6447",
+      "bytes": 1120,
+      "sha256": "e3cf7f080ab42da79e15be23f089c4ab3ce2cf6566791fcf24f84f7863d2099c",
       "mode": "0755"
     },
     {
@@ -375,6 +435,18 @@
       "mode": "0644"
     },
     {
+      "path": "tests/frontend-regressions.mjs",
+      "bytes": 17420,
+      "sha256": "a8dbf25f7d007c07009d773367e764a292f00a4dbd8294d25c34f4d65373df58",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/installer.py",
+      "bytes": 10321,
+      "sha256": "a77695621a51c5f3637105bc40e543eb84956bfc065e5d57416a67852165467e",
+      "mode": "0644"
+    },
+    {
       "path": "tests/mcp.mjs",
       "bytes": 2508,
       "sha256": "92082561474075cb6c4735d455bc9f8833448b60f1130b62499db0519e6cb0b0",
@@ -400,8 +472,14 @@
     },
     {
       "path": "tests/package.py",
-      "bytes": 5219,
-      "sha256": "f6a170beb83947536333f923fb9d7ae1d25112cce3a73d60cbceff5e4c7c8e65",
+      "bytes": 4932,
+      "sha256": "7d2bcce97e9f3f51b878df5ba98a18246d42a1bef9ba34303e8b00bfec5f7f99",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/release_artifact.py",
+      "bytes": 3063,
+      "sha256": "73ddc00795f9076089b349c20d7cb513db9273aa4c5819696e9a4a7213d6fb46",
       "mode": "0644"
     },
     {
@@ -414,6 +492,12 @@
       "path": "tests/systemd.py",
       "bytes": 934,
       "sha256": "ef36624666f6d1c39a9602980933a52413826ed1fb8699c5ddcb279480a4d190",
+      "mode": "0644"
+    },
+    {
+      "path": "tests/update.py",
+      "bytes": 5526,
+      "sha256": "e4ee52c14f11b7c00d301de83217f99ad078b96e0e7e4082033236ca68afd140",
       "mode": "0644"
     }
   ]

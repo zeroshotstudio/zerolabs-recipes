@@ -150,7 +150,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## README.md
 
-SHA-256: `9fb8d3f1d00e62384bc11953e61b280b3fa8347dbd7437c5737975dc90d95dfd`
+SHA-256: `4a2c058b77fbd16aeb2e1268d28e6fbd97e9f9b22adb33bba0503ff232601c34`
 
 ~~~~md
 # ZeroLabs Agent Kit 2.0
@@ -177,6 +177,8 @@ This is a single-host, single-workspace product. It is **not** a general autonom
 
 Target: Ubuntu 22.04/24.04 or Debian 12 with Docker Engine and Docker Compose **2.24.4+**, Python 3, Bash, `flock`, 2 CPU cores, 2 GiB RAM minimum (4 GiB recommended), and 10 GiB free disk plus your backup storage. The included containers support amd64 and arm64 through their upstream images; the release acceptance run records the architecture actually tested.
 
+Setup builds the application, PostgreSQL and Caddy images locally from pinned upstream image digests. Exact Alpine package revisions fix OpenSSL/zlib advisories that predate those images. Caddy 2.11.7 is rebuilt with Go 1.27.2 and the committed module lockfiles to include the HTTP/2 security fixes. The initial build needs internet access and extra temporary build storage; Node package managers and Go tooling are absent from the application runtime. Caddy compilation uses at most two parallel compiler workers; allow several minutes for a cold build. Image updates still require a fresh vulnerability scan and acceptance run; see [the image security notes](docs/IMAGE-SECURITY.md) for the remaining advisories and scan limits.
+
 1. Verify the release's `SHA256SUMS` and extract the ZIP. Review the included license and release notes.
 2. Install Docker using its [official instructions](https://docs.docker.com/engine/install/).
 3. From the extracted kit, run `sudo ./scripts/setup.sh`. It installs to `/opt/agentkit`, generates private credentials, builds and starts the stack, and enables a daily backup timer on systemd hosts.
@@ -185,6 +187,8 @@ Target: Ubuntu 22.04/24.04 or Debian 12 with Docker Engine and Docker Compose **
 6. Run `sudo ./scripts/backup.sh`. Save `.env` separately in an encrypted password vault and rehearse a restore into another installation.
 
 `setup.sh --dest /path` also works from inside that same directory; existing `.env` and runtime data are preserved. `--no-start --no-timer` prepares files without starting services. A pre-existing `.env` must have valid v2 credentials; setup will not silently overwrite it. The installer never changes your firewall or SSH port.
+
+Root setup makes installed code, configuration, backup files and their directories root-owned, including reinstall and update. Choose a path with root-owned ancestors that other accounts cannot write, such as `/opt/agentkit`; symlinked installation/package paths are refused. A root-owned sticky temporary directory is allowed only when its existing child is root-owned. Verify a download before running its installer with `sudo`. A deliberately unprivileged setup keeps files owned by that operator and does not install the root backup timer; schedule backups as the same operator.
 
 ## Documentation and integrations
 
@@ -247,17 +251,29 @@ tests
 
 ## app/Dockerfile
 
-SHA-256: `2c391f8ad145e59578544c5191f441418bbcaff061fda0134d925431f3ba718e`
+SHA-256: `e54245cdb3c855857dce9a714684cd98e4ecdd40b0b396b09fe8bc104f5068b0`
 
 ~~~~
 # syntax=docker/dockerfile:1
-FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
 # Optional CA for managed build proxies. It is never copied into the image.
 RUN --mount=type=secret,id=proxy_ca \
     if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
     npm ci --omit=dev --ignore-scripts --strict-ssl=true && npm cache clean --force
+
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+# Upstream image builds predate these Alpine security revisions. Pin each
+# replacement rather than silently upgrading unrelated runtime packages.
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca; fi; \
+    apk add --no-cache libcrypto3=3.5.9-r0 libssl3=3.5.9-r0 zlib=1.3.2-r1 && \
+    rm -rf /usr/local/lib/node_modules /opt/yarn-* && \
+    rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+          /usr/local/bin/yarn /usr/local/bin/yarnpkg
+WORKDIR /app
+COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node . .
 USER node
 ENV NODE_ENV=production
@@ -268,12 +284,13 @@ CMD ["node", "server.js"]
 
 ## app/lib/auth.js
 
-SHA-256: `47e37ef4478c08b189faf42fa8a149f35c1d78703a3fe11967fc4d4fd010d2ad`
+SHA-256: `8120bbfd10e638e0e6bedf829ba9b6278d622050637137348a81cc591ace584f`
 
 ~~~~js
 import { randomBytes, randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import { ApiError, equal, hash } from "./config.js";
+import { transaction } from "./db.js";
 export const SCOPES = ["tasks:read", "tasks:write", "documents:read"];
 const mutations = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 export function authService(pool, adminKey, origin) {
@@ -365,7 +382,7 @@ export function authService(pool, adminKey, origin) {
         ]);
       return cookie("", 0);
     },
-    async issue(name, scopes) {
+    async issue(name, scopes, actor) {
       if (typeof name !== "string" || !name.trim() || name.length > 80)
         throw new ApiError(400, "Enter a token name of 1–80 characters");
       if (
@@ -374,16 +391,25 @@ export function authService(pool, adminKey, origin) {
         scopes.some((s) => !SCOPES.includes(s))
       )
         throw new ApiError(400, "Choose valid token scopes");
-      const count = await pool.query("SELECT count(*) FROM api_tokens");
-      if (Number(count.rows[0].count) >= 50)
-        throw new ApiError(409, "Revoke an unused token first (limit 50)");
       const token = "ak_" + randomBytes(32).toString("hex"),
-        id = randomUUID();
-      await pool.query(
-        "INSERT INTO api_tokens(id,name,token_hash,scopes) VALUES($1,$2,$3,$4)",
-        [id, name.trim(), hash(token), [...new Set(scopes)]],
-      );
-      return { id, token, name: name.trim(), scopes };
+        id = randomUUID(),
+        uniqueScopes = [...new Set(scopes)];
+      return transaction(pool, async (db) => {
+        // All issuers serialize the cap check and insert on the same connection.
+        await db.query("SELECT pg_advisory_xact_lock(82941004)");
+        const count = await db.query("SELECT count(*) FROM api_tokens");
+        if (Number(count.rows[0].count) >= 50)
+          throw new ApiError(409, "Revoke an unused token first (limit 50)");
+        await db.query(
+          "INSERT INTO api_tokens(id,name,token_hash,scopes) VALUES($1,$2,$3,$4)",
+          [id, name.trim(), hash(token), uniqueScopes],
+        );
+        await db.query(
+          "INSERT INTO audit_log(actor,action,target) VALUES($1,'token.create',$2)",
+          [actor, id],
+        );
+        return { id, token, name: name.trim(), scopes: uniqueScopes };
+      });
     },
   };
 }
@@ -1123,7 +1149,7 @@ SHA-256: `a3aa52bdd2c7ebd5af180308e198163b2e76bbdd79bd54e38fc4a974dd47236d`
 
 ## app/public/app.js
 
-SHA-256: `b008bf2935573bd0d15dbde6535157afbd216d9a88ae4fc34d0ab244f601efb6`
+SHA-256: `d8e88d419c430f13a885e15ab7868dce67751089c17403f903f6e3ced230a62c`
 
 ~~~~js
 const $ = (s) => document.querySelector(s);
@@ -1182,6 +1208,11 @@ let session = null,
   page = "overview",
   generation = 0,
   taskId = null,
+  dialogMode = null,
+  dialogVersion = 0,
+  detailRequest = 0,
+  documentRequest = 0,
+  tokenCreation = null,
   toastTimer,
   searchTimer,
   polling = false;
@@ -1254,7 +1285,7 @@ async function api(path, method = "GET", data, extra = {}) {
 }
 function showLogin(message = "") {
   session = null;
-  modal.close();
+  closeDialog();
   $("#boot").hidden = true;
   $("#app").hidden = true;
   $("#login").hidden = false;
@@ -1410,7 +1441,7 @@ async function loadTasks() {
 }
 async function documentsPage(gen) {
   const { documents } = await api("/api/documents");
-  if (gen !== generation) return;
+  if (gen !== generation || page !== "documents" || !session) return;
   $("#page").innerHTML =
     heading(
       "Documents",
@@ -1423,7 +1454,7 @@ async function documentsPage(gen) {
 }
 async function connectionsPage(gen) {
   const { tokens } = await api("/api/tokens");
-  if (gen !== generation) return;
+  if (gen !== generation || page !== "connections" || !session) return;
   $("#page").innerHTML =
     heading(
       "Connections",
@@ -1450,7 +1481,7 @@ systemctl list-timers agentkit-backup.timer</pre><p>To store a second copy, conf
 }
 async function settingsPage(gen) {
   const { entries } = await api("/api/audit");
-  if (gen !== generation) return;
+  if (gen !== generation || page !== "settings" || !session) return;
   $("#page").innerHTML =
     heading(
       "Workspace settings",
@@ -1462,18 +1493,63 @@ OPENAI_MODEL=your-supported-model
 # Apply changes from the kit directory:
 docker compose up -d --force-recreate worker</pre><p class="help">Request limits: 8 model calls, 2,048 output tokens per call, 180 seconds per task by default. Adjust in .env. These are technical limits, not a guaranteed currency budget.</p><a href="/docs#models" target="_blank" rel="noopener">Model configuration →</a></div></section></div><section class="panel detail-section"><div class="panel-head"><h2>Recent access and operator activity</h2><span class="muted">Latest 50</span></div>${entries.length ? entries.map((e) => `<div class="resource-row"><div class="resource-info"><span class="resource-title">${esc(e.action)}</span><small>${esc(e.actor)}${e.target ? " · " + esc(e.target.slice(0, 8)) : ""}</small></div><span class="muted">${esc(time(e.created_at))}</span></div>`).join("") : empty("No activity yet", "Operator actions will appear here.", "", "shield")}</section>`;
 }
-function dialog(title, html, detail = false) {
+function uiContext(element) {
+  return { session, generation, page, version: dialogVersion, element };
+}
+function currentDialog(context) {
+  return (
+    session &&
+    session === context.session &&
+    dialogVersion === context.version &&
+    (!context.element || context.element.isConnected)
+  );
+}
+function currentRoute(context, route = context.page) {
+  return (
+    session === context.session &&
+    session &&
+    generation === context.generation &&
+    page === route
+  );
+}
+function canChangeDialog() {
+  // The server returns a new token's secret once. Keep its submitted form until
+  // the bounded request settles so a replacement dialog cannot discard it.
+  if (tokenCreation && currentDialog(tokenCreation)) {
+    toast(
+      "Creating your token. Keep this dialog open until the request finishes.",
+    );
+    return false;
+  }
+  return true;
+}
+function dialog(title, html, detail = false, mode = "content") {
+  if (!canChangeDialog()) return false;
+  dialogMode = mode;
+  dialogVersion++;
+  if (mode !== "task") taskId = null;
   modal.classList.toggle("detail", detail);
   $("#modal-title").textContent = title;
   $("#modal-body").innerHTML = html;
   if (!modal.open) modal.showModal();
+  $("#modal-title").focus();
+  return true;
 }
 function closeDialog() {
-  modal.close();
+  if (!canChangeDialog()) return false;
+  dialogMode = null;
+  dialogVersion++;
   taskId = null;
+  modal.close();
+  return true;
 }
+modal.addEventListener("cancel", (e) => {
+  if (!canChangeDialog()) e.preventDefault();
+});
 modal.addEventListener("close", () => {
   if (modal.open) return;
+  dialogMode = null;
+  dialogVersion++;
   taskId = null;
   $("#modal-body").innerHTML = "";
 });
@@ -1498,29 +1574,43 @@ function newTask() {
     `<form id="task-form" data-key="${crypto.randomUUID()}"><p class="help">Tasks are saved before execution. Follow their progress and inspect the result.</p><label for="task-kind">Task type</label><select id="task-kind" name="kind"><option value="assistant" ${!configured ? "disabled" : ""}>AI assistant${!configured ? " · configure a model first" : ""}</option><option value="audit" ${!configured ? "selected" : ""}>System check · no model needed</option></select>${!configured ? '<p class="help">Configure OPENAI_API_KEY and OPENAI_MODEL on your host to enable AI tasks. <a href="/docs#models" target="_blank" rel="noopener">Setup guide ↗</a></p>' : ""}<label for="task-title">Title <span class="muted">(optional)</span></label><input id="task-title" name="title" maxlength="120" placeholder="Give this task a short name"><div id="prompt-field" ${!configured ? "hidden" : ""}><label for="task-prompt">What should the assistant do?</label><textarea id="task-prompt" name="prompt" rows="5" maxlength="16000" ${configured ? "required" : ""} placeholder="Read the project brief and create a concise launch checklist…"></textarea><p class="help">Can read workspace documents, calculate, and save text artifacts. Cannot run commands, browse the web, or send messages.</p></div><div class="form-error" role="alert"></div><div class="dialog-actions"><button class="button" type="button" data-action="close-dialog">Cancel</button><button class="button primary" type="submit">Create task ${icon("arrow")}</button></div></form>`,
   );
 }
-async function audit() {
+async function audit(context = uiContext()) {
   const data = await api(
     "/api/tasks",
     "POST",
     { kind: "audit" },
     { "idempotency-key": crypto.randomUUID() },
   );
-  await openTask(data.task.id);
-  await loadOverview();
+  if (currentDialog(context) && currentRoute(context))
+    await openTask(data.task.id);
+  else toast("System check created. Find it in Tasks.");
+  if (context.session === session && session) await loadOverview();
 }
 async function openTask(id) {
+  if (
+    !dialog("Task details", '<p class="muted">Loading task…</p>', true, "task")
+  )
+    return;
   taskId = id;
-  dialog("Task details", '<p class="muted">Loading task…</p>', true);
   await loadDetail(true);
 }
 async function loadDetail(initial = false) {
-  const id = taskId;
-  if (!id || !modal.open) return;
+  const id = taskId,
+    version = dialogVersion;
+  if (!id || !modal.open || dialogMode !== "task") return;
+  const request = ++detailRequest;
   const [data, trace] = await Promise.all([
     api(`/api/tasks/${id}`),
     api(`/api/tasks/${id}/events`),
   ]);
-  if (id !== taskId || !modal.open) return;
+  if (
+    id !== taskId ||
+    !modal.open ||
+    dialogMode !== "task" ||
+    version !== dialogVersion ||
+    request !== detailRequest
+  )
+    return;
   const t = data.task;
   $("#modal-title").textContent = t.title;
   const duration =
@@ -1553,6 +1643,8 @@ function confirmAction(title, text, label, action, target) {
   dialog(
     title,
     `<p>${esc(text)}</p><div class="form-error" role="alert"></div><div class="dialog-actions"><button class="button" data-action="close-dialog">Keep as is</button><button class="button danger" data-confirm="${action}" data-target="${esc(target)}">${esc(label)}</button></div>`,
+    false,
+    "confirm",
   );
 }
 function commands() {
@@ -1566,6 +1658,8 @@ function commands() {
       .join(
         "",
       )}<button data-action="new-task">${icon("plus")}New task<kbd>N</kbd></button></div>`,
+    false,
+    "command",
   );
 }
 async function copy(text) {
@@ -1600,6 +1694,13 @@ window.addEventListener("resize", () => {
 window.addEventListener("hashchange", () => {
   navigate().catch((error) => toast(error.message));
 });
+$(".skip-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  if (session) {
+    closeNav();
+    $("#main").focus();
+  } else $("#access-key").focus();
+});
 document.addEventListener("input", (e) => {
   if (e.target.id === "task-search") {
     search = e.target.value;
@@ -1628,40 +1729,73 @@ document.addEventListener("submit", async (e) => {
   if (!["task-form", "document-form", "token-form"].includes(form.id)) return;
   e.preventDefault();
   const submit = form.querySelector("[type=submit]");
+  const context = uiContext(form);
+  const errorArea = form.querySelector(".form-error");
+  let tokenPendingMessage,
+    tokenCloseButtons = [];
   submit.disabled = true;
-  form.querySelector(".form-error").textContent = "";
+  errorArea.textContent = "";
   const data = new FormData(form);
   try {
     if (form.id === "task-form") {
       const value = await api("/api/tasks", "POST", Object.fromEntries(data), {
         "idempotency-key": form.dataset.key,
       });
-      closeDialog();
-      await openTask(value.task.id);
-      await loadOverview();
+      const showResult = currentDialog(context) && currentRoute(context);
+      if (currentDialog(context)) closeDialog();
+      if (showResult) await openTask(value.task.id);
+      else toast("Task created. Find it in Tasks.");
+      if (context.session === session && session) await loadOverview();
     }
     if (form.id === "document-form") {
       await api("/api/documents", "POST", Object.fromEntries(data));
-      closeDialog();
+      if (currentDialog(context)) closeDialog();
       toast("Document added");
-      if (page === "documents") await documentsPage(generation);
+      if (currentRoute(context, "documents"))
+        await documentsPage(context.generation);
     }
     if (form.id === "token-form") {
+      tokenCreation = context;
+      tokenCloseButtons = [
+        ...modal.querySelectorAll('[data-action="close-dialog"]'),
+      ];
+      tokenCloseButtons.forEach((button) => (button.disabled = true));
+      tokenPendingMessage = document.createElement("p");
+      tokenPendingMessage.className = "help";
+      tokenPendingMessage.setAttribute("role", "status");
+      tokenPendingMessage.textContent =
+        "Creating token… Keep this dialog open until the request finishes.";
+      errorArea.before(tokenPendingMessage);
       const value = await api("/api/tokens", "POST", {
         name: data.get("name"),
         scopes: data.getAll("scope"),
       });
+      if (tokenCreation === context) {
+        tokenCreation = null;
+        tokenCloseButtons.forEach((button) => (button.disabled = false));
+      }
+      if (!currentDialog(context)) {
+        toast(
+          "Token created after your session changed. Revoke it in Connections if you did not save it.",
+        );
+        return;
+      }
       dialog(
         "Save your API token",
         `<div class="info-strip warning">This token is shown only once. Save it in your password manager before closing.</div><label for="new-token">${esc(value.name)}</label><input id="new-token" class="token-secret" readonly value="${esc(value.token)}"><p class="help">Permissions: ${esc(value.scopes.join(", "))}</p><div class="dialog-actions"><button class="button" data-action="copy-token">${icon("copy")}Copy token</button><button class="button primary" data-action="close-dialog">I have saved it</button></div>`,
       );
-      if (page === "connections") await connectionsPage(generation);
+      if (currentRoute(context, "connections"))
+        await connectionsPage(context.generation);
     }
   } catch (error) {
-    if (form.isConnected)
-      form.querySelector(".form-error").textContent = error.message;
+    if (currentDialog(context) && errorArea.isConnected)
+      errorArea.textContent = error.message;
     else toast(error.message);
   } finally {
+    if (tokenCreation === context) tokenCreation = null;
+    tokenPendingMessage?.remove();
+    if (!tokenCreation)
+      tokenCloseButtons.forEach((button) => (button.disabled = false));
     submit.disabled = false;
   }
 });
@@ -1671,7 +1805,15 @@ document.addEventListener("click", async (e) => {
   try {
     if (b.dataset.task) return await openTask(b.dataset.task);
     if (b.dataset.document) {
+      const context = uiContext(b),
+        request = ++documentRequest;
       const doc = await api(`/api/documents/${b.dataset.document}`);
+      if (
+        !currentDialog(context) ||
+        !currentRoute(context) ||
+        request !== documentRequest
+      )
+        return;
       return dialog(
         doc.title,
         `<div class="output" tabindex="0">${esc(doc.content)}</div><div class="dialog-actions"><button class="button" data-action="close-dialog">Close</button></div>`,
@@ -1695,9 +1837,12 @@ document.addEventListener("click", async (e) => {
         b.dataset.revoke,
       );
     if (b.dataset.cancelTask) {
+      const context = uiContext(b),
+        id = b.dataset.cancelTask;
       await api(`/api/tasks/${b.dataset.cancelTask}/cancel`, "POST", {});
       toast("Cancellation requested");
-      return await loadDetail();
+      if (currentDialog(context) && taskId === id) return await loadDetail();
+      return;
     }
     if (b.dataset.retryTask)
       return confirmAction(
@@ -1710,17 +1855,21 @@ document.addEventListener("click", async (e) => {
     if (b.dataset.confirm) {
       b.disabled = true;
       const { confirm, target } = b.dataset;
+      const context = uiContext(b),
+        errorArea = b.closest("#modal-body")?.querySelector(".form-error");
       try {
         if (confirm === "document") {
           await api(`/api/documents/${target}`, "DELETE");
-          closeDialog();
-          await documentsPage(generation);
+          if (currentDialog(context)) closeDialog();
+          if (currentRoute(context, "documents"))
+            await documentsPage(context.generation);
           toast("Document deleted");
         }
         if (confirm === "token") {
           await api(`/api/tokens/${target}`, "DELETE");
-          closeDialog();
-          await connectionsPage(generation);
+          if (currentDialog(context)) closeDialog();
+          if (currentRoute(context, "connections"))
+            await connectionsPage(context.generation);
           toast("Token revoked");
         }
         if (confirm === "retry") {
@@ -1730,12 +1879,16 @@ document.addEventListener("click", async (e) => {
             {},
             { "idempotency-key": crypto.randomUUID() },
           );
-          closeDialog();
-          await openTask(data.task.id);
+          const showResult = currentDialog(context) && currentRoute(context);
+          if (currentDialog(context)) closeDialog();
+          if (showResult) await openTask(data.task.id);
+          else toast("Retry created. Find it in Tasks.");
         }
       } catch (error) {
         b.disabled = false;
-        $("#modal-body .form-error").textContent = error.message;
+        if (currentDialog(context) && errorArea?.isConnected)
+          errorArea.textContent = error.message;
+        else toast(error.message);
       }
       return;
     }
@@ -1758,7 +1911,7 @@ document.addEventListener("click", async (e) => {
       case "audit":
         b.disabled = true;
         try {
-          await audit();
+          await audit(uiContext(b));
         } finally {
           b.disabled = false;
         }
@@ -1779,10 +1932,12 @@ document.addEventListener("click", async (e) => {
         } catch {}
         break;
       }
-      case "logout":
+      case "logout": {
+        const currentSession = session;
         await api("/api/auth/logout", "POST", {});
-        showLogin();
+        if (session === currentSession) showLogin();
         break;
+      }
       case "command":
         commands();
         break;
@@ -1790,7 +1945,13 @@ document.addEventListener("click", async (e) => {
         await copy($("#new-token").value);
         break;
       case "copy-result":
-        if (taskId) await copy((await api(`/api/tasks/${taskId}`)).task.result);
+        if (taskId) {
+          const id = taskId,
+            context = uiContext(b);
+          const data = await api(`/api/tasks/${id}`);
+          if (currentDialog(context) && taskId === id)
+            await copy(data.task.result);
+        }
         break;
       case "clear-filter":
         filter = "";
@@ -1849,7 +2010,7 @@ setInterval(async () => {
   polling = true;
   try {
     await loadOverview();
-    if (taskId) await loadDetail();
+    if (dialogMode === "task" && taskId) await loadDetail();
     const interacting =
       $("#page").contains(document.activeElement) &&
       document.activeElement.matches("input,select,button,a");
@@ -1884,7 +2045,7 @@ SHA-256: `12009f07f64d5ecd9f06301d247d171b071fe294633990c9efb76f66da2d68af`
 
 ## app/public/index.html
 
-SHA-256: `569589b9e6284c651e815802562eea64410310777ee7c02a61c7b13d7dfb2b62`
+SHA-256: `3fba9a2cd2b6f0f6d3eedafee3a2ab8e59a5b00f22516f84ea38e7ae1b4b444b`
 
 ~~~~html
 <!doctype html>
@@ -2055,7 +2216,7 @@ SHA-256: `569589b9e6284c651e815802562eea64410310777ee7c02a61c7b13d7dfb2b62`
     </div>
     <dialog id="modal" aria-labelledby="modal-title">
       <div class="dialog-head">
-        <h2 id="modal-title"></h2>
+        <h2 id="modal-title" tabindex="-1"></h2>
         <button
           class="icon-button"
           data-action="close-dialog"
@@ -3591,7 +3752,7 @@ dialog.detail {
 
 ## app/server.js
 
-SHA-256: `aec70da2ae85a0132c84511468c7b6e4db52eb903f59046bc0fe0e58cd7520b4`
+SHA-256: `dd6ea1ea286601eda9308d6703bdaa1b68155f89dbc49eae2455a99e53258f4d`
 
 ~~~~js
 import http from "node:http";
@@ -3969,11 +4130,7 @@ const server = http.createServer(async (req, res) => {
         });
       if (req.method === "POST") {
         const data = await body(req),
-          token = await auth.issue(data.name, data.scopes);
-        await pool.query(
-          "INSERT INTO audit_log(actor,action,target) VALUES($1,'token.create',$2)",
-          [identity.actor, token.id],
-        );
+          token = await auth.issue(data.name, data.scopes, identity.actor);
         return send(res, 201, token);
       }
     }
@@ -4046,6 +4203,154 @@ function stop() {
 }
 process.on("SIGTERM", stop);
 process.on("SIGINT", stop);
+
+~~~~
+
+## app/tests/auth-postgres.test.js
+
+SHA-256: `403b6413edd86e9af3829894c104e453a024915ba84a599c64a6c13c92394ffa`
+
+~~~~js
+import test from "node:test";
+import assert from "node:assert/strict";
+import { randomBytes, randomUUID } from "node:crypto";
+import pg from "pg";
+import { authService } from "../lib/auth.js";
+import { hash } from "../lib/config.js";
+
+test(
+  "PostgreSQL serializes token issuance and rolls back a failed creation audit",
+  {
+    skip:
+      !process.env.AUTH_TEST_DATABASE_URL &&
+      "Set AUTH_TEST_DATABASE_URL to an isolated PostgreSQL database",
+  },
+  async () => {
+    const schema = "auth_test_" + randomBytes(8).toString("hex");
+    const admin = new pg.Pool({
+      connectionString: process.env.AUTH_TEST_DATABASE_URL,
+    });
+    let pool;
+    try {
+      await admin.query(`CREATE SCHEMA ${schema}`);
+      pool = new pg.Pool({
+        connectionString: process.env.AUTH_TEST_DATABASE_URL,
+        options: `-c search_path=${schema}`,
+        max: 16,
+      });
+      await pool.query(`
+      CREATE TABLE api_tokens(id uuid PRIMARY KEY, name text NOT NULL,
+        token_hash text UNIQUE NOT NULL, scopes text[] NOT NULL);
+      CREATE TABLE audit_log(id bigserial PRIMARY KEY, actor text NOT NULL,
+        action text NOT NULL, target text);
+      CREATE FUNCTION slow_token_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN PERFORM pg_sleep(0.1); RETURN NEW; END
+      $$;
+      CREATE TRIGGER slow_insert BEFORE INSERT ON api_tokens
+        FOR EACH ROW EXECUTE FUNCTION slow_token_insert();
+      CREATE FUNCTION reject_test_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+          IF NEW.actor = 'reject-audit' THEN RAISE EXCEPTION 'test audit failure'; END IF;
+          RETURN NEW;
+        END
+      $$;
+      CREATE TRIGGER reject_audit BEFORE INSERT ON audit_log
+        FOR EACH ROW EXECUTE FUNCTION reject_test_audit();
+    `);
+      const initial = Array.from({ length: 49 }, () => randomUUID());
+      // Seed in one statement, bypassing the deliberate INSERT delay.
+      await pool.query("ALTER TABLE api_tokens DISABLE TRIGGER slow_insert");
+      await pool.query(
+        "INSERT INTO api_tokens(id,name,token_hash,scopes) SELECT id,'existing',id::text,ARRAY['tasks:read'] FROM unnest($1::uuid[]) AS id",
+        [initial],
+      );
+      await pool.query("ALTER TABLE api_tokens ENABLE TRIGGER slow_insert");
+      const auth = authService(pool, "unused-test-key", "http://localhost");
+      const attempts = await Promise.allSettled(
+        Array.from({ length: 8 }, (_, index) =>
+          auth.issue(
+            `Concurrent ${index}`,
+            ["tasks:read", "tasks:read"],
+            "test-operator",
+          ),
+        ),
+      );
+      const accepted = attempts.filter((item) => item.status === "fulfilled");
+      const refused = attempts.filter((item) => item.status === "rejected");
+      assert.equal(accepted.length, 1);
+      assert.equal(refused.length, 7);
+      for (const item of refused) assert.equal(item.reason.status, 409);
+      assert.equal(
+        Number(
+          (await pool.query("SELECT count(*) FROM api_tokens")).rows[0].count,
+        ),
+        50,
+      );
+      const created = accepted[0].value;
+      assert.deepEqual(created.scopes, ["tasks:read"]);
+      assert.deepEqual(
+        (await pool.query("SELECT actor,action,target FROM audit_log")).rows,
+        [
+          {
+            actor: "test-operator",
+            action: "token.create",
+            target: created.id,
+          },
+        ],
+      );
+      assert.equal(
+        (
+          await pool.query("SELECT token_hash FROM api_tokens WHERE id=$1", [
+            created.id,
+          ])
+        ).rows[0].token_hash,
+        hash(created.token),
+      );
+
+      await pool.query("DELETE FROM api_tokens WHERE id=$1", [initial[0]]);
+      await assert.rejects(
+        auth.issue("Must roll back", ["tasks:write"], "reject-audit"),
+        /test audit failure/,
+      );
+      assert.equal(
+        Number(
+          (await pool.query("SELECT count(*) FROM api_tokens")).rows[0].count,
+        ),
+        49,
+      );
+      assert.equal(
+        Number(
+          (await pool.query("SELECT count(*) FROM audit_log")).rows[0].count,
+        ),
+        1,
+      );
+      // A rejected transaction releases the lock and leaves room for a later issuer.
+      const recovered = await auth.issue(
+        "After rollback",
+        ["tasks:write"],
+        "test-operator",
+      );
+      assert.equal(
+        Number(
+          (await pool.query("SELECT count(*) FROM api_tokens")).rows[0].count,
+        ),
+        50,
+      );
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT target FROM audit_log ORDER BY id DESC LIMIT 1",
+          )
+        ).rows[0].target,
+        recovered.id,
+      );
+    } finally {
+      await pool?.end();
+      await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+      await admin.end();
+    }
+  },
+);
 
 ~~~~
 
@@ -4128,9 +4433,301 @@ test("remote access and provider URLs reject insecure or credential-bearing URLs
 
 ~~~~
 
+## app/tests/worker.test.js
+
+SHA-256: `630b97810d0bb4f27434972c947bc7a8657470702f7f728df0728b68e1664a23`
+
+~~~~js
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import vm from "node:vm";
+import { transaction } from "../lib/db.js";
+
+const source = (
+  await readFile(new URL("../worker.js", import.meta.url), "utf8")
+).replace(/^import[\s\S]*?from "[^"]+";\n/gm, "");
+
+function deferred() {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  return { promise, resolve, reject };
+}
+
+function worker(overrides = {}) {
+  const hooks = new Map(),
+    events = [],
+    completions = [],
+    returned = [];
+  let heartbeat,
+    heartbeatCalls = 0,
+    claims = 0,
+    ended = false;
+  const stop = () => hooks.get("SIGTERM")();
+  const pool = {
+    async query(sql, values) {
+      if (sql.startsWith("INSERT INTO workers"))
+        return overrides.heartbeat?.(++heartbeatCalls) ?? {};
+      if (sql.startsWith("UPDATE jobs SET lease_until"))
+        return (
+          overrides.renew?.(values[0]) ?? {
+            rowCount: 1,
+            rows: [{ cancel_requested: false }],
+          }
+        );
+      if (sql.startsWith("SELECT cancel_requested"))
+        return { rows: [{ cancel_requested: false }] };
+      if (sql.includes("worker_id=NULL,started_at=NULL")) {
+        returned.push(values[0]);
+        return {
+          rows: [{ status: overrides.cancelled ? "cancelled" : "queued" }],
+        };
+      }
+      if (sql.startsWith("UPDATE jobs SET status=$2")) {
+        completions.push({
+          id: values[0],
+          status: values[1],
+          error: values[3],
+        });
+        overrides.completed?.(values[0]);
+      }
+      return {};
+    },
+    async connect() {
+      return { query: pool.query, release() {} };
+    },
+    async end() {
+      ended = true;
+    },
+  };
+  const context = {
+    randomUUID: () => "worker-1",
+    createPool: () => pool,
+    transaction,
+    event: async (_db, id, type, message) => events.push({ id, type, message }),
+    VERSION: "2.0.0",
+    integer: (_value, fallback) => fallback,
+    providerURL() {},
+    writeFile: async () => {},
+    unlink: async () => {},
+    delay: async (ms) => overrides.delay?.(ms),
+    claim: async () => overrides.claim(++claims),
+    runTask: (...args) => overrides.run(...args),
+    closeRunner: async () => {},
+    setInterval(fn) {
+      heartbeat = fn;
+      return 1;
+    },
+    clearInterval() {},
+    setTimeout: () => 1,
+    clearTimeout() {},
+    AbortController,
+    process: { env: {}, on: (name, fn) => hooks.set(name, fn) },
+    console: { log() {}, error() {} },
+  };
+  const done = vm.runInNewContext(`(async () => {\n${source}\n})()`, context);
+  return {
+    done,
+    stop,
+    tick: () => heartbeat(),
+    events,
+    completions,
+    returned,
+    get ended() {
+      return ended;
+    },
+  };
+}
+
+test("a delayed idle heartbeat failure cannot interrupt a newly verified task", async () => {
+  const claim = deferred(),
+    stale = deferred(),
+    started = deferred(),
+    finish = deferred();
+  let signal;
+  const h = worker({
+    claim: () => claim.promise,
+    heartbeat: (call) => (call === 2 ? stale.promise : {}),
+    run: async (_pool, _task, _id, current) => {
+      signal = current;
+      started.resolve();
+      await finish.promise;
+      return "healthy result";
+    },
+    completed: () => h.stop(),
+  });
+  // Startup's heartbeat finishes before the claim blocks.
+  await new Promise(setImmediate);
+  const pendingHeartbeat = h.tick();
+  claim.resolve({ id: "new-task" });
+  await started.promise;
+  stale.reject(new Error("old connection failed after recovery"));
+  await pendingHeartbeat;
+  assert.equal(signal.aborted, false);
+  finish.resolve();
+  await h.done;
+  assert.equal(h.completions[0].status, "completed");
+  assert.equal(h.ended, true);
+});
+
+test("a delayed previous-task heartbeat failure cannot interrupt its successor", async () => {
+  const stale = deferred(),
+    firstStarted = deferred(),
+    finishFirst = deferred();
+  const secondStarted = deferred(),
+    finishSecond = deferred();
+  let secondSignal;
+  const h = worker({
+    claim: (count) => ({ id: count === 1 ? "first" : "second" }),
+    heartbeat: (call) => (call === 2 ? stale.promise : {}),
+    run: async (_pool, task, _id, signal) => {
+      if (task.id === "first") {
+        firstStarted.resolve();
+        await finishFirst.promise;
+      } else {
+        secondSignal = signal;
+        secondStarted.resolve();
+        await finishSecond.promise;
+      }
+      return "result";
+    },
+    completed: (id) => {
+      if (id === "second") h.stop();
+    },
+  });
+  await firstStarted.promise;
+  const pendingHeartbeat = h.tick();
+  finishFirst.resolve();
+  await secondStarted.promise;
+  stale.reject(new Error("previous task connection failed"));
+  await pendingHeartbeat;
+  assert.equal(secondSignal.aborted, false);
+  finishSecond.resolve();
+  await h.done;
+  assert.deepEqual(
+    h.completions.map((task) => task.status),
+    ["completed", "completed"],
+  );
+});
+
+test("current heartbeat failure aborts the owned task and never replays it", async () => {
+  const started = deferred();
+  let calls = 0;
+  const h = worker({
+    claim: () => ({ id: "affected" }),
+    heartbeat: (call) =>
+      call === 2 ? Promise.reject(new Error("database down")) : {},
+    run: async (_pool, _task, _id, signal) => {
+      calls++;
+      started.resolve();
+      await new Promise((resolve) =>
+        signal.addEventListener("abort", resolve, { once: true }),
+      );
+      signal.throwIfAborted();
+    },
+    completed: () => h.stop(),
+  });
+  await started.promise;
+  await h.tick();
+  await h.done;
+  assert.equal(calls, 1);
+  assert.equal(h.completions[0].status, "failed");
+  assert.match(h.completions[0].error, /Database connection lost/);
+  assert.equal(h.returned.length, 0);
+});
+
+for (const cancelled of [false, true]) {
+  test(`SIGTERM during claim starts no provider work and ${cancelled ? "preserves cancellation" : "returns unexecuted work"}`, async () => {
+    const claim = deferred();
+    let calls = 0;
+    const h = worker({
+      cancelled,
+      claim: () => claim.promise,
+      run: async () => {
+        calls++;
+      },
+    });
+    await new Promise(setImmediate);
+    h.stop();
+    claim.resolve({ id: "not-executed" });
+    await h.done;
+    assert.equal(calls, 0);
+    assert.deepEqual(h.returned, ["not-executed"]);
+    assert.equal(h.events[0].type, cancelled ? "cancelled" : "queued");
+    assert.equal(h.completions.length, 0);
+  });
+}
+
+test("fresh lease validation prevents execution after claim health is lost", async () => {
+  let calls = 0;
+  const h = worker({
+    claim: () => ({ id: "lost-lease" }),
+    renew: () => ({ rowCount: 0, rows: [] }),
+    run: async () => {
+      calls++;
+    },
+    completed: () => h.stop(),
+  });
+  await h.done;
+  assert.equal(calls, 0);
+  assert.equal(h.completions[0].status, "failed");
+  assert.match(h.completions[0].error, /lease was lost/);
+});
+
+test("SIGTERM during fresh lease validation starts no provider work", async () => {
+  const renewal = deferred(),
+    renewing = deferred();
+  let calls = 0;
+  const h = worker({
+    claim: () => ({ id: "shutdown-before-run" }),
+    renew: () => {
+      renewing.resolve();
+      return renewal.promise;
+    },
+    run: async () => {
+      calls++;
+    },
+  });
+  await renewing.promise;
+  h.stop();
+  renewal.resolve({ rowCount: 1, rows: [{ cancel_requested: false }] });
+  await h.done;
+  assert.equal(calls, 0);
+  assert.equal(h.completions[0].status, "failed");
+  assert.match(h.completions[0].error, /Worker stopped/);
+});
+
+test("SIGTERM interrupts already started work without returning it for automatic replay", async () => {
+  const started = deferred();
+  let calls = 0;
+  const h = worker({
+    claim: () => ({ id: "partially-executed" }),
+    run: async (_pool, _task, _id, signal) => {
+      calls++;
+      started.resolve();
+      await new Promise((resolve) =>
+        signal.addEventListener("abort", resolve, { once: true }),
+      );
+      signal.throwIfAborted();
+    },
+  });
+  await started.promise;
+  h.stop();
+  await h.done;
+  assert.equal(calls, 1);
+  assert.equal(h.completions[0].status, "failed");
+  assert.match(h.completions[0].error, /review the partial trace/);
+  assert.equal(h.returned.length, 0);
+});
+
+~~~~
+
 ## app/worker.js
 
-SHA-256: `eac9c734b6c113a9714f7063e37848ff52f634a544e65fe28872c8da32cf2433`
+SHA-256: `421f95088ad79deca4b6cef31139efb2bfdfcf4e8420258757373f8f6ac6da04`
 
 ~~~~js
 import { randomUUID } from "node:crypto";
@@ -4160,36 +4757,59 @@ process.on("SIGINT", stop);
 async function heartbeat() {
   if (heartbeating) return;
   heartbeating = true;
+  // A delayed heartbeat belongs only to the execution that existed at entry.
+  const current = active;
   try {
     await pool.query(
       `INSERT INTO workers(id,name,version,model,model_configured) VALUES($1,$2,$3,$4,$5)
       ON CONFLICT(id) DO UPDATE SET last_seen=now()`,
       [id, name, VERSION, process.env.OPENAI_MODEL || null, configured],
     );
-    if (active) {
-      const current = active;
-      const r = await pool.query(
-        `UPDATE jobs SET lease_until=now()+interval '30 seconds'
-        WHERE id=$1 AND worker_id=$2 AND status='running' AND lease_until>now() RETURNING cancel_requested`,
-        [current.task.id, id],
-      );
-      if (!r.rowCount)
-        current.controller.abort(new Error("Task lease was lost"));
-      else if (r.rows[0].cancel_requested)
-        current.controller.abort(new Error("Cancelled by operator"));
-    }
+    if (current && active === current) await renewLease(current);
     await writeFile("/tmp/agentkit-worker-heartbeat", String(Date.now()), {
       mode: 0o600,
     });
   } catch {
-    active?.controller.abort(
-      new Error(
-        "Database connection lost; task interrupted. Review before retrying.",
-      ),
-    );
+    if (current && active === current)
+      current.controller.abort(
+        new Error(
+          "Database connection lost; task interrupted. Review before retrying.",
+        ),
+      );
   } finally {
     heartbeating = false;
   }
+}
+async function renewLease(current) {
+  const r = await pool.query(
+    `UPDATE jobs SET lease_until=now()+interval '30 seconds'
+    WHERE id=$1 AND worker_id=$2 AND status='running' AND lease_until>now() RETURNING cancel_requested`,
+    [current.task.id, id],
+  );
+  if (active !== current) return;
+  if (!r.rowCount) current.controller.abort(new Error("Task lease was lost"));
+  else if (r.rows[0].cancel_requested)
+    current.controller.abort(new Error("Cancelled by operator"));
+}
+async function returnUnexecutedClaim(task) {
+  await transaction(pool, async (db) => {
+    const { rows } = await db.query(
+      `UPDATE jobs SET status=CASE WHEN cancel_requested THEN 'cancelled' ELSE 'queued' END,
+        worker_id=NULL,started_at=NULL,lease_until=NULL,
+        finished_at=CASE WHEN cancel_requested THEN now() ELSE NULL END
+        WHERE id=$1 AND worker_id=$2 AND status='running' RETURNING status`,
+      [task.id, id],
+    );
+    if (!rows.length) return;
+    await event(
+      db,
+      task.id,
+      rows[0].status,
+      rows[0].status === "cancelled"
+        ? "Cancelled by operator before execution"
+        : "Worker stopped before execution; task returned to the durable queue",
+    );
+  });
 }
 await heartbeat();
 const timer = setInterval(heartbeat, 2000);
@@ -4205,6 +4825,15 @@ try {
       console.error("Queue unavailable; waiting to reconnect");
       await delay(3000);
       continue;
+    }
+    if (stopping) {
+      if (task)
+        await returnUnexecutedClaim(task).catch(() =>
+          console.error(
+            "Could not return an unexecuted task; its lease will expire. Review before retrying.",
+          ),
+        );
+      break;
     }
     if (!task) {
       await delay(500);
@@ -4222,6 +4851,10 @@ try {
     let result = null,
       failure = null;
     try {
+      // A fresh operation must verify this claim even if an older idle heartbeat
+      // is still reconnecting. Never start provider work on an expired lease.
+      await renewLease(active);
+      controller.signal.throwIfAborted();
       result = await runTask(pool, task, id, controller.signal);
       controller.signal.throwIfAborted();
     } catch (error) {
@@ -4287,6 +4920,1049 @@ try {
 
 ~~~~
 
+## caddy/Dockerfile
+
+SHA-256: `261a1fabbdfa31b4db581ec61852c9afa43710ca7aa05ce986a1ff3e617bbf8b`
+
+~~~~
+# syntax=docker/dockerfile:1
+# Caddy's published binary currently predates the Go HTTP/2 security fixes.
+FROM golang:1.27.2-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca; fi; \
+    go mod download && go mod verify
+COPY main.go ./
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOMAXPROCS=2 go build -p=2 -mod=readonly -trimpath -o /caddy .
+
+FROM caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+# Keep the official filesystem, entrypoint and certificate storage conventions.
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca; fi; \
+    apk add --no-cache libcrypto3=3.5.9-r0 libssl3=3.5.9-r0 zlib=1.3.2-r1 && \
+    apk del --no-network curl
+COPY --from=build /caddy /usr/bin/caddy
+
+~~~~
+
+## caddy/LICENSE
+
+SHA-256: `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`
+
+~~~~
+
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+~~~~
+
+## caddy/go.mod
+
+SHA-256: `fcac99511c75e27c5b33cd8432612e6cb8923afe436c27b31dc0cbeaab7c1b75`
+
+~~~~mod
+module zerolabs.local/agentkit-caddy
+
+go 1.27.2
+
+require github.com/caddyserver/caddy/v2 v2.11.7
+
+require (
+	cel.dev/cel-go v0.32.0 // indirect
+	cel.dev/expr v0.25.3 // indirect
+	cloud.google.com/go/auth v0.23.3 // indirect
+	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
+	cloud.google.com/go/compute/metadata v0.9.1 // indirect
+	dario.cat/mergo v1.0.2 // indirect
+	filippo.io/bigmod v0.1.0 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
+	github.com/BurntSushi/toml v1.6.0 // indirect
+	github.com/DeRuina/timberjack v1.4.8 // indirect
+	github.com/KimMachineGun/automemlimit v1.0.0 // indirect
+	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver/v3 v3.5.0 // indirect
+	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
+	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
+	github.com/aryann/difflib v0.0.0-20210328193216-ff5ff6dc229b // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bits-and-blooms/bitset v1.25.0 // indirect
+	github.com/caddyserver/certmagic v0.25.6 // indirect
+	github.com/caddyserver/zerossl v0.1.6 // indirect
+	github.com/ccoveille/go-safecast/v2 v2.0.1 // indirect
+	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
+	github.com/cespare/xxhash v1.1.0 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/chzyer/readline v1.5.1 // indirect
+	github.com/cloudflare/circl v1.6.5 // indirect
+	github.com/coreos/go-oidc/v3 v3.21.0 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
+	github.com/dgraph-io/badger v1.6.2 // indirect
+	github.com/dgraph-io/badger/v2 v2.2007.4 // indirect
+	github.com/dgraph-io/ristretto v0.2.0 // indirect
+	github.com/dgryski/go-farm v0.0.0-20240924180020-3414d57e47da // indirect
+	github.com/dlclark/regexp2/v2 v2.8.0 // indirect
+	github.com/dunglas/go-urlpattern v1.0.0 // indirect
+	github.com/dunglas/httpsfv v1.1.1 // indirect
+	github.com/dustin/go-humanize v1.1.0 // indirect
+	github.com/felixge/httpsnoop v1.1.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.4 // indirect
+	github.com/go-chi/chi/v5 v5.3.2 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.5 // indirect
+	github.com/go-logr/logr v1.4.4 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-sql-driver/mysql v1.10.1 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/golang/snappy v1.0.0 // indirect
+	github.com/google/certificate-transparency-go v1.3.3 // indirect
+	github.com/google/go-tpm v0.9.8 // indirect
+	github.com/google/go-tspi v0.3.0 // indirect
+	github.com/google/s2a-go v0.1.10 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.3.22 // indirect
+	github.com/googleapis/gax-go/v2 v2.25.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
+	github.com/huandu/xstrings v1.6.1 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/pgx/v5 v5.11.0 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/klauspost/compress v1.20.1 // indirect
+	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
+	github.com/libdns/libdns v1.1.1 // indirect
+	github.com/manifoldco/promptui v0.9.0 // indirect
+	github.com/mattn/go-colorable v0.1.15 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
+	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
+	github.com/mholt/acmez/v3 v3.1.7 // indirect
+	github.com/miekg/dns v1.1.73 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
+	github.com/mitchellh/go-ps v1.0.0 // indirect
+	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/nlnwa/whatwg-url v0.6.2 // indirect
+	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
+	github.com/pires/go-proxyproto v0.15.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/prometheus/client_golang v1.24.1 // indirect
+	github.com/prometheus/client_model v0.6.3 // indirect
+	github.com/prometheus/common v0.71.0 // indirect
+	github.com/prometheus/otlptranslator v1.0.0 // indirect
+	github.com/prometheus/procfs v0.22.0 // indirect
+	github.com/quic-go/qpack v0.6.0 // indirect
+	github.com/quic-go/quic-go v0.63.0 // indirect
+	github.com/rs/xid v1.6.0 // indirect
+	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
+	github.com/sirupsen/logrus v1.10.2 // indirect
+	github.com/slackhq/nebula v1.11.2 // indirect
+	github.com/smallstep/certificates v0.30.2 // indirect
+	github.com/smallstep/cli-utils v0.12.2 // indirect
+	github.com/smallstep/go-attestation v0.4.4-0.20260814222900-a849f4e2cd68 // indirect
+	github.com/smallstep/linkedca v0.26.0 // indirect
+	github.com/smallstep/nosql v0.8.0 // indirect
+	github.com/smallstep/pkcs7 v0.2.3 // indirect
+	github.com/smallstep/scep v0.0.0-20260331191114-261f960a40d1 // indirect
+	github.com/smallstep/truststore v0.13.0 // indirect
+	github.com/spf13/cast v1.10.0 // indirect
+	github.com/spf13/cobra v1.10.2 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55 // indirect
+	github.com/tailscale/tscert v0.0.0-20251216020129-aea342f6d747 // indirect
+	github.com/urfave/cli v1.22.17 // indirect
+	github.com/x448/float16 v0.8.4 // indirect
+	github.com/yuin/goldmark v1.8.6 // indirect
+	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc // indirect
+	github.com/zeebo/blake3 v0.2.4 // indirect
+	go.etcd.io/bbolt v1.5.0 // indirect
+	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/contrib/bridges/prometheus v0.71.0 // indirect
+	go.opentelemetry.io/contrib/exporters/autoexport v0.71.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 // indirect
+	go.opentelemetry.io/contrib/propagators/autoprop v0.71.0 // indirect
+	go.opentelemetry.io/contrib/propagators/aws v1.46.0 // indirect
+	go.opentelemetry.io/contrib/propagators/b3 v1.46.0 // indirect
+	go.opentelemetry.io/contrib/propagators/jaeger v1.46.0 // indirect
+	go.opentelemetry.io/contrib/propagators/ot v1.46.0 // indirect
+	go.opentelemetry.io/otel v1.46.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.22.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.22.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.46.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.46.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.46.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.46.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.46.0 // indirect
+	go.opentelemetry.io/otel/exporters/prometheus v0.68.0 // indirect
+	go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.22.0 // indirect
+	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.46.0 // indirect
+	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.46.0 // indirect
+	go.opentelemetry.io/otel/log v0.22.0 // indirect
+	go.opentelemetry.io/otel/metric v1.46.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.46.0 // indirect
+	go.opentelemetry.io/otel/sdk/log v0.22.0 // indirect
+	go.opentelemetry.io/otel/sdk/metric v1.46.0 // indirect
+	go.opentelemetry.io/otel/trace v1.46.0 // indirect
+	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
+	go.step.sm/crypto v0.91.0 // indirect
+	go.uber.org/automaxprocs v1.6.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.28.0 // indirect
+	go.uber.org/zap/exp v0.3.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/crypto/x509roots/fallback v0.0.0-20260929172509-b39ff6d641ec // indirect
+	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/oauth2 v0.37.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/term v0.46.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/time v0.16.0 // indirect
+	google.golang.org/api v0.298.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260921155816-b14227669459 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260921155816-b14227669459 // indirect
+	google.golang.org/grpc v1.83.2 // indirect
+	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.6.2 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+	howett.net/plist v1.0.1 // indirect
+)
+
+~~~~
+
+## caddy/go.sum
+
+SHA-256: `6af3a164233778b8a67386362356bfb312d26888ccee645b7180f07fc27e8574`
+
+~~~~sum
+cel.dev/cel-go v0.32.0 h1:irvpFKr5EuGPyxeME03ERh0rii1TX+BDAnB9eL3IvNk=
+cel.dev/cel-go v0.32.0/go.mod h1:DnVip7tpJSsgZymwfT+m1tnEVy3ivAjSMXPx12YrMkU=
+cel.dev/expr v0.25.3 h1:A2jO8jwOugrrovveCWfj0KEZOfqiLgAcwjpHPhzIGw0=
+cel.dev/expr v0.25.3/go.mod h1:hrXvqGP6G6gyx8UAHSHJ5RGk//1Oj5nXQ2NI02Nrsg4=
+cloud.google.com/go v0.123.0 h1:2NAUJwPR47q+E35uaJeYoNhuNEM9kM8SjgRgdeOJUSE=
+cloud.google.com/go v0.123.0/go.mod h1:xBoMV08QcqUGuPW65Qfm1o9Y4zKZBpGS+7bImXLTAZU=
+cloud.google.com/go/auth v0.23.3 h1:UMK+oBtuNGMCR/6i6mmySUItqjOazpJrbmZyhGbGBWo=
+cloud.google.com/go/auth v0.23.3/go.mod h1:fClbry28fo7XkxhSeT6AQtAVAp6Jy0fW9N99PoPNPFM=
+cloud.google.com/go/auth/oauth2adapt v0.2.8 h1:keo8NaayQZ6wimpNSmW5OPc283g65QNIiLpZnkHRbnc=
+cloud.google.com/go/auth/oauth2adapt v0.2.8/go.mod h1:XQ9y31RkqZCcwJWNSx2Xvric3RrU88hAYYbjDWYDL+c=
+cloud.google.com/go/compute/metadata v0.9.1 h1:CTE1OWBQ0vnF5uHwdFAQJvMQ0Fi/KRcqqKTo9V0F8Ik=
+cloud.google.com/go/compute/metadata v0.9.1/go.mod h1:NtnlvB6X3t4R6xSWyVX/ZWk493PCxGQlhI/iqxh4M8I=
+cloud.google.com/go/iam v1.12.0 h1:Aki3bX9aHUDKPHfnRJfDcTdVedvy6quGBQcTqx3DRXk=
+cloud.google.com/go/iam v1.12.0/go.mod h1:FEZ4lXpADAC2AIpQY7LANNjjwyQ2jK439CI2VaD+sLY=
+cloud.google.com/go/kms v1.33.0 h1:pG0X78m212b2pv9N4fdMoUO69LuZGQ9kSvn8sHBOFAo=
+cloud.google.com/go/kms v1.33.0/go.mod h1:CSGvW6GnMQbY+1nOHcIzhMtHSbExXlOmCKjWtYVjcpA=
+cloud.google.com/go/longrunning v1.2.0 h1:WjYH3YHBGCxGJP9M4dWGHBfXr/cFIjMkNgWcJj7/iMM=
+cloud.google.com/go/longrunning v1.2.0/go.mod h1:5KMQALFGOCtFoi2xSOA1u3H7WKlhmckgiyFw7+LGQp0=
+code.pfad.fr/check v1.1.0 h1:GWvjdzhSEgHvEHe2uJujDcpmZoySKuHQNrZMfzfO0bE=
+code.pfad.fr/check v1.1.0/go.mod h1:NiUH13DtYsb7xp5wll0U4SXx7KhXQVCtRgdC96IPfoM=
+dario.cat/mergo v1.0.2 h1:85+piFYR1tMbRrLcDwR18y4UKJ3aH1Tbzi24VRW1TK8=
+dario.cat/mergo v1.0.2/go.mod h1:E/hbnu0NxMFBjpMIE34DRGLWqDy0g5FuKDhCb31ngxA=
+filippo.io/bigmod v0.1.0 h1:UNzDk7y9ADKST+axd9skUpBQeW7fG2KrTZyOE4uGQy8=
+filippo.io/bigmod v0.1.0/go.mod h1:OjOXDNlClLblvXdwgFFOQFJEocLhhtai8vGLy0JCZlI=
+filippo.io/edwards25519 v1.2.0 h1:crnVqOiS4jqYleHd9vaKZ+HKtHfllngJIiOpNpoJsjo=
+filippo.io/edwards25519 v1.2.0/go.mod h1:xzAOLCNug/yB62zG1bQ8uziwrIqIuxhctzJT18Q77mc=
+github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 h1:cTp8I5+VIoKjsnZuH8vjyaysT/ses3EvZeaV/1UkF2M=
+github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96/go.mod h1:bOvUY6CB00SOBii9/FifXqc0awNKxLFCL/+pkDPuyl8=
+github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
+github.com/BurntSushi/toml v1.5.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
+github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=
+github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
+github.com/DeRuina/timberjack v1.4.8 h1:V7SIoCzkyWD93WmyKECSX+tMu/hLqQQvptlhEsbBIhI=
+github.com/DeRuina/timberjack v1.4.8/go.mod h1:DCXjOescYyzTrOryf57SEbSeCOqkBQ3QjH7Pn03i5Cs=
+github.com/KimMachineGun/automemlimit v1.0.0 h1:+MqlvDE/pkJNjk1rU+O14QsH8k10nJAD0frB0lsxyvw=
+github.com/KimMachineGun/automemlimit v1.0.0/go.mod h1:n+BSXxQWDFS1DKh67Rqo0lgTsowsg6x65ak5uyngML0=
+github.com/Masterminds/goutils v1.1.1 h1:5nUrii3FMTL5diU80unEVvNevw1nH4+ZV4DSLVJLSYI=
+github.com/Masterminds/goutils v1.1.1/go.mod h1:8cTjp+g8YejhMuvIA5y2vz3BpJxksy863GQaJW2MFNU=
+github.com/Masterminds/semver/v3 v3.5.0 h1:kQceYJfbupGfZOKZQg0kou0DgAKhzDg2NZPAwZ/2OOE=
+github.com/Masterminds/semver/v3 v3.5.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
+github.com/Masterminds/sprig/v3 v3.3.0 h1:mQh0Yrg1XPo6vjYXgtf5OtijNAKJRNcTdOOGZe3tPhs=
+github.com/Masterminds/sprig/v3 v3.3.0/go.mod h1:Zy1iXRYNqNLUolqCpL4uhk6SHUMAOSCzdgBfDb35Lz0=
+github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
+github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
+github.com/alecthomas/assert/v2 v2.11.0 h1:2Q9r3ki8+JYXvGsDyBXwH3LcJ+WK5D0gc5E8vS6K3D0=
+github.com/alecthomas/assert/v2 v2.11.0/go.mod h1:Bze95FyfUr7x34QZrjL+XP+0qgp/zg8yS+TtBj1WA3k=
+github.com/alecthomas/chroma/v2 v2.2.0/go.mod h1:vf4zrexSH54oEjJ7EdB65tGNHmH3pGZmVkgTP5RHvAs=
+github.com/alecthomas/chroma/v2 v2.27.0 h1:FodwmyOBgJULFYmDqibcp9pvfDLWdtPRh9v/r5BXYZs=
+github.com/alecthomas/chroma/v2 v2.27.0/go.mod h1:NjJ3ciIgrqBNeIkWZ4e46nseoLDslxU1LmfCoL+wcY8=
+github.com/alecthomas/repr v0.0.0-20220113201626-b1b626ac65ae/go.mod h1:2kn6fqh/zIyPLmm3ugklbEi5hg5wS435eygvNfaDQL8=
+github.com/alecthomas/repr v0.5.2 h1:SU73FTI9D1P5UNtvseffFSGmdNci/O6RsqzeXJtP0Qs=
+github.com/alecthomas/repr v0.5.2/go.mod h1:Fr0507jx4eOXV7AlPV6AVZLYrLIuIeSOWtW57eE/O/4=
+github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=
+github.com/antlr4-go/antlr/v4 v4.13.1/go.mod h1:GKmUxMtwp6ZgGwZSva4eWPC5mS6vUAmOABFgjdkM7Nw=
+github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
+github.com/aryann/difflib v0.0.0-20210328193216-ff5ff6dc229b h1:uUXgbcPDK3KpW29o4iy7GtuappbWT0l5NaMo9H9pJDw=
+github.com/aryann/difflib v0.0.0-20210328193216-ff5ff6dc229b/go.mod h1:DAHtR1m6lCRdSC2Tm3DSWRPvIPr6xNKyeHdqDQSQT+A=
+github.com/aws/aws-sdk-go-v2 v1.47.0 h1:0jsHallhJCeaU0Ko48c/3FK1ctOQ7NpzggxriJOQ8MQ=
+github.com/aws/aws-sdk-go-v2 v1.47.0/go.mod h1:bttEH6JqnUL8LepvDVfdrds/fZ5bCIxzpe3abyUrhDU=
+github.com/aws/aws-sdk-go-v2/config v1.33.4 h1:FzvkXKSzwqHni4U7nDigHg4jjtqMpVUuHgmZfSoJVQ0=
+github.com/aws/aws-sdk-go-v2/config v1.33.4/go.mod h1:VZqGZnZsCWVfK/iGPptJIyNIX3XEX6iQU2Rel4sLrr8=
+github.com/aws/aws-sdk-go-v2/credentials v1.20.4 h1:hTvrJJseKbvw32kmiE0G+u/9ZqpqscjDrTigHIXP2qs=
+github.com/aws/aws-sdk-go-v2/credentials v1.20.4/go.mod h1:gWp9O1ZBWwpcIrgV+mVHk4gZUurAEDkgypu/OXOlIaw=
+github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.0 h1:AM4hHjww+PSFtt6E+UrBrPlZkWsePCLEt9AjkfQX+yM=
+github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.0/go.mod h1:3x/yXezeQjpOvBb4jEMxrS8SXvpdvJ5abv6l5c1gWM8=
+github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.3 h1:Hp/VgjP0BysR3OgLlR057Vz2LcbbVnoWeJ+3qWiS/fY=
+github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.3/go.mod h1:nwGV5qw7F1IZPgxCvA/ph8N2TAuz+BkRG/bXn808qMA=
+github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.3 h1:MUaM4f+kj1ZIBPZfUS8cxP1GKXXZtHJjAthy93AN7SM=
+github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.3/go.mod h1:6YmVmEVRI5ZZzRjCSsb9SryKH0hAlMRdgA7kG9aDvBU=
+github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.3 h1:fuSCw4Z2qfRCztMPO3GXJNSiEp6Wee+WOLwrHHUMy9c=
+github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.3/go.mod h1:6SxcHheD1pPR5+kWm1wGvjlL/YqUsh267sAfEmN4K7A=
+github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.19 h1:bAdDl/HkGCcGPoe25ToSHEw23VIxt6CT5fLcg111BKg=
+github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.19/go.mod h1:KaUzbLxv4CeSxh6ZCl9B4m7CuFenS8kUEaDs+f/DQr4=
+github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.3 h1:bON1rJf67TSTDCKg816AAIE4xSTtoo9tl0XRkO72R+I=
+github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.3/go.mod h1:c5BBpjJcQXpfeq9iASyVKA3T6vX6B6LEXY4mL/gklDY=
+github.com/aws/aws-sdk-go-v2/service/kms v1.60.0 h1:O/xKUsrz7J69Q0yca9XeYxwgi+NbBVbxczcZWudJdU0=
+github.com/aws/aws-sdk-go-v2/service/kms v1.60.0/go.mod h1:/eZ9xj8IZyb7fj+/t3HO7x89X+7Vn+gCDDbQ2NHCVtM=
+github.com/aws/aws-sdk-go-v2/service/signin v1.10.0 h1:ZD5qFpWcaOKdTuhBi431pIDkCgrMkMlMT6jlpSPoIRI=
+github.com/aws/aws-sdk-go-v2/service/signin v1.10.0/go.mod h1:8Nuuf+tR346PjJ3MvZPh9pekbLiLQFWJhzMXfwy7alA=
+github.com/aws/aws-sdk-go-v2/service/sso v1.38.0 h1:JGeeBcMlhg1xtOXYpeCaTQBZObtXMPQCUqBcmr65NRA=
+github.com/aws/aws-sdk-go-v2/service/sso v1.38.0/go.mod h1:XwteswG9EOMRFm73UT0t+MbTwyLxMrEXkU6e+v92Lzo=
+github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.0 h1:obhahQXDEdVEv8y5bTKXR30LVaxYe1kyYM0L7l2Iq+k=
+github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.0/go.mod h1:6twZZ/aXHNy1vXUO8koUbp++MYzMASkOgEBdkbJYmO0=
+github.com/aws/aws-sdk-go-v2/service/sts v1.50.0 h1:khXV3+K5D3f4e8xtplaRdSFn1bEg3gj5EBHQvbCOZbQ=
+github.com/aws/aws-sdk-go-v2/service/sts v1.50.0/go.mod h1:/8JRcdTt//hG0Q4BTmGbuOplT7ABe+5rdtqUHqXvYIM=
+github.com/aws/smithy-go v1.28.1 h1:R/nXH00c8qcfCzQVELtRw+eLQWtzv+VAIEFJ1/xxXlQ=
+github.com/aws/smithy-go v1.28.1/go.mod h1:YE2RhdIuDbA5E5bTdciG9KrW3+TiEONeUWCqxX9i1Fc=
+github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
+github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
+github.com/bits-and-blooms/bitset v1.20.0/go.mod h1:7hO7Gc7Pp1vODcmWvKMRA9BNmbv6a/7QIWpPxHddWR8=
+github.com/bits-and-blooms/bitset v1.25.0 h1:0Ro0qF4abCkM6SqWPVj29sFhAbMPAZpaDD7xhJ10beM=
+github.com/bits-and-blooms/bitset v1.25.0/go.mod h1:7hO7Gc7Pp1vODcmWvKMRA9BNmbv6a/7QIWpPxHddWR8=
+github.com/caddyserver/caddy/v2 v2.11.7 h1:yj0Y4fYZGPkSvibBJ1sTWE33xC0fxztVyXEW5iIdUT4=
+github.com/caddyserver/caddy/v2 v2.11.7/go.mod h1:Hy0hh5OTFu/INfBPyvkzImXF4wh6O91jyrZLWeB0fx0=
+github.com/caddyserver/certmagic v0.25.6 h1:vHMtFSLKTa6kuZz6w0SnRMpQ388tSkww8ye355BgAM4=
+github.com/caddyserver/certmagic v0.25.6/go.mod h1:xq6cRNimqW+Tv91XNc5lNHs2XYTsLhQhYiH01H4AySs=
+github.com/caddyserver/zerossl v0.1.6 h1:1yrhTx5DWi43wOJPQ+Y4mVl++EPmSqqT/4REW//lsas=
+github.com/caddyserver/zerossl v0.1.6/go.mod h1:CxA0acn7oEGO6//4rtrRjYgEoa4MFw/XofZnrYwGqG4=
+github.com/ccoveille/go-safecast/v2 v2.0.1 h1:2+mIu3gXtwmWelBia2kkxfB8eP4orTHDH7ClSlWkd6I=
+github.com/ccoveille/go-safecast/v2 v2.0.1/go.mod h1:JIYA4CAR33blIDuE6fSwCp2sz1oOBahXnvmdBhOAABs=
+github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=
+github.com/cenkalti/backoff/v5 v5.0.3/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F97BxZthm/crw=
+github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
+github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
+github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
+github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
+github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
+github.com/chzyer/logex v1.2.1 h1:XHDu3E6q+gdHgsdTPH6ImJMIp436vR6MPtH8gP05QzM=
+github.com/chzyer/logex v1.2.1/go.mod h1:JLbx6lG2kDbNRFnfkgvh4eRJRPX1QCoOIWomwysCBrQ=
+github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
+github.com/chzyer/readline v1.5.1 h1:upd/6fQk4src78LMRzh5vItIt361/o4uq553V8B5sGI=
+github.com/chzyer/readline v1.5.1/go.mod h1:Eh+b79XXUwfKfcPLepksvw2tcLE/Ct21YObkaSkeBlk=
+github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
+github.com/chzyer/test v1.0.0 h1:p3BQDXSxOhOG0P9z6/hGnII4LGiEPOYBhs8asl/fC04=
+github.com/chzyer/test v1.0.0/go.mod h1:2JlltgoNkt4TW/z9V/IzDdFaMTM2JPIi26O1pF38GC8=
+github.com/cloudflare/circl v1.6.5 h1:O64F26HEqNhznd/hrC5KZXVKYuKM2rx4deZDTc4ihQA=
+github.com/cloudflare/circl v1.6.5/go.mod h1:h5LNyxAc5nTue9DS5jT+48en2PSDYt3zdGnz5OstK6c=
+github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
+github.com/coreos/go-etcd v2.0.0+incompatible/go.mod h1:Jez6KQU2B/sWsbdaef3ED8NzMklzPG4d5KIOhIy30Tk=
+github.com/coreos/go-oidc/v3 v3.21.0 h1:wZo4Q9Pum8dYEj0eMUPrqR+kvuGkeUplbLpNCkBqoWM=
+github.com/coreos/go-oidc/v3 v3.21.0/go.mod h1:DYCf24+ncYi+XkIH97GY1+dqoRlbaSI26KVTCI9SrY4=
+github.com/coreos/go-semver v0.2.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
+github.com/cpuguy83/go-md2man v1.0.10/go.mod h1:SmD6nW6nTyfqj6ABTjUi3V3JVMnlJmwcJI5acqYI6dE=
+github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
+github.com/cpuguy83/go-md2man/v2 v2.0.7 h1:zbFlGlXEAKlwXpmvle3d8Oe3YnkKIK4xSRTd3sHPnBo=
+github.com/cpuguy83/go-md2man/v2 v2.0.7/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
+github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/dgraph-io/badger v1.6.2 h1:mNw0qs90GVgGGWylh0umH5iag1j6n/PeJtNvL6KY/x8=
+github.com/dgraph-io/badger v1.6.2/go.mod h1:JW2yswe3V058sS0kZ2h/AXeDSqFjxnZcRrVH//y2UQE=
+github.com/dgraph-io/badger/v2 v2.2007.4 h1:TRWBQg8UrlUhaFdco01nO2uXwzKS7zd+HVdwV/GHc4o=
+github.com/dgraph-io/badger/v2 v2.2007.4/go.mod h1:vSw/ax2qojzbN6eXHIx6KPKtCSHJN/Uz0X0VPruTIhk=
+github.com/dgraph-io/ristretto v0.0.2/go.mod h1:KPxhHT9ZxKefz+PCeOGsrHpl1qZ7i70dGTu2u+Ahh6E=
+github.com/dgraph-io/ristretto v0.0.3-0.20200630154024-f66de99634de/go.mod h1:KPxhHT9ZxKefz+PCeOGsrHpl1qZ7i70dGTu2u+Ahh6E=
+github.com/dgraph-io/ristretto v0.2.0 h1:XAfl+7cmoUDWW/2Lx8TGZQjjxIQ2Ley9DSf52dru4WE=
+github.com/dgraph-io/ristretto v0.2.0/go.mod h1:8uBHCU/PBV4Ag0CJrP47b9Ofby5dqWNh4FicAdoqFNU=
+github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2/go.mod h1:SqUrOPUnsFjfmXRMNPybcSiG0BgUW2AuFH8PAnS2iTw=
+github.com/dgryski/go-farm v0.0.0-20240924180020-3414d57e47da h1:aIftn67I1fkbMa512G+w+Pxci9hJPB8oMnkcP3iZF38=
+github.com/dgryski/go-farm v0.0.0-20240924180020-3414d57e47da/go.mod h1:SqUrOPUnsFjfmXRMNPybcSiG0BgUW2AuFH8PAnS2iTw=
+github.com/dlclark/regexp2 v1.4.0/go.mod h1:2pZnwuY/m+8K6iRw6wQdMtk+rH5tNGR1i55kozfMjCc=
+github.com/dlclark/regexp2 v1.7.0/go.mod h1:DHkYz0B9wPfa6wondMfaivmHpzrQ3v9q8cnmRbL6yW8=
+github.com/dlclark/regexp2/v2 v2.8.0 h1:CekDhPLGfm+GAJmPVFIG+5dqMIQPkyHJll7BbdneDfw=
+github.com/dlclark/regexp2/v2 v2.8.0/go.mod h1:avUrQvPaLz2DrFNHJF0taWAFFX2C1GMSSoeiqFjcBmU=
+github.com/dunglas/go-urlpattern v1.0.0 h1:AmMwIDXWJFezeE1v38rxvQRGvvzTlityFuifLLVfoQQ=
+github.com/dunglas/go-urlpattern v1.0.0/go.mod h1:9qyjDljBPOWyWCGz7vo3Ek7cdnoG/DVk0Ucle7gWVS8=
+github.com/dunglas/httpsfv v1.1.1 h1:HoSs101zIE9I23DlqlmljJ/OIi7ILwrH347pXhRZdxI=
+github.com/dunglas/httpsfv v1.1.1/go.mod h1:zID2mqw9mFsnt7YC3vYQ9/cjq30q41W+1AnDwH8TiMg=
+github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
+github.com/dustin/go-humanize v1.1.0 h1:dbKTrvD0klcbBV/h4AWJdMuZogJACoMlvWIWZ5b2xWg=
+github.com/dustin/go-humanize v1.1.0/go.mod h1:hc1CvRkJMsgxqjmjMQF3QNRAZBwY8AXBAzKYoSX9sFI=
+github.com/felixge/httpsnoop v1.1.0 h1:3YtUj32ZZkqZtt3sZZsClsymw/QDuVfpNhoA31zeORc=
+github.com/felixge/httpsnoop v1.1.0/go.mod h1:Zqxgdd+1Rkcz8euOqdr7lqgCRJztwr5hp9vDSi5UZCE=
+github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
+github.com/fortytw2/leaktest v1.3.0/go.mod h1:jDsjWgpAGjm2CA7WthBh/CdZYEPF31XHquHwclZch5g=
+github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
+github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
+github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
+github.com/fxamacker/cbor/v2 v2.9.4 h1:xwjVlxEMR3S605oUlgBjKLTTeGFciYPGYCtF/35LKGo=
+github.com/fxamacker/cbor/v2 v2.9.4/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
+github.com/go-chi/chi/v5 v5.3.2 h1:5YQkICvTCSZ25hoRsyJazN0scjzKGiu4VAUc7H1o1nY=
+github.com/go-chi/chi/v5 v5.3.2/go.mod h1:R+tYY2hNuVUUjxoPtqUdgBqevM9s9njzkTLutVsOCto=
+github.com/go-jose/go-jose/v3 v3.0.5 h1:BLLJWbC4nMZOfuPVxoZIxeYsn6Nl2r1fITaJ78UQlVQ=
+github.com/go-jose/go-jose/v3 v3.0.5/go.mod h1:5b+7YgP7ZICgJDBdfjZaIt+H/9L9T/YQrVfLAMboGkQ=
+github.com/go-jose/go-jose/v4 v4.1.5 h1:RjgjO2LOtWOJKUC5wpwY9LR3B3vwVAz6JS2YHfYU6eA=
+github.com/go-jose/go-jose/v4 v4.1.5/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
+github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
+github.com/go-logr/logr v1.4.4 h1:tG4xh9yMsRCAiodLVTxyrkzSZ9+o0L1Kg/+cPVcbP/8=
+github.com/go-logr/logr v1.4.4/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
+github.com/go-logr/stdr v1.2.2 h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=
+github.com/go-logr/stdr v1.2.2/go.mod h1:mMo/vtBO5dYbehREoey6XUKy/eSumjCCveDpRre4VKE=
+github.com/go-sql-driver/mysql v1.10.1 h1:arlSnNLq6a5yxGxV7qg9lF4j0C+KwD6NbQyKr9QL6ME=
+github.com/go-sql-driver/mysql v1.10.1/go.mod h1:M+cqaI7+xxXGG9swrdeUIoPG3Y3KCkF0pZej+SK+nWk=
+github.com/golang/protobuf v1.3.1/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
+github.com/golang/protobuf v1.5.4 h1:i7eJL8qZTpSEXOPTxNKhASYpMn+8e5Q6AdndVa1dWek=
+github.com/golang/protobuf v1.5.4/go.mod h1:lnTiLA8Wa4RWRcIUkrtSVa5nRhsEGBg48fD6rSs7xps=
+github.com/golang/snappy v0.0.3/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEWrmP2Q=
+github.com/golang/snappy v1.0.0 h1:Oy607GVXHs7RtbggtPBnr2RmDArIsAefDwvrdWvRhGs=
+github.com/golang/snappy v1.0.0/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEWrmP2Q=
+github.com/google/btree v1.1.3 h1:CVpQJjYgC4VbzxeGVHfvZrv1ctoYCAI8vbl07Fcxlyg=
+github.com/google/btree v1.1.3/go.mod h1:qOPhT0dTNdNzV6Z/lhRX0YXUafgPLFUh+gZMl761Gm4=
+github.com/google/certificate-transparency-go v1.0.21/go.mod h1:QeJfpSbVSfYc7RgB3gJFj9cbuQMMchQxrWXz8Ruopmg=
+github.com/google/certificate-transparency-go v1.3.3 h1:hq/rSxztSkXN2tx/3jQqF6Xc0O565UQPdHrOWvZwybo=
+github.com/google/certificate-transparency-go v1.3.3/go.mod h1:iR17ZgSaXRzSa5qvjFl8TnVD5h8ky2JMVio+dzoKMgA=
+github.com/google/go-cmp v0.5.9/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
+github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
+github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
+github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
+github.com/google/go-tpm v0.9.8 h1:slArAR9Ft+1ybZu0lBwpSmpwhRXaa85hWtMinMyRAWo=
+github.com/google/go-tpm v0.9.8/go.mod h1:h9jEsEECg7gtLis0upRBQU+GhYVH6jMjrFxI8u6bVUY=
+github.com/google/go-tpm-tools v0.4.9 h1:jZEhnE4WRFbomSssBH2gWaIViIHU1gjH1jz76+xC9bI=
+github.com/google/go-tpm-tools v0.4.9/go.mod h1:Omb8zosA8qY9URn1gsrO2i4b6DFqGp29BqNx18V66c4=
+github.com/google/go-tspi v0.3.0 h1:ADtq8RKfP+jrTyIWIZDIYcKOMecRqNJFOew2IT0Inus=
+github.com/google/go-tspi v0.3.0/go.mod h1:xfMGI3G0PhxCdNVcYr1C4C+EizojDg/TXuX5by8CiHI=
+github.com/google/s2a-go v0.1.10 h1:EMp+aOuXN6l8cE/gjF5Bt+vyZxsUuyCWe9chDWR/+uU=
+github.com/google/s2a-go v0.1.10/go.mod h1:pz4tyvwXvJLLbyrkh6FW1eS2zPUXMaTmyNhYtyP2tNw=
+github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/googleapis/enterprise-certificate-proxy v0.3.22 h1:NU4XpII6jD+Dxcot94fqjE+AfJoE/lQP9q3faYGzC/c=
+github.com/googleapis/enterprise-certificate-proxy v0.3.22/go.mod h1:L3D/IQExI6LqEjBdXcZQ1WluSgigQmSwBboFstVPM4w=
+github.com/googleapis/gax-go/v2 v2.25.0 h1:77gyzCOrTyzPKfzGZJG/V5DO4/Kuamek8W+cYJQ4U8k=
+github.com/googleapis/gax-go/v2 v2.25.0/go.mod h1:sMKqnMesnKH+3wiRJROcttA+cJoZoGbZl1vDQ8XYtGk=
+github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 h1:/Tnpcb2E0Pz/tN9s3bfEY2Q8ePCEX9iuS+cneUwncnw=
+github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0/go.mod h1:zOBXOsUaBSjKgmH4OGzV1esUpR3oUSCPYVd2cUBjKYY=
+github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
+github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
+github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
+github.com/huandu/xstrings v1.6.1 h1:yYdKSd6Sjv3fNZt9BDjl1FDsPNfQEaYi19L5LzK2JKs=
+github.com/huandu/xstrings v1.6.1/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
+github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
+github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
+github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
+github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=
+github.com/jackc/pgpassfile v1.0.0/go.mod h1:CEx0iS5ambNFdcRtxPj5JhEz+xB6uRky5eyVu/W2HEg=
+github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 h1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=
+github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761/go.mod h1:5TJZWKEWniPve33vlWYSoGYefn3gLQRzjfDlhSJ9ZKM=
+github.com/jackc/pgx/v5 v5.11.0 h1:IzBBtyK9AHqf98cctWFifYSci2hgQR/cd56wB4p+ogg=
+github.com/jackc/pgx/v5 v5.11.0/go.mod h1:mal1tBGAFfLHvZzaYh77YS/eC6IX9OWbRV1QIIM0Jn4=
+github.com/jackc/puddle/v2 v2.2.2 h1:PR8nw+E/1w0GLuRFSmiioY6UooMp6KJv0/61nB7icHo=
+github.com/jackc/puddle/v2 v2.2.2/go.mod h1:vriiEXHvEE654aYKXXjOvZM39qJ0q+azkZFrfEOc3H4=
+github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
+github.com/klauspost/compress v1.12.3/go.mod h1:8dP1Hq4DHOhN9w426knH3Rhby4rFm6D8eO+e+Dq5Gzg=
+github.com/klauspost/compress v1.20.1 h1:T7kKElXUMXrUJ2E9QhQhxFtcK5rPyLdsGZvdbLMPdiQ=
+github.com/klauspost/compress v1.20.1/go.mod h1:LUdAzn7YLVvxLpc7y3V1m40wESHTgc1422pwwBSKYuI=
+github.com/klauspost/cpuid/v2 v2.4.0 h1:S6Hrbc7+ywsr0r+RLapfGBHfyefhCTwEh3A0tV913Dw=
+github.com/klauspost/cpuid/v2 v2.4.0/go.mod h1:19jmZ9mjzoF//ddRSUsv0zfBTJWh3QJh9FNxZTMrGxU=
+github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
+github.com/kr/pretty v0.2.0/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
+github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
+github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
+github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
+github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
+github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
+github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
+github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
+github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
+github.com/letsencrypt/challtestsrv v1.4.2 h1:0ON3ldMhZyWlfVNYYpFuWRTmZNnyfiL9Hh5YzC3JVwU=
+github.com/letsencrypt/challtestsrv v1.4.2/go.mod h1:GhqMqcSoeGpYd5zX5TgwA6er/1MbWzx/o7yuuVya+Wk=
+github.com/letsencrypt/pebble/v2 v2.10.1 h1:oKHx3lgN4e5Nno2LKTMrVx+b+NkDptkO9aDireiBDGE=
+github.com/letsencrypt/pebble/v2 v2.10.1/go.mod h1:KtYhQ4YTjT5MtoCZ6RTCXlbrrz6cKyXROCuTpIUDJFY=
+github.com/libdns/libdns v1.1.1 h1:wPrHrXILoSHKWJKGd0EiAVmiJbFShguILTg9leS/P/U=
+github.com/libdns/libdns v1.1.1/go.mod h1:4Bj9+5CQiNMVGf87wjX4CY3HQJypUHRuLvlsfsZqLWQ=
+github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
+github.com/manifoldco/promptui v0.9.0 h1:3V4HzJk1TtXW1MTZMP7mdlwbBpIinw3HztaIlYthEiA=
+github.com/manifoldco/promptui v0.9.0/go.mod h1:ka04sppxSGFAtxX0qhlYQjISsg9mR4GWtQEhdbn6Pgg=
+github.com/mattn/go-colorable v0.1.15 h1:+u9SLTRGnXv73cEsnsmoZBom+dMU88B2M0aDcWy0/jY=
+github.com/mattn/go-colorable v0.1.15/go.mod h1:6LmQG8QLFO4G5z1gPvYEzlUgJ2wF+stgPZH1UqBm1s8=
+github.com/mattn/go-isatty v0.0.24 h1:tGZZoVgT/KiqK1c8ocVLeDS8BSWMRd47J3Lbz7vsReI=
+github.com/mattn/go-isatty v0.0.24/go.mod h1:nMCL3Zebbrt45jsMDgnfIwz6ydEQApk5oEI3HqDio6A=
+github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d h1:5PJl274Y63IEHC+7izoQE9x6ikvDFZS2mDVS3drnohI=
+github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
+github.com/mholt/acmez/v3 v3.1.7 h1:XTqpuUcRdRoIBuDoI+M4mCnRnPTPN4rqH3Mb723Rg4U=
+github.com/mholt/acmez/v3 v3.1.7/go.mod h1:Lwv6P/czh/AOq+c99tAzP68/VP92s+8y+hDs4FCgxvo=
+github.com/miekg/dns v1.1.73 h1:uhT8nJxmTrPJYClxVxTCX+CVn6qnzSiybRk72Z6DgrE=
+github.com/miekg/dns v1.1.73/go.mod h1:RW2Obtfd5NZHvOFe3zYG0W8koWOQtAzyHaLo8vASBuQ=
+github.com/mitchellh/copystructure v1.2.0 h1:vpKXTN4ewci03Vljg/q9QvCGUDttBOGBIa15WveJJGw=
+github.com/mitchellh/copystructure v1.2.0/go.mod h1:qLl+cE2AmVv+CoeAwDPye/v+N2HKCj9FbZEVFJRxO9s=
+github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
+github.com/mitchellh/go-ps v1.0.0 h1:i6ampVEEF4wQFF+bkYfwYgY+F/uYJDktmvLPf7qIgjc=
+github.com/mitchellh/go-ps v1.0.0/go.mod h1:J4lOc8z8yJs6vUwklHw2XEIiT4z4C40KtWVN3nvg8Pg=
+github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
+github.com/mitchellh/reflectwalk v1.0.2 h1:G2LzWKi524PWgd3mLHV8Y5k7s6XUvT0Gef6zxSIeXaQ=
+github.com/mitchellh/reflectwalk v1.0.2/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
+github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
+github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
+github.com/nlnwa/whatwg-url v0.6.2 h1:jU61lU2ig4LANydbEJmA2nPrtCGiKdtgT0rmMd2VZ/Q=
+github.com/nlnwa/whatwg-url v0.6.2/go.mod h1:x0FPXJzzOEieQtsBT/AKvbiBbQ46YlL6Xa7m02M1ECk=
+github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 h1:onHthvaw9LFnH4t2DcNVpwGmV9E1BkGknEliJkfwQj0=
+github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58/go.mod h1:DXv8WO4yhMYhSNPKjeNKa5WY9YCIEBRbNzFFPJbWO6Y=
+github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
+github.com/peterbourgon/diskv/v3 v3.0.1 h1:x06SQA46+PKIUftmEujdwSEpIx8kR+M9eLYsUxeYveU=
+github.com/peterbourgon/diskv/v3 v3.0.1/go.mod h1:kJ5Ny7vLdARGU3WUuy6uzO6T0nb/2gWcT1JiBvRmb5o=
+github.com/pires/go-proxyproto v0.15.0 h1:dTshmNbFm/D+0+sbrxUuddPOZ5Y0B7c5NhtsBkm6LqI=
+github.com/pires/go-proxyproto v0.15.0/go.mod h1:OXsCrKwrK2tXS9YrI5tkHx5xaQlO8FH3lFW76orFh24=
+github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
+github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/prashantv/gostub v1.1.0 h1:BTyx3RfQjRHnUWaGF9oQos79AlQ5k8WNktv7VGvVH4g=
+github.com/prashantv/gostub v1.1.0/go.mod h1:A5zLQHz7ieHGG7is6LLXLz7I8+3LZzsrV0P1IAHhP5U=
+github.com/prometheus/client_golang v1.24.1 h1:JnJkREXzWxUdCuPFpIWZiPispT9xVV59uiuyR2bPlnU=
+github.com/prometheus/client_golang v1.24.1/go.mod h1:F+oSRECHg4sse5ucfYpYDeIv/hu68Zo0uoHKetWnzcE=
+github.com/prometheus/client_model v0.6.3 h1:O0jaTVAYNxTHYInEPFJt5I3+sN8zqBtVMPTB1qyxiEo=
+github.com/prometheus/client_model v0.6.3/go.mod h1:gpN5P9S7Rr6Yr92PiQ+Ixvhf6JZEkF1dnxsYL2aPBEM=
+github.com/prometheus/common v0.71.0 h1:9KDAKb7Mj3HEVKyFCK6Dc/HIwlBzZIN2l7/lrHl3KK8=
+github.com/prometheus/common v0.71.0/go.mod h1:CLJ5H8TEsGX8bl31BdMkfhIZ+QmZ9tBPPotUxUbfcmk=
+github.com/prometheus/otlptranslator v1.0.0 h1:s0LJW/iN9dkIH+EnhiD3BlkkP5QVIUVEoIwkU+A6qos=
+github.com/prometheus/otlptranslator v1.0.0/go.mod h1:vRYWnXvI6aWGpsdY/mOT/cbeVRBlPWtBNDb7kGR3uKM=
+github.com/prometheus/procfs v0.22.0 h1:6q9+/JL9IKAPbCmBrv9n5O5Ty3NKnciV5X7YGw0oics=
+github.com/prometheus/procfs v0.22.0/go.mod h1:CvmFr/GVhIjIvWJZW3tgkODBQMRIf0EyWMQLHCHab58=
+github.com/quic-go/go-ossfuzz-seeds v0.1.0 h1:APacT+iIaNF6fd8AGEiN3bT/Jtkd2jz4v4TzM7MFjy0=
+github.com/quic-go/go-ossfuzz-seeds v0.1.0/go.mod h1:3IOHRbJIc+L6YKMwfDtJAM9Vj9k0YY4muhuyUYk5tbk=
+github.com/quic-go/qpack v0.6.0 h1:g7W+BMYynC1LbYLSqRt8PBg5Tgwxn214ZZR34VIOjz8=
+github.com/quic-go/qpack v0.6.0/go.mod h1:lUpLKChi8njB4ty2bFLX2x4gzDqXwUpaO1DP9qMDZII=
+github.com/quic-go/quic-go v0.63.0 h1:LIFGHI4PFUhhw2dDD1ARHdCff143ffMHwZtbnbuJ78A=
+github.com/quic-go/quic-go v0.63.0/go.mod h1:RAro2j2yN9a9EiPACLHT9IB2NXCvGQmmo/alT0yYI0w=
+github.com/rogpeppe/go-internal v1.16.0 h1:O9DK+vNMDVGLr2BeZqmpLeMjiMNkuXfcqntWbZV6S5g=
+github.com/rogpeppe/go-internal v1.16.0/go.mod h1:DrUVZyrJU+txYW5/1kwtXQSMFio52ZOxX7yM1VHvnxs=
+github.com/rs/xid v1.6.0 h1:fV591PaemRlL6JfRxGDEPl69wICngIQ3shQtzfy2gxU=
+github.com/rs/xid v1.6.0/go.mod h1:7XoLgs4eV+QndskICGsho+ADou8ySMSjJKDIan90Nz0=
+github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=
+github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf35Ld67mk=
+github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
+github.com/schollz/jsonstore v1.1.0 h1:WZBDjgezFS34CHI+myb4s8GGpir3UMpy7vWoCeO0n6E=
+github.com/schollz/jsonstore v1.1.0/go.mod h1:15c6+9guw8vDRyozGjN3FoILt0wpruJk9Pi66vjaZfg=
+github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp81k=
+github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
+github.com/shurcooL/sanitized_anchor_name v1.0.0 h1:PdmoCO6wvbs+7yrJyMORt4/BmY5IYyJwS/kOiWx8mHo=
+github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
+github.com/sirupsen/logrus v1.10.2 h1:G2SED73/qrAu6YwbdxOD6peLkCBI3z7L+ykJFTXJBBo=
+github.com/sirupsen/logrus v1.10.2/go.mod h1:SLEg8TqYulVKKfIGHldVp2K2aYz2DKSVBq4g/H5bR7Q=
+github.com/slackhq/nebula v1.11.2 h1:eP61cSfUuoEVGViD50gZBsAbBLPUAhoNOYewPmEwPG4=
+github.com/slackhq/nebula v1.11.2/go.mod h1:xz3SEyYeEhXY8MDlVu8S3Qt+SjncsSJ8bl4RXUgxtXQ=
+github.com/smallstep/assert v0.0.0-20200723003110-82e2b9b3b262 h1:unQFBIznI+VYD1/1fApl1A+9VcBk+9dcqGfnePY87LY=
+github.com/smallstep/assert v0.0.0-20200723003110-82e2b9b3b262/go.mod h1:MyOHs9Po2fbM1LHej6sBUT8ozbxmMOFG+E+rx/GSGuc=
+github.com/smallstep/certificates v0.30.2 h1:1G3xBi8sJ740iA1mMPW2Svv7EIZKJ4Zf/iQtA5QlN0Y=
+github.com/smallstep/certificates v0.30.2/go.mod h1:oyaE/aEYUGDr+YiCZLAxxP22bOQqcSHTeDgp8Vv2rlY=
+github.com/smallstep/cli-utils v0.12.2 h1:lGzM9PJrH/qawbzMC/s2SvgLdJPKDWKwKzx9doCVO+k=
+github.com/smallstep/cli-utils v0.12.2/go.mod h1:uCPqefO29goHLGqFnwk0i8W7XJu18X3WHQFRtOm/00Y=
+github.com/smallstep/go-attestation v0.4.4-0.20260814222900-a849f4e2cd68 h1:KcK2guFXrE5sX/nvF1b+atHP6DjRB1gCv3ppyTXB2Zk=
+github.com/smallstep/go-attestation v0.4.4-0.20260814222900-a849f4e2cd68/go.mod h1:vNAduivU014fubg6ewygkAvQC0IQVXqdc8vaGl/0er4=
+github.com/smallstep/linkedca v0.26.0 h1:NsxTVo3zI3KwOFFiVodeHtuGgKq0b5kOUXVLjjNTvXY=
+github.com/smallstep/linkedca v0.26.0/go.mod h1:Z8c7EgVrSHNhshIhRnUGfKfE796+TwF2eyErhqANmJQ=
+github.com/smallstep/nosql v0.8.0 h1:FBTCUfKPmWYbrozW+RBKu+fnvbn+zr5rVli/XB4Jp4A=
+github.com/smallstep/nosql v0.8.0/go.mod h1:5dUpNotHLHhOUapP0PLBVVfp3tG1DFC31VRccg+Cqwo=
+github.com/smallstep/pkcs7 v0.2.1/go.mod h1:RcXHsMfL+BzH8tRhmrF1NkkpebKpq3JEM66cOFxanf0=
+github.com/smallstep/pkcs7 v0.2.3 h1:bhoQ3TeZmdoXTatcwxCbk+FMcdsyr0gYrrW2Xq2qr+s=
+github.com/smallstep/pkcs7 v0.2.3/go.mod h1:7STkdKhZaZe4xNEXTtY4j1NGeST1gYM4GA40kC5iqr8=
+github.com/smallstep/scep v0.0.0-20260331191114-261f960a40d1 h1:lpXBkQKj1rT1oGX/2idvt8xbrOrnoQxH/+CjoeMxs9E=
+github.com/smallstep/scep v0.0.0-20260331191114-261f960a40d1/go.mod h1:QQhwLqCS13nhv8L5ov7NgusowENUtXdEzdytjmJHdZQ=
+github.com/smallstep/truststore v0.13.0 h1:90if9htAOblavbMeWlqNLnO9bsjjgVv2hQeQJCi/py4=
+github.com/smallstep/truststore v0.13.0/go.mod h1:3tmMp2aLKZ/OA/jnFUB0cYPcho402UG2knuJoPh4j7A=
+github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
+github.com/spaolacci/murmur3 v1.1.0 h1:7c1g84S4BPRrfL5Xrdp6fOJ206sU9y293DDHaoy0bLI=
+github.com/spaolacci/murmur3 v1.1.0/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
+github.com/spf13/afero v1.1.2/go.mod h1:j4pytiNVoe2o6bmDsKpLACNPDBIoEAkihy7loJ1B0CQ=
+github.com/spf13/cast v1.3.0/go.mod h1:Qx5cxh0v+4UWYiBimWS+eyWzqEqokIECu5etghLkUJE=
+github.com/spf13/cast v1.10.0 h1:h2x0u2shc1QuLHfxi+cTJvs30+ZAHOGRic8uyGTDWxY=
+github.com/spf13/cast v1.10.0/go.mod h1:jNfB8QC9IA6ZuY2ZjDp0KtFO2LZZlg4S/7bzP6qqeHo=
+github.com/spf13/cobra v0.0.5/go.mod h1:3K3wKZymM7VvHMDS9+Akkh4K60UwM26emMESw8tLCHU=
+github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
+github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=
+github.com/spf13/jwalterweatherman v1.0.0/go.mod h1:cQK4TGJAtQXfYWX+Ddv3mKDzgVb68N+wFjFa4jdeBTo=
+github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
+github.com/spf13/pflag v1.0.9/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
+github.com/spf13/pflag v1.0.10 h1:4EBh2KAYBwaONj6b2Ye1GiHfwjqyROoF4RwYO+vPwFk=
+github.com/spf13/pflag v1.0.10/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
+github.com/spf13/viper v1.3.2/go.mod h1:ZiWeW+zYFKm7srdB9IoDzzZXaJaI5eL9QjNiN/DMA2s=
+github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
+github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=
+github.com/stretchr/objx v0.5.2/go.mod h1:FRsXN1f5AsAjCGJKqEizvkpNtU+EGNCLh3NxZ/8L+MA=
+github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
+github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
+github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
+github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
+github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
+github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
+github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
+github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55 h1:Gzfnfk2TWrk8Jj4P4c1a3CtQyMaTVCznlkLZI++hok4=
+github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55/go.mod h1:4k4QO+dQ3R5FofL+SanAUZe+/QfeK0+OIuwDIRu2vSg=
+github.com/tailscale/tscert v0.0.0-20251216020129-aea342f6d747 h1:RnBbFMmodYzhC6adOjTbtUQXyzV8dcvKYbolzs6Qch0=
+github.com/tailscale/tscert v0.0.0-20251216020129-aea342f6d747/go.mod h1:ejPAJui3kVK4u5TgMtqtXlWf5HnKh9fLy5kvpaeuas0=
+github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
+github.com/urfave/cli v1.22.17 h1:SYzXoiPfQjHBbkYxbew5prZHS1TOLT3ierW8SYLqtVQ=
+github.com/urfave/cli v1.22.17/go.mod h1:b0ht0aqgH/6pBYzzxURyrM4xXNgsoT/n2ZzwQiEhNVo=
+github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
+github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
+github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
+github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
+github.com/yuin/goldmark v1.4.15/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
+github.com/yuin/goldmark v1.8.6 h1:d0VcaP1sx9GkFVkoW+KtggpGi2KZ965i14b0+bDQST4=
+github.com/yuin/goldmark v1.8.6/go.mod h1:ip/1k0VRfGynBgxOz0yCqHrbZXhcjxyuS66Brc7iBKg=
+github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc h1:+IAOyRda+RLrxa1WC7umKOZRsGq4QrFFMYApOeHzQwQ=
+github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc/go.mod h1:ovIvrum6DQJA4QsJSovrkC4saKHQVs7TvcaeO8AIl5I=
+github.com/zeebo/assert v1.1.0 h1:hU1L1vLTHsnO8x8c9KAR5GmM5QscxHg5RNU5z5qbUWY=
+github.com/zeebo/assert v1.1.0/go.mod h1:Pq9JiuJQpG8JLJdtkwrJESF0Foym2/D9XMU5ciN/wJ0=
+github.com/zeebo/blake3 v0.2.4 h1:KYQPkhpRtcqh0ssGYcKLG1JYvddkEA8QwCM/yBqhaZI=
+github.com/zeebo/blake3 v0.2.4/go.mod h1:7eeQ6d2iXWRGF6npfaxl2CU+xy2Fjo2gxeyZGCRUjcE=
+github.com/zeebo/pcg v1.0.1 h1:lyqfGeWiv4ahac6ttHs+I5hwtH/+1mrhlCtVNQM2kHo=
+github.com/zeebo/pcg v1.0.1/go.mod h1:09F0S9iiKrwn9rlI5yjLkmrug154/YRW6KnnXVDM/l4=
+go.etcd.io/bbolt v1.5.0 h1:S7GAl7Fxv12yohbwFfIbQCGDWbQbtDGPET4P/bD4lxU=
+go.etcd.io/bbolt v1.5.0/go.mod h1:mkltfYE5aUHQxUct9N9V+Kp7aSjFqjgrhcXIS70Lrdk=
+go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
+go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
+go.opentelemetry.io/contrib/bridges/prometheus v0.71.0 h1:9qgxsFLskbDMXl8WMqThoF6w8yGJgCumn9qRc67OmnI=
+go.opentelemetry.io/contrib/bridges/prometheus v0.71.0/go.mod h1:2rCjF4F2siiTeLCzJsaGZ3CK0XIoimCSKXEBPdv+Je0=
+go.opentelemetry.io/contrib/exporters/autoexport v0.71.0 h1:VCsJbp0YLyPtx2tu5Vgv2a2/qLoaMCj8hT2uZ34+Mx0=
+go.opentelemetry.io/contrib/exporters/autoexport v0.71.0/go.mod h1:qxZqn7e10f6ajmMCkg/47rMS7qQYfaOl2nj/4aytHUQ=
+go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.70.0 h1:oECp5f+hN7nkwjU/8BxQ/q23bGPb8FIrD839owX222E=
+go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.70.0/go.mod h1:DqEFwLumhzMBDQv9PcWbyoDxHI/4lAk6CM4nJBH39sc=
+go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 h1:3g7B90UzBltIDKq1/5mrTGxTnOFDV0ICOhLoxiZ8jlg=
+go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0/go.mod h1:Ef8SuTh59BT7+ofpDxN9z+yOlc4t2GjLmKDgYNJL/NU=
+go.opentelemetry.io/contrib/propagators/autoprop v0.71.0 h1:uy7dcw6v3XK3LMGj2sB9CXtJtTHX8QA9pjSrLhvf86c=
+go.opentelemetry.io/contrib/propagators/autoprop v0.71.0/go.mod h1:IknVHC4K/KkF0Kx+GpTlhlbW96XOq4m0O/FHauFVZtA=
+go.opentelemetry.io/contrib/propagators/aws v1.46.0 h1:JslT1wq/5vb6lQsbdOqShvIEs7sDlf0IvKxNZdadfjY=
+go.opentelemetry.io/contrib/propagators/aws v1.46.0/go.mod h1:JE4srRJf2cRJcJjRaNhViFjyFJqiCZJiDVlqe6GWXsA=
+go.opentelemetry.io/contrib/propagators/b3 v1.46.0 h1:OFVqWObn7xLIbOjE/koO0LS9fZJNgAyBD0msA+UQAoc=
+go.opentelemetry.io/contrib/propagators/b3 v1.46.0/go.mod h1:t/d64xy7xuuEDJN/4ThqohLgRhIuQxL9y7P1v02bYuM=
+go.opentelemetry.io/contrib/propagators/jaeger v1.46.0 h1:uxl0SGcmuBkHj/Adl9oftEAyiawQBPL5RzMAmt/Yvq4=
+go.opentelemetry.io/contrib/propagators/jaeger v1.46.0/go.mod h1:LiOkxCIvoLofmRps7f8l0NkBtmObnAyQ5trteFs6wj8=
+go.opentelemetry.io/contrib/propagators/ot v1.46.0 h1:SxC/1xmJJJdGQTNmavqW8ju85TRXiZHeFaQdnEMCWLE=
+go.opentelemetry.io/contrib/propagators/ot v1.46.0/go.mod h1:ZrntlVZOzRMetoU2y7eIHUbJ7riKEOqIyLXkuu91sxU=
+go.opentelemetry.io/otel v1.46.0 h1:FHt5/CDyVxi/8IM1CH7VE/rRgq3kLHa2mSTVMO8AWyc=
+go.opentelemetry.io/otel v1.46.0/go.mod h1:Gj3SEScelsNC45tp4nSxRYlS+f5iez7W8XPMCt905kE=
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.22.0 h1:Bu39F5tzJct+f2IZbB8989fwyTps3c8e7EsUQsz+vs8=
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.22.0/go.mod h1:dJUwod88EsFgYCqrDHaSPzhiY9pBUpt0d85/qSfua7k=
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.22.0 h1:lYk7RmxdLK865qLwibroNGldHa1U7SWKYYvNjlK7PIo=
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.22.0/go.mod h1:6GvlND0H0xdUJanOtIAn0xfwLkauh1tmsYEEVSMDdqY=
+go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.46.0 h1:qkDYCAFiZXLcs1L4aY+tP2wguQ4kURANqHOQMA2et2s=
+go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.46.0/go.mod h1:tkipS4DRzmpAmvg+Gw4++O1IdDq6TVDnvnYU6cmbQVs=
+go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.46.0 h1:AP23h/mFgb/lc7tdck1Kfn9qxsM8TAeNPCU5C3pzaps=
+go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.46.0/go.mod h1:K4EqCe1b4kGk5WR690ntg9LaBfsPoV32FwthbyoptuA=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.46.0 h1:OFnwLJr+pF3iHrlGSzbxyuo6/6HyBlnlN1CWEJmBVcw=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.46.0/go.mod h1:716wFneO0ov19A2beH5hjfh9AK5z/VWNAtDijp1Y0/g=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.46.0 h1:w53CDeOA/Kurp7yRsegSr6pbbr759dOvJ+yNmWM6Hxs=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.46.0/go.mod h1:BOmGMCbAtvcJiSJ+hLuhgPLdDbimnraSl8irz3iY8sY=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.46.0 h1:KrC1YrQeSt46ITMWAbgQx1M1eV1/1TKzttrBzymPmss=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.46.0/go.mod h1:zDSEzoEqsOrgBeGvH66KRgxh90VonFyJqBHA0Pk3+rM=
+go.opentelemetry.io/otel/exporters/prometheus v0.68.0 h1:QOf2IftqQwITVRJpnn0M7M9ZCbgWfxz4P7i9C9yc2N4=
+go.opentelemetry.io/otel/exporters/prometheus v0.68.0/go.mod h1:bgSvqu2TWGXiz7yr5UTMfObH8oqxJWHTnubQ3ef9BO4=
+go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.22.0 h1:kvMAiLEudKmk+CSG+iYbU8vTUGNNDaf/V09OO5lrTwI=
+go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.22.0/go.mod h1:L9Dlksri+MdT1cb2gIiA1cJJYW3Y92ipvDjNxYEyaDI=
+go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.46.0 h1:PR9eAf7o0dQs3hshZNZpE9aW2dXWX/KdDf6pJilVD3U=
+go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.46.0/go.mod h1:2Z4KyNdH1uuzivdinyfGsxzNNT/Rl45pwtVwfYVI0xk=
+go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.46.0 h1:KdRxPiAoMptR3vfWzvjjvutTsSiwbC2uG0496rzZNfo=
+go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.46.0/go.mod h1:K/qSA+3G7Eovxi4K09wzrAgkWRnosS0DAOZeEpve7sM=
+go.opentelemetry.io/otel/log v0.22.0 h1:5DBNnfvaJ6CVdkJ+Jle8Tzs50aSSv49TXGj9XRsEYw0=
+go.opentelemetry.io/otel/log v0.22.0/go.mod h1:gzOt/R67vF2GniAqWu8Qv0SXy89f71muHcrkz76PCdc=
+go.opentelemetry.io/otel/metric v1.46.0 h1:yBnkXvgV7AXFILZc5K6IZe/CBFF3OS7BJ8ov6/lj0K8=
+go.opentelemetry.io/otel/metric v1.46.0/go.mod h1:iPmdWqifKUdzziPkvvzIJXITl56fQx2mGM/DHLB3/2o=
+go.opentelemetry.io/otel/metric/x v0.68.0 h1:TA/cBT23D3MnxYPwHL7YFOdYGdx0A0v+s7Mzotpd1dU=
+go.opentelemetry.io/otel/metric/x v0.68.0/go.mod h1:agudOmvWhwUTjgibWDzxD2PoWYnpw5Ht5jISYOD2Hd4=
+go.opentelemetry.io/otel/sdk v1.46.0 h1:h5CNQQjEbuQXY/JfZtgt3i7HVFV3aHPO2OAwO2eTYPI=
+go.opentelemetry.io/otel/sdk v1.46.0/go.mod h1:GAERFXFt5SYCEB+YiKUbMBeza6UaDH7GmGOZEfh2gSM=
+go.opentelemetry.io/otel/sdk/log v0.22.0 h1:PRL+s6P63XT4E/bheEflopPUpVxuvANqZwtt89yhoGk=
+go.opentelemetry.io/otel/sdk/log v0.22.0/go.mod h1:JNp0sBELrjCTcu5W3GzABVypeU6vDJjBS+X0JISuz+g=
+go.opentelemetry.io/otel/sdk/log/logtest v0.22.0 h1:infPnfNrhCNgOUZRs3gWUg8vhoBUHihq02gwK05gzlg=
+go.opentelemetry.io/otel/sdk/log/logtest v0.22.0/go.mod h1:gkQZA3z15Bv3KU9vigBTi8dFechSozRP7v94X4VZv+s=
+go.opentelemetry.io/otel/sdk/metric v1.46.0 h1:0piZ26EG4RBfebb2jhDH6ERCYHoVWduc3kLgPCwSnSE=
+go.opentelemetry.io/otel/sdk/metric v1.46.0/go.mod h1:I1PbKrdVc8Qu8HYVDNtqVIwLwjNrhsV/uFuxfwg8mO4=
+go.opentelemetry.io/otel/trace v1.46.0 h1:OULy7ccdJnZtJ0UDYFOIGaCmiWzJ8Vi2G/Rsu60qs1c=
+go.opentelemetry.io/otel/trace v1.46.0/go.mod h1:J7GAXweO77XSFkB/rmAqk9D6ihszhFjLU+d9WuUxDLI=
+go.opentelemetry.io/proto/otlp v1.11.0 h1:5rrYs0Ykyj50sdU/JU0x8etU+LubXWb+gED6TbEdMIk=
+go.opentelemetry.io/proto/otlp v1.11.0/go.mod h1:SmVizdCOAm3XBtG1g1NnOdhW6jtddT72hLMhv8VwA8E=
+go.step.sm/crypto v0.91.0 h1:0mN0DwVOvUuh7VbyTnxABZuAkxwak/Grp8Y/b4YaZDU=
+go.step.sm/crypto v0.91.0/go.mod h1:NxxObRBymdbyXLoTCW5Ea6sLxuy5yI/xr9+hSBlbU/Q=
+go.uber.org/automaxprocs v1.6.0 h1:O3y2/QNTOdbF+e/dpXNNW7Rx2hZ4sTIPyybbxyNqTUs=
+go.uber.org/automaxprocs v1.6.0/go.mod h1:ifeIMSnPZuznNm6jmdzmU3/bfk01Fe2fotchwEFJ8r8=
+go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
+go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
+go.uber.org/mock v0.6.0 h1:hyF9dfmbgIX5EfOdasqLsWD6xqpNZlXblLB/Dbnwv3Y=
+go.uber.org/mock v0.6.0/go.mod h1:KiVJ4BqZJaMj4svdfmHM0AUx4NJYO8ZNpPnZn1Z+BBU=
+go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
+go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
+go.uber.org/zap v1.28.0 h1:IZzaP1Fv73/T/pBMLk4VutPl36uNC+OSUh3JLG3FIjo=
+go.uber.org/zap v1.28.0/go.mod h1:rDLpOi171uODNm/mxFcuYWxDsqWSAVkFdX4XojSKg/Q=
+go.uber.org/zap/exp v0.3.0 h1:6JYzdifzYkGmTdRR59oYH+Ng7k49H9qVpWwNSsGJj3U=
+go.uber.org/zap/exp v0.3.0/go.mod h1:5I384qq7XGxYyByIhHm6jg5CHkGY0nsTfbDLgDDlgJQ=
+go.yaml.in/yaml/v2 v2.4.4 h1:tuyd0P+2Ont/d6e2rl3be67goVK4R6deVxCUX5vyPaQ=
+go.yaml.in/yaml/v2 v2.4.4/go.mod h1:gMZqIpDtDqOfM0uNfy0SkpRhvUryYH0Z6wdMYcacYXQ=
+go.yaml.in/yaml/v3 v3.0.4/go.mod h1:DhzuOOF2ATzADvBadXxruRBLzYTpT36CKvDb3+aBEFg=
+go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
+go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
+golang.org/x/crypto v0.0.0-20181203042331-505ab145d0a9/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
+golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
+golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
+golang.org/x/crypto v0.13.0/go.mod h1:y6Z2r+Rw4iayiXXAIxJIDAJ1zMW4yaTpebo8fPOliYc=
+golang.org/x/crypto v0.19.0/go.mod h1:Iy9bg/ha4yyC70EfRS8jz+B6ybOBKMaSxLj6P6oBDfU=
+golang.org/x/crypto v0.23.0/go.mod h1:CKFgDieR+mRhux2Lsu27y0fO304Db0wZe70UKqHu0v8=
+golang.org/x/crypto v0.32.0/go.mod h1:ZnnJkOaASj8g0AjIduWNlq2NRxL0PlBrbKVyZ6V/Ugc=
+golang.org/x/crypto v0.33.0/go.mod h1:bVdXmD7IV/4GdElGPozy6U7lWdRXA4qyRVGJV57uQ5M=
+golang.org/x/crypto v0.57.0 h1:3ZVCjf8Ggz7zneR/EHRVx68Ctf+2pmIMP2UFhh9cC6M=
+golang.org/x/crypto v0.57.0/go.mod h1:Fdz0i5U6CoizGwLda9DttjSk6qlZo25zYNtR+ycvuZA=
+golang.org/x/crypto/x509roots/fallback v0.0.0-20260929172509-b39ff6d641ec h1:6gLejUU4OPMnmDEz8DkDkWMoyDj2Ny5iUy1Ze3raJhs=
+golang.org/x/crypto/x509roots/fallback v0.0.0-20260929172509-b39ff6d641ec/go.mod h1:HPze8vhfG6fO06AM+VSvxRm4E3+5Yk375mgrJ5M2z1E=
+golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba h1:Ck8QetSgk912qxWLMCKxd0in+aiyBQyDSMae6e/xmpU=
+golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba/go.mod h1:50RgIsmK7OwqzTTeqcSXQW8SswW0o8fRcDxmqGluJ8E=
+golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4/go.mod h1:jJ57K6gSWd91VN4djpZkiMVwK6gcyfeH4XE8wZrZaV4=
+golang.org/x/mod v0.8.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
+golang.org/x/mod v0.12.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
+golang.org/x/mod v0.15.0/go.mod h1:hTbmBsO62+eylJbnUtE2MGJUyE7QWk4xUqPFrRgJ+7c=
+golang.org/x/mod v0.17.0/go.mod h1:hTbmBsO62+eylJbnUtE2MGJUyE7QWk4xUqPFrRgJ+7c=
+golang.org/x/net v0.0.0-20190620200207-3b0461eec859/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
+golang.org/x/net v0.0.0-20210226172049-e18ecbb05110/go.mod h1:m0MpNAwzfU5UDzcl9v0D8zg8gWTRqZa9RBIspLL5mdg=
+golang.org/x/net v0.0.0-20220722155237-a158d28d115b/go.mod h1:XRhObCWvk6IyKnWLug+ECip1KBveYUHfp+8e9klMJ9c=
+golang.org/x/net v0.6.0/go.mod h1:2Tu9+aMcznHK/AK1HMvgo6xiTLG5rD5rZLDS+rp2Bjs=
+golang.org/x/net v0.10.0/go.mod h1:0qNGK6F8kojg2nk9dLZ2mShWaEBan6FAoqfSigmmuDg=
+golang.org/x/net v0.15.0/go.mod h1:idbUs1IY1+zTqbi8yxTbhexhEEk5ur9LInksu6HrEpk=
+golang.org/x/net v0.21.0/go.mod h1:bIjVDfnllIU7BJ2DNgfnXvpSvtn8VRwhlsaeUTyUS44=
+golang.org/x/net v0.25.0/go.mod h1:JkAGAh7GEvH74S6FOH42FLoXpXbE/aqXSrIQjXgsiwM=
+golang.org/x/net v0.34.0/go.mod h1:di0qlW3YNM5oh6GqDGQr92MyTozJPmybPK4Ev/Gm31k=
+golang.org/x/net v0.60.0 h1:79p50tfZlm0J9YfoDsSi639qSXNGVwEzOPLCxM2FsYU=
+golang.org/x/net v0.60.0/go.mod h1:2DA/G1UfVbCpQPeWTmMPGY7Cs2PkBkwu743bVX5PIVg=
+golang.org/x/oauth2 v0.37.0 h1:JUlcxA8oAtauLfiH8FX2/FkAWHAdi0QtGCGc+hofE98=
+golang.org/x/oauth2 v0.37.0/go.mod h1:IxwZNxUULJmpBFf9K/9NTMSIfZZuvuTy1gGxhigP/58=
+golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+golang.org/x/sync v0.1.0/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+golang.org/x/sync v0.3.0/go.mod h1:FU7BRWz2tNW+3quACPkgCx/L+uEAv1htQ0V83Z9Rj+Y=
+golang.org/x/sync v0.6.0/go.mod h1:Czt+wKu1gCyEFDUtn0jG5QVvpJ6rzVqr5aXyt9drQfk=
+golang.org/x/sync v0.7.0/go.mod h1:Czt+wKu1gCyEFDUtn0jG5QVvpJ6rzVqr5aXyt9drQfk=
+golang.org/x/sync v0.10.0/go.mod h1:Czt+wKu1gCyEFDUtn0jG5QVvpJ6rzVqr5aXyt9drQfk=
+golang.org/x/sync v0.11.0/go.mod h1:Czt+wKu1gCyEFDUtn0jG5QVvpJ6rzVqr5aXyt9drQfk=
+golang.org/x/sync v0.23.0 h1:KameEIfc1IkluZyXWLn39Wd4tURc6GbCiISGiZm2bQk=
+golang.org/x/sync v0.23.0/go.mod h1:sUUOizhqBxiL6pEWpqNLUiaJn1ShEbZ6BBqskPbjZm0=
+golang.org/x/sys v0.0.0-20181122145206-62eef0e2fa9b/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+golang.org/x/sys v0.0.0-20181205085412-a5c9d58dba9a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.0.0-20220310020820-b874c991c1a5/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.5.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.8.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.12.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.17.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+golang.org/x/sys v0.20.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+golang.org/x/sys v0.29.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+golang.org/x/sys v0.30.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+golang.org/x/sys v0.48.0 h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=
+golang.org/x/sys v0.48.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=
+golang.org/x/telemetry v0.0.0-20240228155512-f48c80bd79b2/go.mod h1:TeRTkGYfJXctD9OcfyVLyj2J3IxLnKwHJR8f4D8a3YE=
+golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
+golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
+golang.org/x/term v0.5.0/go.mod h1:jMB1sMXY+tzblOD4FWmEbocvup2/aLOaQEp7JmGp78k=
+golang.org/x/term v0.8.0/go.mod h1:xPskH00ivmX89bAKVGSKKtLOWNx2+17Eiy94tnKShWo=
+golang.org/x/term v0.12.0/go.mod h1:owVbMEjm3cBLCHdkQu9b1opXd4ETQWc3BhuQGKgXgvU=
+golang.org/x/term v0.17.0/go.mod h1:lLRBjIVuehSbZlaOtGMbcMncT+aqLLLmKrsjNrUguwk=
+golang.org/x/term v0.20.0/go.mod h1:8UkIAJTvZgivsXaD6/pH6U9ecQzZ45awqEOzuCvwpFY=
+golang.org/x/term v0.28.0/go.mod h1:Sw/lC2IAUZ92udQNf3WodGtn4k/XoLyZoh8v/8uiwek=
+golang.org/x/term v0.29.0/go.mod h1:6bl4lRlvVuDgSf3179VpIxBF0o10JUpXWOnI7nErv7s=
+golang.org/x/term v0.46.0 h1:3+OXuTbaKDgwk8jTi3aSLHRlmWqHEUDUtxnbFigO4YE=
+golang.org/x/term v0.46.0/go.mod h1:+K02xbkittuwc0Am4abfA3Fc+XRGXkvBXNO88NCXPoc=
+golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+golang.org/x/text v0.3.3/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+golang.org/x/text v0.3.7/go.mod h1:u+2+/6zg+i71rQMx5EYifcz6MCKuco9NR6JIITiCfzQ=
+golang.org/x/text v0.7.0/go.mod h1:mrYo+phRRbMaCq/xk9113O4dZlRixOauAjOtrjsXDZ8=
+golang.org/x/text v0.9.0/go.mod h1:e1OnstbJyHTd6l/uOt8jFFHp6TRDWZR/bV3emEE/zU8=
+golang.org/x/text v0.13.0/go.mod h1:TvPlkZtksWOMsz7fbANvkp4WM8x/WCo/om8BMLbz+aE=
+golang.org/x/text v0.14.0/go.mod h1:18ZOQIKpY8NJVqYksKHtTdi31H5itFRjB5/qKTNYzSU=
+golang.org/x/text v0.15.0/go.mod h1:18ZOQIKpY8NJVqYksKHtTdi31H5itFRjB5/qKTNYzSU=
+golang.org/x/text v0.21.0/go.mod h1:4IBbMaMmOPCJ8SecivzSH54+73PCFmPWxNTLm+vZkEQ=
+golang.org/x/text v0.22.0/go.mod h1:YRoo4H8PVmsu+E3Ou7cqLVH8oXWIHVoX0jqUWALQhfY=
+golang.org/x/text v0.42.0 h1:JbOZXgfeCPU9gacVtYliJqOhD+zhrEqK4LfdpmlUZqI=
+golang.org/x/text v0.42.0/go.mod h1:ojzP1Z+2QtioaF8DTtO8K5q7JWVVYwZKenzujK0Zd0E=
+golang.org/x/time v0.16.0 h1:vMb6ptszcQMkcwiRTAuNNU50gom6++Q/6gY2hDM6VDE=
+golang.org/x/time v0.16.0/go.mod h1:rVKOqvZeKvrDKTQiAHJ7wmwP0RzleSphoEA9RcdLA0s=
+golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
+golang.org/x/tools v0.0.0-20191119224855-298f0cb1881e/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
+golang.org/x/tools v0.1.12/go.mod h1:hNGJHUnrk76NpqgfD5Aqm5Crs+Hm0VOH/i9J2+nxYbc=
+golang.org/x/tools v0.6.0/go.mod h1:Xwgl3UAJ/d3gWutnCtw505GrjyAbvKui8lOU390QaIU=
+golang.org/x/tools v0.13.0/go.mod h1:HvlwmtVNQAhOuCjW7xxvovg8wbNq7LwfXh/k7wXUl58=
+golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d/go.mod h1:aiJjzUbINMkxbQROHiO6hDPo2LHcIPhhQsa9DLh0yGk=
+golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+gonum.org/v1/gonum v0.17.0 h1:VbpOemQlsSMrYmn7T2OUvQ4dqxQXU+ouZFQsZOx50z4=
+gonum.org/v1/gonum v0.17.0/go.mod h1:El3tOrEuMpv2UdMrbNlKEh9vd86bmQ6vqIcDwxEOc1E=
+google.golang.org/api v0.298.0 h1:YW18RkHBMZBA1ergX0m4biagzgbiPTb2uTsRsDPWNRY=
+google.golang.org/api v0.298.0/go.mod h1:02qB8+Ox1ZFzcaKFMguy1nQLJmSIyvV6Ff4txJEXtl4=
+google.golang.org/genproto v0.0.0-20260715232425-e75dac1f907d h1:C9v1o0/4quuhOAfmRXA2j+we0PqZIp8traLdeogF3Ms=
+google.golang.org/genproto v0.0.0-20260715232425-e75dac1f907d/go.mod h1:Wz2wFJntZFmLGo7pLDXZ3wYk5hyc0Mb+SkHhDDXT+lU=
+google.golang.org/genproto/googleapis/api v0.0.0-20260921155816-b14227669459 h1:GS9OIt/j7c8bvBjYNgnKQysVfmV7e4jM0H8ZK95G4t8=
+google.golang.org/genproto/googleapis/api v0.0.0-20260921155816-b14227669459/go.mod h1:PX5/4vemwVoXtwEcRDWwcR1/r0qrosfx3qoVADMwnVE=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20260921155816-b14227669459 h1:b0xCahf3FK2m2Cv0p4vTozGPWncCvLfwV86UNg8xWU8=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20260921155816-b14227669459/go.mod h1:OaIUM3+LpYcK2GXM4FTmhWoIq371Owdr+Cc7/BsYHHc=
+google.golang.org/grpc v1.83.2 h1:EManeRomTObA0BU7I8vXgg/78uE5MJ9M8B39EX2WscU=
+google.golang.org/grpc v1.83.2/go.mod h1:YPI1hK3kDked6iHvgX3tR0y+nX/qpMFKhPgFsokw1S8=
+google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.6.2 h1:rgSNvqscFZ1JgV/4wH5GOsZFSFkR2Eua9As3KIr2LlM=
+google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.6.2/go.mod h1:iMEtFwDlAhjDU9L5mY6U1XLwlIId/G3h+QcBHDIvrJ8=
+google.golang.org/protobuf v1.36.12 h1:pJOKDDOyeXErUroCihFAd5LQuwXBSpVnKGrj5o/fwxc=
+google.golang.org/protobuf v1.36.12/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
+gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
+gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0/go.mod h1:WDnlLJ4WF5VGsH/HVa3CI79GS0ol3YnhVnKP89i0kNg=
+gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
+gopkg.in/yaml.v2 v2.4.0/go.mod h1:RDklbk79AGWmwhnvt/jBztapEOGDOx6ZbXqjP6csGnQ=
+gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+howett.net/plist v1.0.1 h1:37GdZ8tP09Q35o9ych3ehygcsL+HqKSwzctveSlarvM=
+howett.net/plist v1.0.1/go.mod h1:lqaXoTrLY4hg8tnEzNru53gicrbv7rrk+2xJA/7hw9g=
+
+~~~~
+
+## caddy/main.go
+
+SHA-256: `b9a9a024392b23a7f0b710b3c1215a6769d5f0d2e7f208c4f9dbea86e6b2f933`
+
+~~~~go
+// This entry point follows Caddy v2.11.7 cmd/caddy/main.go.
+// Copyright 2015 Matthew Holt and The Caddy Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package main
+
+import (
+	_ "time/tzdata"
+
+	caddycmd "github.com/caddyserver/caddy/v2/cmd"
+	_ "github.com/caddyserver/caddy/v2/modules/standard"
+)
+
+func main() { caddycmd.Main() }
+
+~~~~
+
 ## compose.public.yml
 
 SHA-256: `004e6d84d68c46a285adfeddc4548c9177d25776b7b437c8912520b30eeaa1d9`
@@ -4306,7 +5982,7 @@ services:
 
 ## docker-compose.yml
 
-SHA-256: `b4daa903f1210992e3a367631af491316d717fb067e5f79620cf05cb351fcb44`
+SHA-256: `626cd76a6ba6750eb70c67e9e63f208601a5f55703f5ea21cf35f8d2a18169ff`
 
 ~~~~yml
 name: ${COMPOSE_PROJECT_NAME:-agentkit}
@@ -4329,7 +6005,9 @@ x-db-env: &db-env
   DB_PASSWORD: ${DB_PASSWORD:?Run scripts/setup.sh to generate DB_PASSWORD}
 services:
   postgres:
-    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    image: zerolabs-agentkit-postgres:2.0.0
+    build:
+      context: ./postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: agent_admin
@@ -4406,7 +6084,9 @@ services:
       timeout: 3s
       retries: 3
   caddy:
-    image: caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+    image: zerolabs-agentkit-caddy:2.0.0
+    build:
+      context: ./caddy
     restart: unless-stopped
     environment:
       NO_PROXY: api,localhost,127.0.0.1
@@ -4499,7 +6179,7 @@ Unit tests cover input boundaries and tool execution restrictions. `tests/accept
 
 ## docs/HARDENING-CHECKLIST.md
 
-SHA-256: `dfef7c213f6c43b07c7969c660efa3a191bce13ac72e27432de9501b77906c3d`
+SHA-256: `5ad3be7961266905b0d870878a127095461f8fc3d514dbf1b9150f974ba57d16`
 
 ~~~~md
 # Security and recovery
@@ -4527,7 +6207,7 @@ The generated `.env` is excluded from the archive. Store it, provider recovery i
 
 1. Obtain the same kit version and a verified archive; recover `.env` separately.
 2. Install in a **separate** directory/project/host. For same-host rehearsals use a different `COMPOSE_PROJECT_NAME`, `PORT` and loopback `PUBLIC_ORIGIN`; use `setup.sh --no-start --no-timer` to avoid replacing the production backup timer.
-3. Build the image with `docker compose build api`; run `./scripts/restore.sh /absolute/path/agentkit-TIMESTAMP.tar.gz`.
+3. Build all included images with `docker compose build`; run `./scripts/restore.sh /absolute/path/agentkit-TIMESTAMP.tar.gz`.
 4. The script rejects unexpected archive members, version mismatches and checksum failures before database work. It refuses a destination containing tasks, documents or tokens. pg_restore runs in one transaction with exit-on-error. Schema permissions are reapplied.
 5. Sessions, API tokens and worker registrations are cleared. Queued/running tasks become failed with an interruption explanation; they are not replayed. Sign in with the recovered or newly generated operator key, confirm known documents/results/artifacts, create fresh integration tokens, and run a system check.
 6. Record the restore date, archive, verified content and time to recovery outside the database being tested. Repeat after significant upgrades.
@@ -4541,6 +6221,45 @@ Extract and verify a new release separately. Read its migration notes. Run `./sc
 ## Capacity and availability
 
 This is a single host. Monitor free disk, `/health/ready`, and timer failures externally. Application container logs rotate at 3 × 10 MiB per service; PostgreSQL data and task history grow until you deliberately prune them. Backups cover data, not a bootable host image. No availability SLA, autonomous incident remediation, host patch management, secrets manager or SOC2 certification is included.
+
+~~~~
+
+## docs/IMAGE-SECURITY.md
+
+SHA-256: `7179165e8778a97263edc8a3ed983745dbd7b011d4c95b1ab74d41b5fa4848bc`
+
+~~~~md
+# Container image security
+
+The release builds three local images from immutable official Node 22, PostgreSQL 17 and Caddy 2 base image digests. The Dockerfiles pin the added Alpine security revisions: `libcrypto3=3.5.9-r0`, `libssl3=3.5.9-r0` and `zlib=1.3.2-r1`. These versions were available from Alpine when the corresponding official image tags still contained older versions. Missing pinned packages fail the build; they do not trigger an unbounded package upgrade.
+
+The application installs its locked dependencies in a separate stage. The final stage removes npm, npx, Corepack, Yarn and their global dependency trees. Caddy 2.11.7 is rebuilt with the pinned Go 1.27.2 image and committed `caddy/go.mod` and `caddy/go.sum`; `golang.org/x/net` is pinned to 0.60.0 to include the October HTTP/2 fixes. It retains Caddy's standard modules and official runtime layout. Unused curl and its nghttp2 dependency are removed. PostgreSQL retains the official entrypoint, user switching and data directory layout. Rebuild all images when preparing a restore: `docker compose build`.
+
+An optional `proxy_ca` BuildKit secret supports managed HTTPS build proxies. It is mounted only during network steps, never copied into a layer or configured in a runtime environment variable. TLS certificate verification remains enabled.
+
+## Scan evidence and remaining advisories
+
+The remediation scan used Grype 0.120.1 and its database built on 2026-10-11, on Linux amd64. Before remediation the application had 51 matches (20 High), PostgreSQL 31 (9 High), and Caddy 49 (3 Critical, 20 High). The rebuilt application has 3 Medium matches, PostgreSQL 4 Medium matches and Caddy 3 Medium matches; no detected High or Critical matches remain. Recipe 19's separately built Bash sandbox image has 3 Medium matches and no detected High or Critical matches. Counts are package/advisory matches, so one CVE can appear multiple times.
+
+The remaining matches are retained without scanner ignore rules:
+
+| Advisory | Component | Exposure and follow-up |
+| --- | --- | --- |
+| [CVE-2025-60876](https://nvd.nist.gov/vuln/detail/CVE-2025-60876) | BusyBox wget, reported for `busybox`, `busybox-binsh` and `ssl_client` | Request header injection requires passing an attacker-controlled URL containing raw control bytes to wget. The kit uses wget only for Caddy's constant localhost health URL. Application HTTP requests use Node fetch. Recipe 19 disables sandbox networking. Track the Alpine/BusyBox fix and rescan on update. |
+| [GHSA-mjcv-p78q-w5fw](https://github.com/moby/sys/security/advisories/GHSA-mjcv-p78q-w5fw) / CVE-2026-61801 | PostgreSQL's gosu includes `github.com/moby/sys/user` 0.1.0 | Unbounded parsing can exhaust memory when user/group database files are attacker-controlled. The official entrypoint reads image-owned account files; the kit mounts PostgreSQL data, not `/etc/passwd` or `/etc/group`. Track an official PostgreSQL/gosu update with module 0.4.1 or later. |
+
+The scanner does **not** inventory Node's statically embedded OpenSSL accurately. Node 22.23.3 reports embedded OpenSSL 3.5.8; updating Alpine's shared libraries does not replace that copy. The [OpenSSL 2026-09-29 advisory](https://openssl-library.org/news/secadv/20260929.txt) includes CVE-2026-84782 (vendor High, DTLS retransmission) and vendor Low issues in QUIC, optional CRL/CMP handling, selected elliptic curves, and TLS server context switching. This product uses Node for HTTP and outbound HTTPS/TCP, exposes no OpenSSL DTLS or QUIC interface, and terminates incoming HTTPS in Caddy. No scanner suppression or claim that the embedded library is patched is made. Adopt a supported Node 22 release containing OpenSSL 3.5.9 or a later fixed version when upstream publishes it, then rebuild, rescan and rerun acceptance.
+
+Run an updated scanner against the actual built images before release, preserving JSON evidence and database timestamp:
+
+```sh
+docker compose build
+grype zerolabs-agentkit:2.0.0 --fail-on high -o json > app-image-audit.json
+grype zerolabs-agentkit-postgres:2.0.0 --fail-on high -o json > postgres-image-audit.json
+grype zerolabs-agentkit-caddy:2.0.0 --fail-on high -o json > caddy-image-audit.json
+```
+
+Inspect every result, including Medium and Unknown findings. npm audits, image scans and protocol reachability checks have different coverage; none establishes that the entire product or host is vulnerability-free. The run described here does not establish arm64 results or patch the customer's Docker daemon, kernel or host packages.
 
 ~~~~
 
@@ -4604,12 +6323,12 @@ If setup used `--no-timer`, or the host does not run systemd, schedule the backu
 
 ## docs/RELEASE-ACCEPTANCE.md
 
-SHA-256: `ebd7cc8a2ae57fb2b7939438d5ffacb12ae1fbd265f586298c4da55700a9b03c`
+SHA-256: `e6af10a50c1164602fa0ddb4aee1dbd3f2106267de6611c50cc66cb95f00236e`
 
 ~~~~md
 # Release acceptance · Agent Kit 2.0.0
 
-Reviewed and exercised on 2026-10-08 in an isolated Linux x86_64 Docker environment. This is a **release candidate for final deployment validation**, not a declaration that the existing live v1 service or paid storefront has been updated.
+Reviewed and exercised on 2026-10-11 in an isolated Linux x86_64 Docker environment. This is a **release candidate for final deployment validation**, not a declaration that the existing live v1 service or paid storefront has been updated.
 
 ## Product delivered
 
@@ -4621,17 +6340,21 @@ The dashboard follows Linear's public design principles: a persistent sidebar an
 
 | Area | Evidence and result |
 | --- | --- |
-| Core boundaries | 4 unit tests pass: arithmetic parsing, tool allowlist/argument rejection, task validation and URL restrictions. |
+| Core boundaries and lifecycle | 12 unit tests pass: arithmetic parsing, tool/argument restrictions, task/URL validation and eight deterministic worker lifecycle cases. A separate actual PostgreSQL test passes concurrent token issuance at the 50-token cap and audit-failure rollback. |
 | API and worker | 16 acceptance groups pass against the Docker application: authentication, CSRF, scopes, revocation, validation, idempotency, real queue execution, tool calls, measured usage, artifacts, failure handling, model-call/time limits, cancellation, retries and browser headers. |
-| Failure recovery | 5 groups pass: queued-job survival, killed-worker lease expiry while every worker is offline, without replay, DB-outage rejection/reconnection, concurrent work across two workers, and restricted application DB privileges. |
+| Failure recovery | 6 groups pass: interrupted fixture-upload cleanup, queued-job survival, killed-worker lease expiry while every worker is offline, without replay, DB-outage rejection/reconnection, concurrent work across two workers, and restricted application DB privileges. |
 | MCP | An actual SDK client performs initialize, tool discovery, task submission, task lookup, document listing and invalid-argument rejection over stdio. |
+| Dashboard regressions | Eight actual-browser regression groups pass: polling and delayed task/document responses preserve the current dialog, drafts and focus; skip-link activation preserves all six routes; completed document/token/task mutations preserve newer navigation; one-time token creation retains its result through a bounded pending state. |
 | Browser | Chromium desktop at 1440 px and mobile emulation at 390/320 px pass task creation/completion, artifact download, document create/read/delete and HTML escaping, token create/revoke, filters, themes, command palette, navigation and logout. |
 | Accessibility | All 16 tested views pass axe WCAG A/AA checks and page-overflow assertions. Light-theme, hover-state contrast and keyboard scrolling defects found during testing were corrected. This is automated evidence, not a complete accessibility certification or real-device Safari test. |
 | Backup/recovery | A real pg_dump backup is validated, copied with rclone to a local offsite-test directory, downloaded and hash-checked, then restored into a separate Compose project. Known results and documents match; old sessions/tokens are invalidated. Corrupt/path-traversal archives and occupied restore targets are rejected. Failed backups retain older archives and publish failure state. |
-| Installation | Fresh and same-directory setup preserve executable modes, .env.example and existing private credentials. Source .env is excluded. Unrelated occupied destinations and in-place v1 upgrades are refused. |
+| Update and rollback | A real v2 update takes a verified pre-update backup, copies the selected package, preserves configuration, results, documents and tokens, and becomes ready. Restoring the matching application and pre-update backup into a clean project recovers known data and revokes tokens. This is a same-schema rehearsal, not proof of arbitrary future migrations. |
+| Installation | Six isolated-root regression groups cover fresh/same-directory/update ownership, UID 1000 mutation denial, unsafe ancestors and symlinks, inode/hardlink replacement, active backup locks, retained bytecode/PYTHONPATH injection and intentional unprivileged installation. Existing credentials and runtime data are preserved. Unrelated occupied destinations and in-place v1 upgrades are refused. |
 | Edge/security | Private/public Caddy configurations adapt and validate with networking disabled. Public Compose replaces the loopback mapping while keeping API/DB ports internal. Login rate limits withstand spoofed client-IP headers. |
+| Marketing | Playback, five chapters, eleven caption cues, replay, keyboard/touch controls, tabs/menu/FAQ, valid/invalid checkout settings, media hash/download integrity and no-JavaScript/blocked-media/no-range fallbacks pass. All twelve automated accessibility/overflow combinations at 1440/900/390/320 px pass. Screenshots and results are retained as CI evidence. |
+| Repository recipes | All 18 TypeScript recipe packages have committed locks and pass install, compilation and dependency audits. All 17 declared Python requirement sets audit clean. Offline tests cover the real Docker shell boundary, descriptor-based file editor, honest computer-use protocol simulator, MCP and other maintained recipes. Eleven scanner regressions and independent re-audit pass. These recipes are outside the kit ZIP. |
 | Scheduling | systemd service/timer syntax validates with a Docker dependency stub. This environment does not boot systemd as PID 1, so a real timer firing still belongs to target-host validation. |
-| Dependencies | npm audits of runtime, MCP and test lockfiles report zero known vulnerabilities at test time. Images are pinned by digest. This does not establish that every OS image component is vulnerability-free. |
+| Dependencies and images | npm audits of runtime, MCP and test lockfiles report zero known vulnerabilities at test time. The patched app/PostgreSQL/Caddy image scans have no detected High/Critical matches, with 3/4/3 Medium matches retained and explained. The embedded Node OpenSSL inventory limit and upstream follow-up are documented in [IMAGE-SECURITY.md](IMAGE-SECURITY.md). Image scans do not establish that every component is vulnerability-free. |
 | Distribution | The versioned ZIP is extracted into a fresh directory, checked against its SHA-256 manifest, installed in place, built with Docker, and subjected to API/MCP/browser acceptance. The package excludes secrets, runtime data, node_modules and build-proxy credentials. A clean installation starts with no synthetic tasks, workers or metrics. |
 
 Reproducible commands live in `tests/` and `.github/workflows/agent-kit.yml`. The provider fixture is used only by `tests/compose.test.yml`; it is not part of production deployment. It exercises the Responses protocol and real local tool execution, but its generated answers are not live-model responses. The rclone test used a real local remote; it does not verify your cloud-storage account or crypt-key recovery.
@@ -4644,12 +6367,17 @@ Reproducible commands live in `tests/` and `.github/workflows/agent-kit.yml`. Th
 - Worker interruption never causes an automatic task replay. Manual retry can still incur new provider charges.
 - The kit supports a built-in Responses worker. It does not install OpenClaw or execute OpenClaw agent sessions. External tools can use the scoped task API/MCP bridge.
 
+## Audit closure and final evidence
+
+The complete finding register, regression requirements, automation work and launch sequence are maintained in [AUDIT-FIX-RELEASE-PLAN.md](../../../AUDIT-FIX-RELEASE-PLAN.md). The original ten findings retain their identifiers; re-audit discoveries are added rather than omitted. A complete green workflow at the final release commit and its matching extracted ZIP remain required; earlier commits and pre-fix archives are insufficient. Image-scan and package evidence must refer to the final build.
+
 ## Remaining launch gates
 
 1. **Live provider:** configure the intended real OpenAI account and model, recreate the worker, and run `./scripts/provider-smoke.sh`. It checks an actual calculation tool call and a saved artifact containing the expected answer. This workspace had no live provider key; no paid model call was performed.
 2. **Target host:** run setup and a restore rehearsal on the chosen Ubuntu/Debian host; verify the systemd timer fires, disk monitoring works, and the external health monitor observes `/health/ready`. Docker tests do not certify a fresh VM's host setup.
 3. **Network and storage:** verify the chosen Tailscale account/HTTPS setup or real domain/ACME issuance, and test the intended encrypted offsite remote. Static configuration and local remote tests do not replace these account-specific checks.
 4. **Storefront:** test the actual payment, entitlement/download delivery, support contact and refund terms. The owner must settle commercial licensing/distribution expectations, including earlier public grants. No storefront account or checkout configuration was supplied for this work.
+5. **Published recipe claims:** update any separately hosted articles or sales copy that still claim real desktop execution or stronger shell/file isolation than the corrected repository implementations. Repository changes do not update an external CMS.
 
 No deployment to the existing host, merge to main, or public release publication is implied by these results. The old live service should remain isolated until deliberately replaced. The code, release archive, source digest and test evidence make the replacement reviewable and reproducible.
 
@@ -4918,6 +6646,21 @@ SHA-256: `21deacec409f5e4a31ef46f4c957dae28ce41522569bbb1a8089eb25f9fbf590`
 
 ~~~~
 
+## postgres/Dockerfile
+
+SHA-256: `3cf50689474b2ede0496a1c49e7cd3b303402dd80650f88cefe9214a6f154de2`
+
+~~~~
+# syntax=docker/dockerfile:1
+FROM postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+# Preserve the official entrypoint and PGDATA layout while applying exact
+# security revisions not yet included in the upstream image digest.
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export SSL_CERT_FILE=/run/secrets/proxy_ca; fi; \
+    apk add --no-cache libcrypto3=3.5.9-r0 libssl3=3.5.9-r0 zlib=1.3.2-r1
+
+~~~~
+
 ## scripts/archives.py
 
 SHA-256: `8a212ccc28842831041559e9a3e359d8bf3cfbad3749ecef335c825d6c2b255b`
@@ -5012,7 +6755,7 @@ if __name__ == '__main__':
 
 ## scripts/backup.sh
 
-SHA-256: `ace9fd0335fc22cf30cbd6ccc7e730969204f91634e18a2110517de39a2358c2`
+SHA-256: `4dd53c0e4e5490348f9c533cfad64085fca698db5a51fccb196d63bc681e6545`
 
 ~~~~sh
 #!/usr/bin/env bash
@@ -5030,7 +6773,7 @@ cleanup() {
   local rc=$?
   rm -rf -- "$TMP"
   if [[ "$SUCCESS" != true ]]; then
-    python3 "$ROOT/scripts/archives.py" failed "$ROOT/state/backup-status.json" || true
+    python3 -I "$ROOT/scripts/archives.py" failed "$ROOT/state/backup-status.json" || true
     echo 'Backup failed. Existing backups were retained.' >&2
     [[ "$rc" -ne 0 ]] || rc=1
   fi
@@ -5040,18 +6783,18 @@ trap cleanup EXIT
 compose exec -T postgres sh -ec 'pg_dump --format=custom --no-owner --no-acl -U agent_admin -d "$POSTGRES_DB"' > "$TMP/database.dump"
 [[ -s "$TMP/database.dump" ]] || { echo 'Database dump is empty' >&2; exit 1; }
 compose exec -T postgres pg_restore --list < "$TMP/database.dump" >/dev/null
-ARCHIVE="$(python3 "$ROOT/scripts/archives.py" pack "$TMP/database.dump" "$ROOT/backups")"
+ARCHIVE="$(python3 -I "$ROOT/scripts/archives.py" pack "$TMP/database.dump" "$ROOT/backups")"
 REMOTE="$(read_env BACKUP_REMOTE)"
 OFFSITE='not configured'
 if [[ -n "$REMOTE" ]]; then
   require_tools rclone
   rclone copyto "$ARCHIVE" "${REMOTE%/}/$(basename "$ARCHIVE")"
   # Download-and-hash verification works for remotes without comparable native hashes.
-  rclone cat "${REMOTE%/}/$(basename "$ARCHIVE")" | python3 "$ROOT/scripts/archives.py" compare "$ARCHIVE"
+  rclone cat "${REMOTE%/}/$(basename "$ARCHIVE")" | python3 -I "$ROOT/scripts/archives.py" compare "$ARCHIVE"
   OFFSITE=verified
 fi
-python3 "$ROOT/scripts/archives.py" status "$ARCHIVE" "$ROOT/state/backup-status.json" "$OFFSITE"
-python3 "$ROOT/scripts/archives.py" prune "$ROOT/backups" "$(read_env BACKUP_KEEP 14)"
+python3 -I "$ROOT/scripts/archives.py" status "$ARCHIVE" "$ROOT/state/backup-status.json" "$OFFSITE"
+python3 -I "$ROOT/scripts/archives.py" prune "$ROOT/backups" "$(read_env BACKUP_KEEP 14)"
 SUCCESS=true
 printf 'Verified backup: %s\nOffsite: %s\n' "$ARCHIVE" "$OFFSITE"
 
@@ -5151,16 +6894,198 @@ else: sys.exit('Usage: config.py get KEY [default] | init')
 
 ~~~~
 
+## scripts/install-files.py
+
+SHA-256: `a1f98e2ca1e9362851857832b7537333b27ebba7391e9e05d71bdd62a8faa2f7`
+
+~~~~py
+#!/usr/bin/env python3
+"""Install verified package files as the installer account, never the download owner."""
+import os
+import pathlib
+import shutil
+import stat
+import sys
+import tempfile
+
+EXCLUDED_DIRS = {
+    '.git', 'node_modules', '__pycache__', 'backups', 'state', 'data', 'logs',
+    'dist', 'release', 'test-results', 'playwright-report',
+}
+RUNTIME_DIRS = {'backups': 0o700, 'state': 0o755}
+
+
+def fail(message):
+    raise ValueError(message)
+
+
+def excluded(name):
+    return (name in EXCLUDED_DIRS or name.endswith('.pyc')
+            or (name.startswith('.env') and name != '.env.example'))
+
+
+def entries(root, skip_excluded=True, protect_caches=False):
+    """Do not traverse excluded directories or follow any package symlink."""
+    result = []
+    def omit(name):
+        if protect_caches and (name == '__pycache__' or name.endswith('.pyc')):
+            return False
+        return skip_excluded and excluded(name)
+    for directory, subdirs, files in os.walk(root, followlinks=False):
+        subdirs[:] = [name for name in subdirs if not omit(name)]
+        for name in subdirs + [name for name in files if not omit(name)]:
+            path = pathlib.Path(directory) / name
+            mode = path.lstat().st_mode
+            if not (stat.S_ISDIR(mode) or stat.S_ISREG(mode)):
+                fail(f'Package paths must be ordinary files/directories, without symlinks: {path}')
+            result.append(path)
+    return result
+
+
+def check_ancestors(destination):
+    """Reject aliases and paths where another account can replace the installation."""
+    chain = list(reversed(destination.parents)) + [destination]
+    for index, path in enumerate(chain):
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            continue
+        if not stat.S_ISDIR(info.st_mode):
+            fail(f'Installation path cannot contain a symlink or non-directory: {path}')
+        if os.geteuid() != 0 or path == destination:
+            continue
+        if info.st_uid != 0:
+            fail(f'Root installation requires root-owned ancestors: {path}')
+        if info.st_mode & 0o022:
+            # Root-owned sticky /tmp protects its root-owned direct children.
+            # An operator-owned directory below /tmp does not provide that protection.
+            child = chain[index + 1]
+            protected = bool(info.st_mode & stat.S_ISVTX)
+            if child.exists():
+                protected = protected and child.lstat().st_uid == 0
+            if not protected:
+                fail(f'Root installation has an ancestor writable by another account: {path}')
+
+
+def secure_directory(path, mode=0o755):
+    path.mkdir(exist_ok=True)
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        if os.geteuid() == 0:
+            os.fchown(fd, 0, 0)
+        os.fchmod(fd, mode)
+    finally:
+        os.close(fd)
+
+
+def replace_file(source, destination, mode):
+    # Replace the inode, rather than truncating it. An old owner's open descriptor
+    # or hardlink must not retain access to the installed executable/configuration.
+    fd, temporary = tempfile.mkstemp(prefix='.install-', dir=destination.parent)
+    try:
+        with os.fdopen(fd, 'wb') as output, source.open('rb') as input_file:
+            shutil.copyfileobj(input_file, output)
+            if os.geteuid() == 0:
+                os.fchown(output.fileno(), 0, 0)
+            os.fchmod(output.fileno(), mode)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, destination)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def secure_runtime_file(path, mode):
+    # Keep backup archive bytes and active lock inodes in place. Backups can be
+    # large, and replacing .backup.lock would invalidate an in-progress lock.
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        os.fchown(fd, 0, 0)
+        os.fchmod(fd, mode)
+    finally:
+        os.close(fd)
+
+
+def install(source, destination):
+    source = pathlib.Path(source).resolve(strict=True)
+    destination = pathlib.Path(os.path.abspath(destination))
+    if destination == pathlib.Path('/'):
+        fail('Choose an empty directory or an existing Agent Kit v2 installation.')
+    if source != destination and destination.is_relative_to(source):
+        fail('Choose an installation directory outside the source directory.')
+    check_ancestors(destination)
+    package = entries(source)
+    if destination.exists():
+        # Source caches are excluded from copies; caches already in a same-dir
+        # install must also lose the old owner's write access.
+        existing = entries(destination, protect_caches=True)
+        package_json = destination / 'app/package.json'
+        if not package_json.exists() and any(p.name not in {'.env', '.gitkeep'} for p in destination.iterdir()):
+            fail('Choose an empty directory or an existing Agent Kit v2 installation. Unrelated files were preserved.')
+        if package_json.exists():
+            import json
+            if not str(json.loads(package_json.read_text()).get('version', '')).startswith('2.'):
+                fail('Use a separate installation directory for v1 to v2 migration.')
+    else:
+        existing = []
+    for name in ['.env', *RUNTIME_DIRS]:
+        path = destination / name
+        if path.is_symlink() or (path.exists() and not (path.is_file() if name == '.env' else path.is_dir())):
+            fail(f'Configuration/runtime paths cannot be symlinks or special files: {path}')
+    runtime_entries = {name: entries(destination / name, skip_excluded=False)
+                       if (destination / name).exists() else [] for name in RUNTIME_DIRS}
+    # Lock the directory hierarchy before touching files supplied by an old owner.
+    for parent in reversed(destination.parents):
+        if not parent.exists():
+            secure_directory(parent)
+    secure_directory(destination)
+    for path in sorted(existing, key=lambda p: len(p.parts)):
+        if path.is_dir():
+            secure_directory(path)
+        else:
+            replace_file(path, path, 0o755 if path.stat().st_mode & 0o111 else 0o644)
+    for path in sorted(package, key=lambda p: len(p.parts)):
+        target = destination / path.relative_to(source)
+        if path.is_dir():
+            secure_directory(target)
+        else:
+            replace_file(path, target, 0o755 if path.stat().st_mode & 0o111 else 0o644)
+    env = destination / '.env'
+    if env.exists():
+        replace_file(env, env, 0o600)
+    for name, mode in RUNTIME_DIRS.items():
+        secure_directory(destination / name, mode)
+        if os.geteuid() == 0:
+            for path in sorted(runtime_entries[name], key=lambda p: len(p.parts)):
+                if path.is_dir():
+                    secure_directory(path, mode)
+                else:
+                    secure_runtime_file(path, 0o600 if name == 'backups' else 0o644)
+    check_ancestors(destination)
+    print(destination)
+
+
+if __name__ == '__main__':
+    try:
+        install(*sys.argv[1:])
+    except (OSError, ValueError, TypeError) as error:
+        sys.exit(f'Installation refused: {error}')
+
+~~~~
+
 ## scripts/lib.sh
 
-SHA-256: `7fd6b44cbbf49ee9d416ad1ed654441fd4ef04564484adfe17cb302aa1519e8e`
+SHA-256: `27a495c537512f1d582df17eebad55f55bf576b44d4d69a271cfb27091c181d7`
 
 ~~~~sh
 #!/usr/bin/env bash
 set -Eeuo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 export ROOT
-read_env() { python3 "$ROOT/scripts/config.py" get "$1" "${2:-}"; }
+# Helpers import only the standard library. Isolated mode prevents script/cwd
+# caches and inherited PYTHONPATH from supplying modules to privileged backups.
+read_env() { python3 -I "$ROOT/scripts/config.py" get "$1" "${2:-}"; }
 compose() {
   local -a files=(-f "$ROOT/docker-compose.yml")
   if [[ "$(read_env ENABLE_PUBLIC false)" == true ]]; then files+=(-f "$ROOT/compose.public.yml"); fi
@@ -5207,7 +7132,7 @@ JS
 
 ## scripts/release.py
 
-SHA-256: `8481554a9795ced5b52189cf08d40ac7769aaf2b42bd0a5b4260d83bce775ca4`
+SHA-256: `39ddbfbd890f84f2e57944460ce3daefeb3afc2527d08324c94c6e2e7657fa39`
 
 ~~~~py
 #!/usr/bin/env python3
@@ -5221,7 +7146,7 @@ def included(path):
     relative=path.relative_to(ROOT)
     return path.is_file() and not path.is_symlink() and not any(p in EXCLUDE_DIRS for p in relative.parts) and path.name not in EXCLUDE_FILES and (not path.name.startswith('.env') or path.name=='.env.example') and path.suffix not in {'.pyc','.log','.zip','.pdf','.png'}
 def sha(data):return hashlib.sha256(data).hexdigest()
-subprocess.run(['python3',str(ROOT/'scripts/build-docs.py')],check=True)
+subprocess.run(['python3','-I',str(ROOT/'scripts/build-docs.py')],check=True)
 files=sorted(p for p in ROOT.rglob('*') if included(p))
 # Packaging fails if any current installation secret has entered a source file.
 secrets=[]
@@ -5263,7 +7188,7 @@ print(json.dumps({'archive':str(archive),'files':len(files)+2,'bytes':archive.st
 
 ## scripts/restore.sh
 
-SHA-256: `be352a4f0e5172762a9970aae1af1235c0aa49a82c85b354520a9e89feb0a1cd`
+SHA-256: `50b9a58102a10f27ce14721e601804d73c4dd93ff55ae3f53b818ad5b4e0c88c`
 
 ~~~~sh
 #!/usr/bin/env bash
@@ -5277,7 +7202,7 @@ exec 9>"$ROOT/backups/.backup.lock"
 flock -n 9 || { echo 'A backup or restore is already running' >&2; exit 1; }
 TMP="$(mktemp -d)"
 trap 'rm -rf -- "$TMP"' EXIT
-python3 "$ROOT/scripts/archives.py" verify "$ARCHIVE" "$TMP/database.dump" >/dev/null
+python3 -I "$ROOT/scripts/archives.py" verify "$ARCHIVE" "$TMP/database.dump" >/dev/null
 compose up -d --wait postgres
 compose run --rm --no-deps migrate
 COUNT="$(compose exec -T postgres sh -ec 'psql -X -v ON_ERROR_STOP=1 -U agent_admin -d "$POSTGRES_DB" -Atc "SELECT (SELECT count(*) FROM jobs)+(SELECT count(*) FROM documents)+(SELECT count(*) FROM api_tokens);"')"
@@ -5313,7 +7238,7 @@ printf 'Restore completed. Sessions and API tokens were revoked. Sign in, review
 
 ## scripts/setup.sh
 
-SHA-256: `2a7612d1f8e39c472da71f71a8b0eda3b6d42a5a9ead90e21acbbcd49521c108`
+SHA-256: `3b6af7f6993bf979d473cf1c3682fa223b9122619f9a4850d4a1b0adaeec83bc`
 
 ~~~~sh
 #!/usr/bin/env bash
@@ -5332,36 +7257,19 @@ while (($#)); do
     *) printf 'Usage: %s [--dest /opt/agentkit] [--no-start] [--no-timer]\n' "$0" >&2; exit 2 ;;
   esac
 done
-for tool in python3 tar; do command -v "$tool" >/dev/null || { echo "Install $tool first" >&2; exit 1; }; done
+command -v python3 >/dev/null || { echo 'Install python3 first' >&2; exit 1; }
 if [[ "$START" == true ]]; then
   command -v docker >/dev/null || { echo 'Install Docker Engine and Compose v2 first: https://docs.docker.com/engine/install/' >&2; exit 1; }
   docker info >/dev/null
-  docker compose version --short | python3 -c 'import re,sys; m=re.match(r"v?(\d+)\.(\d+)\.(\d+)",sys.stdin.read()); assert m and tuple(map(int,m.groups())) >= (2,24,4), "Docker Compose 2.24.4 or newer is required"'
+  docker compose version --short | python3 -I -c 'import re,sys; m=re.match(r"v?(\d+)\.(\d+)\.(\d+)",sys.stdin.read()); assert m and tuple(map(int,m.groups())) >= (2,24,4), "Docker Compose 2.24.4 or newer is required"'
   command -v flock >/dev/null || { echo 'Install util-linux (flock) before starting the kit.' >&2; exit 1; }
 fi
-mkdir -p -- "$DEST"
-DEST="$(cd -- "$DEST" && pwd -P)"
-python3 - "$DEST" <<'PY'
-import pathlib,sys
-p=pathlib.Path(sys.argv[1])
-if p == pathlib.Path('/') or (not (p/'app/package.json').exists() and any(x.name not in {'.env','.gitkeep'} for x in p.iterdir())):
-    sys.exit('Choose an empty directory or an existing Agent Kit v2 installation. Unrelated files were preserved.')
-PY
-if [[ -f "$DEST/app/package.json" ]] && ! python3 - "$DEST/app/package.json" <<'PY'
-import json,sys
-assert json.load(open(sys.argv[1]))["version"].startswith("2.")
-PY
-then
-  echo "Use a separate installation directory for v1 to v2 migration." >&2; exit 1
-fi
-if [[ "$SOURCE" != "$DEST" ]]; then
-  case "$DEST/" in "$SOURCE/"*) echo "Choose an installation directory outside the source directory" >&2; exit 1 ;; esac
-  # Only package-owned files, including dotfiles; runtime data and secrets are excluded.
-  (cd "$SOURCE" && tar --exclude='./.env' --exclude='./.env.*' --exclude='./.git' --exclude='node_modules' --exclude='__pycache__' --exclude='*.pyc' --exclude='./backups' --exclude='./state' --exclude='./data' --exclude='./logs' --exclude='./dist' --exclude='./release' -cf - .) | (cd "$DEST" && tar -xf -)
-  cp -p "$SOURCE/.env.example" "$DEST/.env.example"
-fi
+# The verified source is trusted operator input. Atomically copy package files as
+# this account; a root install must never preserve the download owner's access.
+# This also secures existing/same-directory installs before running their helpers.
+DEST="$(python3 -I "$SOURCE/scripts/install-files.py" "$SOURCE" "$DEST")"
 export ROOT="$DEST"
-python3 "$DEST/scripts/config.py" init
+python3 -I "$DEST/scripts/config.py" init
 chmod 0755 "$DEST" "$DEST/app" "$DEST/app/public" "$DEST/docs"
 mkdir -p "$DEST/backups" "$DEST/state"
 chmod 0700 "$DEST/backups"
@@ -5371,7 +7279,7 @@ find "$DEST/scripts" -maxdepth 1 -name '*.sh' -exec chmod 0755 {} +
 if [[ "$TIMERS" == true ]]; then
   if [[ "$EUID" -eq 0 ]] && command -v systemctl >/dev/null && [[ -d /run/systemd/system ]]; then
     [[ "$DEST" != *[$'\n\r%"\\']* ]] || { echo 'Installation path contains unsupported systemd characters' >&2; exit 1; }
-    python3 - "$SOURCE" "$DEST" <<'PY'
+    python3 -I - "$SOURCE" "$DEST" <<'PY'
 import pathlib, sys
 source, dest = map(pathlib.Path, sys.argv[1:])
 for name in ['agentkit-backup.service','agentkit-backup.timer']:
@@ -5408,16 +7316,16 @@ compose exec -T api node -e "fetch('http://127.0.0.1:3000/health/ready').then(as
 
 ## scripts/tailscale-setup.sh
 
-SHA-256: `69c60608c191b8a2d89db6ad517aadd57e961f1b51193504c81dc57af0bb6447`
+SHA-256: `e3cf7f080ab42da79e15be23f089c4ab3ce2cf6566791fcf24f84f7863d2099c`
 
 ~~~~sh
 #!/usr/bin/env bash
 source "$(dirname -- "${BASH_SOURCE[0]}")/lib.sh"
 require_tools tailscale python3 docker
 [[ "$(read_env ENABLE_PUBLIC false)" != true ]] || { echo 'Disable public mode before using private Tailscale Serve.' >&2; exit 1; }
-DOMAIN="$(tailscale status --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("BackendState")=="Running", "Run tailscale up first"; print(d["Self"]["DNSName"].rstrip("."))')"
+DOMAIN="$(tailscale status --json | python3 -I -c 'import json,sys; d=json.load(sys.stdin); assert d.get("BackendState")=="Running", "Run tailscale up first"; print(d["Self"]["DNSName"].rstrip("."))')"
 [[ "$DOMAIN" =~ ^[a-zA-Z0-9.-]+\.ts\.net$ ]] || { echo 'Unexpected Tailscale DNS name' >&2; exit 1; }
-python3 - "$ROOT/.env" "$DOMAIN" <<'PY'
+python3 -I - "$ROOT/.env" "$DOMAIN" <<'PY'
 import pathlib,re,sys
 p=pathlib.Path(sys.argv[1]); text=p.read_text(); value='PUBLIC_ORIGIN=https://'+sys.argv[2]
 text=re.sub(r'^PUBLIC_ORIGIN=.*$',value,text,flags=re.M) if re.search(r'^PUBLIC_ORIGIN=',text,re.M) else text+'\n'+value+'\n'
@@ -6317,6 +8225,751 @@ server.listen(8081, "0.0.0.0");
 
 ~~~~
 
+## tests/frontend-regressions.mjs
+
+SHA-256: `a8dbf25f7d007c07009d773367e764a292f00a4dbd8294d25c34f4d65373df58`
+
+~~~~mjs
+// Isolated browser regressions: no database, Docker services or provider calls.
+import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { chromium } from "playwright";
+
+const assets = new URL("../app/public/", import.meta.url);
+const server = createServer(async (request, response) => {
+  try {
+    const path = new URL(request.url, "http://localhost").pathname;
+    if (!["/", "/app.js", "/style.css", "/favicon.svg"].includes(path)) {
+      response.writeHead(404).end();
+      return;
+    }
+    response.setHeader(
+      "content-type",
+      path.endsWith(".js")
+        ? "text/javascript"
+        : path.endsWith(".css")
+          ? "text/css"
+          : path.endsWith(".svg")
+            ? "image/svg+xml"
+            : "text/html",
+    );
+    response.end(
+      await readFile(new URL(path.slice(1) || "index.html", assets)),
+    );
+  } catch (error) {
+    response.writeHead(500).end(error.message);
+  }
+});
+await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+const origin = `http://127.0.0.1:${server.address().port}`;
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.CHROMIUM_PATH
+    ? { executablePath: process.env.CHROMIUM_PATH }
+    : {}),
+  args: ["--no-sandbox"],
+});
+const errors = [];
+const pendingResponses = new Map();
+let pendingDetail = null,
+  detailRequests = 0;
+function delayNextDetail(taskOverride) {
+  let seen, release;
+  const requested = new Promise((resolve) => (seen = resolve));
+  const released = new Promise((resolve) => (release = resolve));
+  pendingDetail = { seen, released, taskOverride };
+  return { requested, release };
+}
+function delayResponse(method, path, error) {
+  let seen, release;
+  const requested = new Promise((resolve) => (seen = resolve));
+  const released = new Promise((resolve) => (release = resolve));
+  pendingResponses.set(`${method} ${path}`, { seen, released, error });
+  return { requested, release };
+}
+async function waitForDelayedDetail(delayed) {
+  let timer;
+  try {
+    await Promise.race([
+      delayed.requested,
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("No task-detail poll within 10 seconds")),
+          10000,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+const task = {
+  id: "00000000-0000-4000-8000-000000000001",
+  title: "Interrupted task",
+  kind: "assistant",
+  status: "failed",
+  created_at: "2026-01-01T00:00:00Z",
+  prompt: "A prior task",
+  error: "Interrupted; review before retrying.",
+};
+const documentFixture = {
+  id: "00000000-0000-4000-8000-000000000002",
+  title: "Delayed document",
+  bytes: 20,
+  content: "Read this document",
+  created_at: task.created_at,
+};
+const tokenFixture = {
+  id: "00000000-0000-4000-8000-000000000003",
+  name: "Delayed token",
+  scopes: ["tasks:read"],
+};
+try {
+  const page = await browser.newPage();
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const method = route.request().method();
+    const held = pendingResponses.get(`${method} ${path}`);
+    if (held) {
+      pendingResponses.delete(`${method} ${path}`);
+      held.seen();
+      await held.released;
+      if (held.error) {
+        await route.fulfill({ status: 500, json: { error: held.error } });
+        return;
+      }
+    }
+    let data;
+    if (path === "/api/auth/session")
+      data = { csrf: "fixture", version: "2.0.0" };
+    else if (path === "/api/overview")
+      data = {
+        counts: { failed: 1 },
+        recent: [task],
+        workers: [],
+        documents: 0,
+        backup: { status: "unknown" },
+        measured_at: new Date().toISOString(),
+      };
+    else if (path === "/api/tasks")
+      data = method === "POST" ? { task } : { tasks: [task], total: 1 };
+    else if (path === `/api/tasks/${task.id}/retry`) data = { task };
+    else if (path === `/api/tasks/${task.id}`) {
+      detailRequests++;
+      const pending = pendingDetail;
+      pendingDetail = null;
+      if (pending) {
+        pending.seen();
+        await pending.released;
+      }
+      data = { task: pending?.taskOverride || task, artifacts: [] };
+    } else if (path.endsWith("/events")) data = { events: [] };
+    else if (path === "/api/documents")
+      data = method === "POST" ? {} : { documents: [documentFixture] };
+    else if (path === `/api/documents/${documentFixture.id}`)
+      data = method === "DELETE" ? {} : documentFixture;
+    else if (path === "/api/tokens")
+      data =
+        method === "POST"
+          ? { ...tokenFixture, token: "ak_example_placeholder" }
+          : { tokens: [tokenFixture] };
+    else if (path === `/api/tokens/${tokenFixture.id}`) data = {};
+    else if (path === "/api/audit") data = { entries: [] };
+    else throw new Error(`Unexpected request: ${path}`);
+    await route.fulfill({ json: data });
+  });
+  await page.goto(origin);
+  await page
+    .getByRole("heading", { name: "Your workspace, at a glance." })
+    .waitFor();
+  async function openDetail() {
+    await page.getByRole("button", { name: task.title, exact: true }).click();
+    await page.getByRole("button", { name: "Review and retry" }).waitFor();
+  }
+  async function stableDialog(title, focusSelector, count) {
+    await page.locator(focusSelector).focus();
+    // Observe two real polling cycles, including any response already in flight.
+    await page.waitForTimeout(6300);
+    assert.equal(await page.locator("#modal-title").textContent(), title);
+    assert.equal(
+      await page
+        .locator(focusSelector)
+        .evaluate((el) => el === document.activeElement),
+      true,
+    );
+    assert.equal(
+      detailRequests,
+      count,
+      "Non-detail dialogs must not request task refreshes",
+    );
+  }
+
+  await openDetail();
+  let delayed = delayNextDetail();
+  await waitForDelayedDetail(delayed);
+  const retryRequests = detailRequests;
+  await page.getByRole("button", { name: "Review and retry" }).click();
+  delayed.release();
+  await stableDialog(
+    "Retry this task?",
+    '[data-confirm="retry"]',
+    retryRequests,
+  );
+  await page.getByRole("button", { name: "Keep as is" }).click();
+  console.log(
+    "PASS retry confirmation and focus survive polling and an in-flight detail response",
+  );
+
+  await openDetail();
+  delayed = delayNextDetail();
+  await waitForDelayedDetail(delayed);
+  const commandRequests = detailRequests;
+  await page.keyboard.press("Control+k");
+  delayed.release();
+  await stableDialog("Go to…", '[data-go="documents"]', commandRequests);
+  await page.keyboard.press("Escape");
+  console.log(
+    "PASS command palette and focus survive polling and an in-flight detail response",
+  );
+
+  // A close/reopen of the same task must also invalidate the earlier response.
+  await openDetail();
+  delayed = delayNextDetail({
+    ...task,
+    title: "Stale task response",
+    error: "Earlier stale result",
+  });
+  await waitForDelayedDetail(delayed);
+  await page.keyboard.press("Escape");
+  await openDetail();
+  const newDialog = await page.locator("#modal-body").innerHTML();
+  await page.locator("[data-retry-task]").focus();
+  delayed.release();
+  await page.waitForTimeout(100);
+  assert.equal(await page.locator("#modal-title").textContent(), task.title);
+  assert.equal(await page.locator("#modal-body").innerHTML(), newDialog);
+  assert.equal(
+    await page
+      .locator("[data-retry-task]")
+      .evaluate((el) => el === document.activeElement),
+    true,
+  );
+  await page.keyboard.press("Escape");
+  console.log(
+    "PASS reopening the same task rejects detail responses from an earlier dialog",
+  );
+
+  const headings = {
+    overview: "Your workspace, at a glance.",
+    tasks: "Tasks",
+    documents: "Documents",
+    connections: "Connections",
+    recovery: "Recovery",
+    settings: "Workspace settings",
+  };
+  for (const [route, heading] of Object.entries(headings)) {
+    await page.locator(`[data-nav="${route}"]`).click();
+    await page.locator("#page h1").filter({ hasText: heading }).waitFor();
+    const hash = new URL(page.url()).hash;
+    await page.getByRole("link", { name: "Skip to content" }).focus();
+    await page.keyboard.press("Enter");
+    assert.equal(new URL(page.url()).hash, hash);
+    assert.equal(await page.locator("#page h1").textContent(), heading);
+    assert.equal(
+      await page
+        .locator("#main")
+        .evaluate((el) => el === document.activeElement),
+      true,
+    );
+  }
+  console.log(
+    "PASS keyboard skip link preserves all six routes and focuses main content",
+  );
+
+  async function go(route) {
+    if (await page.locator("#modal").evaluate((el) => el.open)) {
+      await page.keyboard.press("Escape");
+      await page.getByRole("dialog").waitFor({ state: "hidden" });
+    }
+    await page.locator(`[data-nav="${route}"]`).click();
+    await page
+      .locator("#page h1")
+      .filter({ hasText: headings[route] })
+      .waitFor();
+  }
+  async function newDraft(title) {
+    await page.keyboard.press("Control+k");
+    await page
+      .locator("#modal-body")
+      .getByRole("button", { name: "New task", exact: false })
+      .click();
+    await page.locator("#task-title").fill(title);
+  }
+  async function expectDraft(title) {
+    assert.equal(await page.locator("#modal-title").textContent(), "New task");
+    assert.equal(await page.locator("#task-title").inputValue(), title);
+    assert.equal(
+      await page
+        .locator("#task-title")
+        .evaluate((el) => el === document.activeElement),
+      true,
+    );
+  }
+  async function releaseAndToast(delayed, text) {
+    await page.locator("#toast").evaluate((el) => (el.textContent = ""));
+    delayed.release();
+    await page.locator("#toast").filter({ hasText: text }).waitFor();
+  }
+
+  // Delayed document reads must honor newer dialogs and navigation.
+  await go("documents");
+  let response = delayResponse("GET", `/api/documents/${documentFixture.id}`);
+  await page
+    .getByRole("button", { name: documentFixture.title, exact: true })
+    .click();
+  await waitForDelayedDetail(response);
+  await page.keyboard.press("Control+k");
+  await page.locator('[data-go="tasks"]').focus();
+  response.release();
+  await page.waitForTimeout(100);
+  assert.equal(await page.locator("#modal-title").textContent(), "Go to…");
+  assert.equal(
+    await page
+      .locator('[data-go="tasks"]')
+      .evaluate((el) => el === document.activeElement),
+    true,
+  );
+  await go("documents");
+  response = delayResponse("GET", `/api/documents/${documentFixture.id}`);
+  await page
+    .getByRole("button", { name: documentFixture.title, exact: true })
+    .click();
+  await waitForDelayedDetail(response);
+  await newDraft("Keep this document-read draft");
+  response.release();
+  await page.waitForTimeout(100);
+  await expectDraft("Keep this document-read draft");
+  await go("documents");
+  response = delayResponse("GET", `/api/documents/${documentFixture.id}`);
+  await page
+    .getByRole("button", { name: documentFixture.title, exact: true })
+    .click();
+  await waitForDelayedDetail(response);
+  await go("tasks");
+  response.release();
+  await page.waitForTimeout(100);
+  assert.equal(await page.locator("#modal").evaluate((el) => el.open), false);
+  assert.equal(await page.locator("#page h1").textContent(), "Tasks");
+  console.log(
+    "PASS delayed document reads preserve a palette, draft, focus and changed route",
+  );
+
+  for (const [route, action, path, success] of [
+    [
+      "documents",
+      "Delete document",
+      `/api/documents/${documentFixture.id}`,
+      "Document deleted",
+    ],
+    [
+      "connections",
+      "Revoke token",
+      `/api/tokens/${tokenFixture.id}`,
+      "Token revoked",
+    ],
+  ]) {
+    await go(route);
+    if (route === "documents")
+      await page
+        .getByRole("button", {
+          name: `Delete ${documentFixture.title}`,
+          exact: true,
+        })
+        .click();
+    else
+      await page.getByRole("button", { name: "Revoke", exact: true }).click();
+    response = delayResponse("DELETE", path);
+    await page.getByRole("button", { name: action, exact: true }).click();
+    await waitForDelayedDetail(response);
+    await page.keyboard.press("Control+k");
+    await page.locator('[data-go="tasks"]').click();
+    await page.locator("#page h1").filter({ hasText: "Tasks" }).waitFor();
+    await releaseAndToast(response, success);
+    assert.equal(new URL(page.url()).hash, "#tasks");
+    assert.equal(await page.locator("#page h1").textContent(), "Tasks");
+
+    await go(route);
+    if (route === "documents")
+      await page
+        .getByRole("button", {
+          name: `Delete ${documentFixture.title}`,
+          exact: true,
+        })
+        .click();
+    else
+      await page.getByRole("button", { name: "Revoke", exact: true }).click();
+    response = delayResponse("DELETE", path, `${action} failed`);
+    await page.getByRole("button", { name: action, exact: true }).click();
+    await waitForDelayedDetail(response);
+    await newDraft(`Keep this ${action} draft`);
+    await releaseAndToast(response, `${action} failed`);
+    await expectDraft(`Keep this ${action} draft`);
+  }
+  console.log(
+    "PASS document deletion/token revocation preserve changed routes and replacement drafts on failures",
+  );
+
+  await go("documents");
+  await page.getByRole("button", { name: "Add document", exact: true }).click();
+  await page.locator("#doc-title").fill("New document");
+  await page.locator("#doc-content").fill("Document body");
+  response = delayResponse("POST", "/api/documents");
+  await page
+    .getByRole("button", { name: "Save document", exact: true })
+    .click();
+  await waitForDelayedDetail(response);
+  await newDraft("Keep this document-save draft");
+  await releaseAndToast(response, "Document added");
+  await expectDraft("Keep this document-save draft");
+
+  await go("overview");
+  await page.getByRole("button", { name: "New task", exact: true }).click();
+  response = delayResponse("POST", "/api/tasks");
+  await page.getByRole("button", { name: "Create task", exact: false }).click();
+  await waitForDelayedDetail(response);
+  await newDraft("Keep this task-submit draft");
+  await releaseAndToast(response, "Task created");
+  await expectDraft("Keep this task-submit draft");
+
+  await go("overview");
+  await openDetail();
+  await page.getByRole("button", { name: "Review and retry" }).click();
+  response = delayResponse("POST", `/api/tasks/${task.id}/retry`);
+  await page.getByRole("button", { name: "Create retry", exact: true }).click();
+  await waitForDelayedDetail(response);
+  await newDraft("Keep this retry draft");
+  await releaseAndToast(response, "Retry created");
+  await expectDraft("Keep this retry draft");
+
+  await go("overview");
+  response = delayResponse("POST", "/api/tasks");
+  await page.getByRole("button", { name: "Run check", exact: true }).click();
+  await waitForDelayedDetail(response);
+  await newDraft("Keep this system-check draft");
+  await releaseAndToast(response, "System check created");
+  await expectDraft("Keep this system-check draft");
+  console.log(
+    "PASS document save, task creation, retry and system-check completions preserve newer drafts",
+  );
+
+  // A token's secret is shown once, so keep its submitted dialog until the
+  // bounded request completes instead of discarding a late successful response.
+  await go("connections");
+  await page.getByRole("button", { name: "Create token", exact: true }).click();
+  await page.locator("#token-name").fill("Pending token");
+  response = delayResponse("POST", "/api/tokens");
+  await page
+    .locator("#token-form")
+    .getByRole("button", { name: "Create token", exact: true })
+    .click();
+  await waitForDelayedDetail(response);
+  await page.keyboard.press("Control+k");
+  await page.keyboard.press("Escape");
+  assert.equal(
+    await page.locator("#modal-title").textContent(),
+    "Create API token",
+  );
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Close dialog", exact: true })
+      .isDisabled(),
+    true,
+  );
+  response.release();
+  await page.locator("#new-token").waitFor();
+  assert.equal(
+    await page.locator("#new-token").inputValue(),
+    "ak_example_placeholder",
+  );
+  await page
+    .getByRole("button", { name: "I have saved it", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Create token", exact: true }).click();
+  await page.locator("#token-name").fill("Failed pending token");
+  response = delayResponse("POST", "/api/tokens", "Token creation failed");
+  await page
+    .locator("#token-form")
+    .getByRole("button", { name: "Create token", exact: true })
+    .click();
+  await waitForDelayedDetail(response);
+  response.release();
+  await page
+    .locator("#token-form .form-error")
+    .filter({ hasText: "Token creation failed" })
+    .waitFor();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Close dialog", exact: true })
+      .isDisabled(),
+    false,
+  );
+  await page.keyboard.press("Control+k");
+  assert.equal(await page.locator("#modal-title").textContent(), "Go to…");
+  console.log(
+    "PASS token creation retains its one-time secret and releases dialog controls after failures",
+  );
+  assert.deepEqual(errors, []);
+} finally {
+  await browser.close();
+  await new Promise((resolve) => server.close(resolve));
+}
+
+~~~~
+
+## tests/installer.py
+
+SHA-256: `a77695621a51c5f3637105bc40e543eb84956bfc065e5d57416a67852165467e`
+
+~~~~py
+#!/usr/bin/env python3
+"""Exercise the real installer and UID boundaries without Docker/services/secrets.
+
+Run with sudo on Linux, or in an isolated Python/Debian container as root.
+All writes stay inside one temporary directory; no systemd unit is installed.
+"""
+import fcntl
+import os
+import pathlib
+import py_compile
+import shutil
+import subprocess
+import tempfile
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+OMIT = {'.git', 'node_modules', '__pycache__', 'backups', 'state', 'data',
+        'logs', 'dist', 'release', 'test-results', 'playwright-report'}
+
+
+def copy_source(destination):
+    def ignore(directory, names):
+        return [name for name in names if name in OMIT or name.endswith('.pyc')
+                or (name.startswith('.env') and name != '.env.example')]
+    shutil.copytree(ROOT, destination, ignore=ignore)
+
+
+def run(source, destination, ok=True, uid=None):
+    def drop_uid():
+        os.setgroups([])
+        os.setgid(uid)
+        os.setuid(uid)
+    result = subprocess.run(
+        ['bash', str(source / 'scripts/setup.sh'), '--dest', str(destination), '--no-start', '--no-timer'],
+        text=True, capture_output=True, preexec_fn=drop_uid if uid is not None else None,
+    )
+    if ok:
+        assert result.returncode == 0, result.stderr
+    else:
+        assert result.returncode != 0, 'Unsafe installation unexpectedly succeeded'
+    return result
+
+
+def ownership(root, uid):
+    for path in [root, *root.rglob('*')]:
+        if path.is_symlink():
+            continue
+        os.chown(path, uid, uid)
+
+
+def denied_mutations(install, parent):
+    # This subprocess has no root groups/capabilities. Both writes and replacement
+    # attempts must fail, even though every source file belonged to this account.
+    probe = r'''
+import os,pathlib,sys
+p=pathlib.Path(sys.argv[1]);parent=pathlib.Path(sys.argv[2])
+actions=[lambda name=name: (p/name).open('ab') for name in [
+    'scripts/backup.sh','scripts/lib.sh','scripts/config.py','docker-compose.yml','.env',
+    'backups/retained.tar.gz','state/backup-status.json','scripts/secrets.pyc']]
+actions += [lambda: (p/'scripts/new-script.sh').write_text('replacement'),
+            lambda: os.rename(p/'scripts',p/'replaced-scripts'),
+            lambda: os.rename(p,parent/'replaced-install'),
+            lambda: (p/'.env').read_bytes()]
+for action in actions:
+    try: action()
+    except PermissionError: continue
+    raise AssertionError('Unprivileged account can mutate/replace root installation')
+'''
+    def drop_uid():
+        os.setgroups([])
+        os.setgid(1000)
+        os.setuid(1000)
+    result = subprocess.run(['python3', '-c', probe, str(install), str(parent)],
+                            capture_output=True, text=True, preexec_fn=drop_uid)
+    assert result.returncode == 0, result.stderr
+
+
+def check_root_tree(install):
+    for path in [install, *install.rglob('*')]:
+        if any(part in OMIT - {'backups', 'state', '__pycache__'} for part in path.relative_to(install).parts):
+            continue
+        info = path.stat()
+        assert info.st_uid == info.st_gid == 0, path
+        assert not info.st_mode & 0o022, path
+    assert (install / '.env').stat().st_mode & 0o777 == 0o600
+    assert (install / 'backups').stat().st_mode & 0o777 == 0o700
+    assert (install / 'scripts/backup.sh').stat().st_mode & 0o111
+
+
+def poisoned_caches(install, temp):
+    source = temp / 'poison.py'
+    source.write_text("import os\nwith open(os.environ['IMPORT_MARKER'], 'a') as f: f.write(str(os.geteuid()))\nraise RuntimeError('Untrusted import cache executed')\n")
+    cache = install / 'scripts/__pycache__'
+    cache.mkdir()
+    for destination in [install / 'scripts/secrets.pyc', install / 'scripts/pathlib.pyc',
+                        install / 'scripts/json.pyc', install / 'json.pyc', cache / 'legacy.pyc']:
+        py_compile.compile(str(source), cfile=str(destination), doraise=True)
+    return source
+
+
+def timer_backup_path(install, temp):
+    # Execute the root timer's actual ExecStart script. A fixture Docker CLI emits
+    # a fake dump; the kit's archive/checksum/config/lock paths execute unchanged.
+    fixture_bin = temp / 'fixture-bin'
+    fixture_bin.mkdir()
+    docker = fixture_bin / 'docker'
+    docker.write_text('''#!/usr/bin/env bash
+set -eu
+if [[ "$*" == *pg_dump* ]]; then
+  printf 'PGDMP isolated installer regression dump bytes; not a database backup'
+elif [[ "$*" == *pg_restore* ]]; then
+  cat >/dev/null
+else
+  echo 'Unexpected fixture Docker request' >&2
+  exit 1
+fi
+''')
+    docker.chmod(0o755)
+    import_path = temp / 'untrusted-imports'
+    import_path.mkdir()
+    shutil.copyfile(temp / 'poison.py', import_path / 'json.py')
+    ownership(import_path, 1000)
+    marker = temp / 'import-marker'
+    environment = dict(os.environ, PATH=str(fixture_bin) + os.pathsep + os.environ['PATH'],
+                       PYTHONPATH=str(import_path), IMPORT_MARKER=str(marker))
+    result = subprocess.run(['bash', str(install / 'scripts/backup.sh')], cwd=install,
+                            env=environment, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert 'Verified backup:' in result.stdout
+    assert not marker.exists(), 'Root timer path imported an untrusted local/cache/PYTHONPATH module'
+
+
+def main():
+    if os.geteuid() != 0:
+        raise SystemExit('Installer ownership tests require root: sudo python3 tests/installer.py')
+    with tempfile.TemporaryDirectory(prefix='agentkit-installer-') as directory:
+        temp = pathlib.Path(directory)
+        temp.chmod(0o755)
+        source = temp / 'download'
+        copy_source(source)
+        ownership(source, 1000)
+        install = temp / 'installed'
+        run(source, install)
+        saved = (install / '.env').read_bytes()
+        assert not (source / '.env').exists()
+        (install / 'backups/retained.tar.gz').write_bytes(b'private archive contents')
+        (install / 'state/backup-status.json').write_text('{"status":"verified"}')
+        backup_lock = (install / 'backups/.backup.lock').open('wb')
+        fcntl.flock(backup_lock, fcntl.LOCK_EX)
+        lock_inode = os.fstat(backup_lock.fileno()).st_ino
+        poisoned_caches(install, temp)
+        # Recreate ownership from the vulnerable installer, including a hardlink
+        # held by the old owner. The fixed reinstall must replace that inode.
+        ownership(install, 1000)
+        alias = source / 'old-backup-alias.sh'
+        os.link(install / 'scripts/backup.sh', alias)
+        run(install, install)
+        assert (install / '.env').read_bytes() == saved
+        assert (install / 'backups/retained.tar.gz').read_bytes() == b'private archive contents'
+        assert (install / 'backups/.backup.lock').stat().st_ino == lock_inode
+        with (install / 'backups/.backup.lock').open('rb') as competing_lock:
+            try:
+                fcntl.flock(competing_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                pass
+            else:
+                raise AssertionError('Reinstall invalidated the active backup lock')
+        backup_lock.close()
+        check_root_tree(install)
+        denied_mutations(install, temp)
+        installed_backup = (install / 'scripts/backup.sh').read_bytes()
+        alias.write_text('old descriptor/link cannot alter installed code\n')
+        assert (install / 'scripts/backup.sh').read_bytes() == installed_backup
+        timer_backup_path(install, temp)
+        print('PASS root fresh/same-directory install removes old owner access and detaches old inodes')
+        print('PASS root timer backup ignores retained sourceless caches and untrusted PYTHONPATH')
+
+        update = temp / 'update'
+        copy_source(update)
+        ownership(update, 1000)
+        (update / 'README.md').write_text('updated package\n')
+        (update / '.env').write_text('download secrets must not be copied\n')
+        run(update, install)
+        assert (install / 'README.md').read_text() == 'updated package\n'
+        assert (install / '.env').read_bytes() == saved
+        check_root_tree(install)
+        denied_mutations(install, temp)
+        print('PASS update copy secures trusted code/configuration and preserves credentials/runtime data')
+
+        writable = temp / 'writable'
+        writable.mkdir(mode=0o777)
+        writable.chmod(0o777)
+        assert 'writable' in run(source, writable / 'kit', ok=False).stderr
+        assert not (writable / 'kit').exists()
+        writable.chmod(0o755)
+        os.chown(writable, 1000, 1000)
+        assert 'root-owned ancestors' in run(source, writable / 'kit', ok=False).stderr
+        print('PASS root installs reject writable and operator-owned ancestors before creating files')
+
+        outside = temp / 'outside'
+        outside.mkdir()
+        marker = outside / 'keep'
+        marker.write_text('preserved')
+        link = temp / 'alias'
+        link.symlink_to(outside, target_is_directory=True)
+        run(source, link, ok=False)
+        run(source, link / 'kit', ok=False)
+        assert marker.read_text() == 'preserved' and not (outside / 'kit').exists()
+        (install / 'scripts/unsafe-link').symlink_to(marker)
+        run(source, install, ok=False)
+        (install / 'scripts/unsafe-link').unlink()
+        (source / 'scripts/unsafe-link').symlink_to(marker)
+        run(source, temp / 'unsafe-source', ok=False)
+        assert not (temp / 'unsafe-source').exists()
+        (source / 'scripts/unsafe-link').unlink()
+        (install / 'backups/unsafe-link').symlink_to(marker)
+        run(source, install, ok=False)
+        (install / 'backups/unsafe-link').unlink()
+        assert marker.read_text() == 'preserved'
+        print('PASS symlinked destinations, ancestors, package files and runtime paths fail safely')
+
+        home = temp / 'operator-home'
+        home.mkdir(mode=0o700)
+        ownership(home, 1000)
+        local = home / 'kit'
+        run(source, local, uid=1000)
+        local_env = (local / '.env').read_bytes()
+        run(local, local, uid=1000)
+        assert (local / '.env').read_bytes() == local_env
+        assert all(path.stat().st_uid == 1000 for path in [local, *local.rglob('*')])
+        print('PASS deliberate unprivileged installs retain operator ownership and private credentials')
+
+
+if __name__ == '__main__':
+    main()
+
+~~~~
+
 ## tests/mcp.mjs
 
 SHA-256: `92082561474075cb6c4735d455bc9f8833448b60f1130b62499db0519e6cb0b0`
@@ -6507,14 +9160,16 @@ SHA-256: `70ef6b66846a2182f92d8c42964c09696f1bb84b3a780a1484762c2efa54ece0`
 
 ## tests/package.py
 
-SHA-256: `f6a170beb83947536333f923fb9d7ae1d25112cce3a73d60cbceff5e4c7c8e65`
+SHA-256: `7d2bcce97e9f3f51b878df5ba98a18246d42a1bef9ba34303e8b00bfec5f7f99`
 
 ~~~~py
 #!/usr/bin/env python3
 """Run the customer's extracted ZIP, including its real Docker build and task API."""
-import hashlib,json,os,pathlib,subprocess,tempfile,zipfile,urllib.request,time
+import json,os,pathlib,subprocess,tempfile,urllib.request,time
+from release_artifact import extract_verified_bundle
 ROOT=pathlib.Path(__file__).resolve().parent.parent
-archive=ROOT/'release/self-hosted-agent-kit-2.0.0.zip'
+version=json.loads((ROOT/'app/package.json').read_text())['version']
+archive=ROOT/'release'/f'self-hosted-agent-kit-{version}.zip'
 env=dict(os.environ)
 for key in ['DOCKER_HOST','DOCKER_CONTEXT','DOCKER_TLS','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH']:env.pop(key,None)
 env.update(DOCKER_HOST='unix:///var/run/docker.sock',NO_PROXY='localhost,127.0.0.1',no_proxy='localhost,127.0.0.1')
@@ -6524,13 +9179,7 @@ def run(args,cwd):
     return r.stdout
 with tempfile.TemporaryDirectory(prefix='agentkit-package-') as tmp:
     tmp=pathlib.Path(tmp)
-    with zipfile.ZipFile(archive) as z:
-        for info in z.infolist():
-            assert not pathlib.PurePosixPath(info.filename).is_absolute() and '..' not in pathlib.PurePosixPath(info.filename).parts
-            out=pathlib.Path(z.extract(info,tmp));out.chmod(info.external_attr>>16&0o777)
-    kit=tmp/'self-hosted-agent-kit'
-    manifest=json.loads((kit/'RELEASE-MANIFEST.json').read_text())
-    for entry in manifest['files']:assert hashlib.sha256((kit/entry['path']).read_bytes()).hexdigest()==entry['sha256']
+    kit=extract_verified_bundle(archive,tmp,version)
     assert not (kit/'.env').exists()
     run(['./scripts/setup.sh','--dest',kit,'--no-start','--no-timer'],kit)
     p=kit/'.env';s=p.read_text().replace('COMPOSE_PROJECT_NAME=agentkit','COMPOSE_PROJECT_NAME=agentkit-package-test').replace('PUBLIC_ORIGIN=http://localhost:3080','PUBLIC_ORIGIN=http://localhost:13082').replace('PORT=3080','PORT=13082');p.write_text(s);p.chmod(0o600)
@@ -6538,7 +9187,7 @@ with tempfile.TemporaryDirectory(prefix='agentkit-package-') as tmp:
     compose=['docker','compose','-f','docker-compose.yml','-f','tests/compose.test.yml']
     if os.environ.get('TEST_BUILD_OVERRIDE'):compose+=['-f',os.environ['TEST_BUILD_OVERRIDE']]
     try:
-        run(compose+['build','api'],kit)
+        run(compose+['build'],kit)
         run(compose+['up','-d','--no-build','--wait','--wait-timeout','120'],kit)
         config=dict(line.split('=',1) for line in (kit/'.env').read_text().splitlines() if '=' in line and not line.startswith('#'))
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -6551,6 +9200,7 @@ with tempfile.TemporaryDirectory(prefix='agentkit-package-') as tmp:
         run(['npm','ci','--prefix','integrations/mcp','--ignore-scripts'],kit)
         print(run(['node','tests/mcp.mjs'],kit),end='')
         run(['npm','ci','--prefix','tests','--ignore-scripts'],kit)
+        print(run(['node','tests/frontend-regressions.mjs'],kit),end='')
         print(run(['node','tests/browser.mjs'],kit),end='')
         print(run(['node','tests/auth-rate.mjs'],kit),end='')
         basekit=tmp/'private-install'
@@ -6573,6 +9223,67 @@ with tempfile.TemporaryDirectory(prefix='agentkit-package-') as tmp:
         finally:run(['docker','compose','-f','docker-compose.yml','down','--volumes'],basekit)
         print('PASS versioned ZIP manifest, excluded credentials, dotfiles, Unix modes, same-directory setup, Docker build and end-to-end execution')
     finally:run(compose+['down','--volumes'],kit)
+
+~~~~
+
+## tests/release_artifact.py
+
+SHA-256: `73ddc00795f9076089b349c20d7cb513db9273aa4c5819696e9a4a7213d6fb46`
+
+~~~~py
+"""Validate and extract the exact customer bundle before runtime acceptance."""
+import hashlib
+import json
+from pathlib import Path, PurePosixPath
+import stat
+import zipfile
+
+
+def extract_verified_bundle(archive, destination, version):
+    archive, destination = Path(archive), Path(destination)
+    checksums = {}
+    for line in (archive.parent / 'SHA256SUMS').read_text().splitlines():
+        digest, name = line.split('  ', 1)
+        assert name not in checksums, 'Duplicate checksum entry'
+        checksums[name] = digest
+    assert checksums[archive.name] == hashlib.sha256(archive.read_bytes()).hexdigest()
+    digest_file = archive.parent / 'CODEBASE_DIGEST.md'
+    assert checksums[digest_file.name] == hashlib.sha256(digest_file.read_bytes()).hexdigest()
+    prefix = 'self-hosted-agent-kit/'
+    with zipfile.ZipFile(archive) as bundle:
+        names = bundle.namelist()
+        assert len(names) == len(set(names)), 'Duplicate ZIP entry'
+        manifest = json.loads(bundle.read(prefix + 'RELEASE-MANIFEST.json'))
+        assert manifest['product'] == 'ZeroLabs Agent Kit' and manifest['version'] == version
+        entries = {entry['path']: entry for entry in manifest['files']}
+        assert len(entries) == len(manifest['files']), 'Duplicate manifest entry'
+        expected = set(entries) | {'RELEASE-MANIFEST.json', 'CODEBASE_DIGEST.md'}
+        assert set(names) == {prefix + name for name in expected}, 'Unexpected or missing ZIP member'
+        assert bundle.read(prefix + 'CODEBASE_DIGEST.md') == digest_file.read_bytes()
+        for info in bundle.infolist():
+            path = PurePosixPath(info.filename)
+            assert not path.is_absolute() and '..' not in path.parts and info.filename.startswith(prefix)
+            assert stat.S_ISREG(info.external_attr >> 16), 'Non-regular ZIP member'
+            relative = info.filename[len(prefix):]
+            excluded = {'.git', 'node_modules', 'state', 'backups', 'data', 'logs', 'dist', 'release',
+                        '__pycache__', 'test-results', 'playwright-report'}
+            assert not any(part in excluded for part in path.parts)
+            assert path.suffix not in {'.pyc', '.log', '.zip', '.pdf', '.png'}
+            assert not any(part.startswith('.env') and part != '.env.example' for part in path.parts)
+            mode = 0o755 if relative.endswith('.sh') else 0o644
+            assert stat.S_IMODE(info.external_attr >> 16) == mode
+            data = bundle.read(info)
+            if relative in entries:
+                entry = entries[relative]
+                assert entry['bytes'] == len(data)
+                assert entry['sha256'] == hashlib.sha256(data).hexdigest()
+                assert entry['mode'] == f'{mode:04o}'
+            target = destination.joinpath(*path.parts)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+            target.chmod(mode)
+    assert json.loads((destination / prefix / 'app/package.json').read_text())['version'] == version
+    return destination / 'self-hosted-agent-kit'
 
 ~~~~
 
@@ -6806,5 +9517,121 @@ with tempfile.TemporaryDirectory() as tmp:
     env={**os.environ,'SYSTEMD_UNIT_PATH':str(tmp)+':/lib/systemd/system:/usr/lib/systemd/system'}
     subprocess.run(['systemd-analyze','verify',str(tmp/'agentkit-backup.service'),str(tmp/'agentkit-backup.timer')],check=True,env=env)
 print('PASS systemd unit syntax and dependencies (Docker dependency stub; not a live timer test)')
+
+~~~~
+
+## tests/update.py
+
+SHA-256: `e4ee52c14f11b7c00d301de83217f99ad078b96e0e7e4082033236ca68afd140`
+
+~~~~py
+#!/usr/bin/env python3
+"""Rehearse a v2 update and rollback using real services and a pre-update backup."""
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import time
+import urllib.request
+from release_artifact import extract_verified_bundle
+
+ROOT = Path(__file__).resolve().parent.parent
+ENV = dict(os.environ)
+for key in ['DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH']:
+    ENV.pop(key, None)
+ENV.update(DOCKER_HOST='unix:///var/run/docker.sock', NO_PROXY='localhost,127.0.0.1', no_proxy='localhost,127.0.0.1')
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def run(args, cwd):
+    result = subprocess.run(list(map(str, args)), cwd=cwd, env=ENV, capture_output=True, text=True, timeout=240)
+    if result.returncode:
+        raise RuntimeError(f'{args[0]} failed: {result.stderr[-2000:]}\n{result.stdout[-2000:]}')
+    return result.stdout
+
+
+def compose(kit, *args):
+    command = ['docker', 'compose', '-f', 'docker-compose.yml']
+    if os.environ.get('TEST_BUILD_OVERRIDE'):
+        command += ['-f', os.environ['TEST_BUILD_OVERRIDE']]
+    return run(command + list(args), kit)
+
+
+def config(kit):
+    return dict(line.split('=', 1) for line in (kit / '.env').read_text().splitlines()
+                if '=' in line and not line.startswith('#'))
+
+
+def api(cfg, path, body=None, token=None):
+    headers = {'Authorization': 'Bearer ' + (token or cfg['ADMIN_TOKEN'])}
+    if body is not None:
+        headers['Content-Type'] = 'application/json'
+    request = urllib.request.Request(cfg['PUBLIC_ORIGIN'] + path, headers=headers,
+                                     data=json.dumps(body).encode() if body is not None else None)
+    with OPENER.open(request, timeout=20) as response:
+        return json.load(response)
+
+
+def prepare(source, destination, project, port):
+    run(['bash', source / 'scripts/setup.sh', '--dest', destination, '--no-start', '--no-timer'], source)
+    path = destination / '.env'
+    text = path.read_text().replace('COMPOSE_PROJECT_NAME=agentkit', f'COMPOSE_PROJECT_NAME={project}')
+    text = text.replace('PUBLIC_ORIGIN=http://localhost:3080', f'PUBLIC_ORIGIN=http://localhost:{port}')
+    path.write_text(text.replace('PORT=3080', f'PORT={port}'))
+    path.chmod(0o600)
+    compose(destination, 'build')
+    return config(destination)
+
+
+version = json.loads((ROOT / 'app/package.json').read_text())['version']
+archive = ROOT / 'release' / f'self-hosted-agent-kit-{version}.zip'
+with tempfile.TemporaryDirectory(prefix='agentkit-update-') as temporary:
+    temporary = Path(temporary)
+    source = extract_verified_bundle(archive, temporary, version)
+    new_source = temporary / 'next-release'
+    shutil.copytree(source, new_source)
+    marker = '\nUpdate rehearsal: package files copied from the selected release.\n'
+    with (new_source / 'README.md').open('a') as output:
+        output.write(marker)
+    installed, rollback = temporary / 'installed', temporary / 'rollback'
+    try:
+        cfg = prepare(source, installed, 'agentkit-update-test', 13084)
+        saved_env = (installed / '.env').read_bytes()
+        run(['bash', 'scripts/setup.sh', '--dest', installed, '--no-timer'], installed)
+        document = api(cfg, '/api/documents', {'title': 'Update rehearsal', 'content': 'Preserve this verified context.'})
+        task = api(cfg, '/api/tasks', {'kind': 'audit', 'title': 'Before update'})['task']
+        for _ in range(40):
+            task = api(cfg, '/api/tasks/' + task['id'])['task']
+            if task['status'] in ['completed', 'failed', 'cancelled']:
+                break
+            time.sleep(0.5)
+        assert task['status'] == 'completed', task['status']
+        api(cfg, '/api/tokens', {'name': 'Update client', 'scopes': ['tasks:read']})
+        run(['bash', 'scripts/update.sh', new_source], installed)
+        assert (installed / '.env').read_bytes() == saved_env
+        assert marker in (installed / 'README.md').read_text()
+        assert api(cfg, '/api/tasks/' + task['id'])['task']['result'] == task['result']
+        assert api(cfg, '/api/documents/' + document['id'])['content'] == 'Preserve this verified context.'
+        assert len(api(cfg, '/api/tokens')['tokens']) == 1
+        assert api(cfg, '/health/ready')['status'] == 'ready'
+        summary = json.loads((installed / 'state/backup-status.json').read_text())
+        assert summary['status'] == 'verified'
+        backup = installed / 'backups' / summary['archive']
+        run(['python3', 'scripts/archives.py', 'verify', backup], installed)
+        print('PASS real v2 update creates a verified backup, copies package files, preserves configuration/data/tokens and becomes ready', flush=True)
+
+        recovered = prepare(source, rollback, 'agentkit-rollback-test', 13085)
+        run(['bash', 'scripts/restore.sh', backup], rollback)
+        assert api(recovered, '/api/tasks/' + task['id'])['task']['result'] == task['result']
+        assert api(recovered, '/api/documents/' + document['id'])['content'] == 'Preserve this verified context.'
+        assert api(recovered, '/api/tokens')['tokens'] == []
+        assert api(recovered, '/health/ready')['status'] == 'ready'
+        print('PASS rollback rehearsal restores the matching application/backup into a clean private project and revokes integration tokens', flush=True)
+    finally:
+        for kit in [installed, rollback]:
+            if (kit / '.env').exists():
+                compose(kit, 'down', '--volumes')
 
 ~~~~

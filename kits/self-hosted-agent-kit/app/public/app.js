@@ -54,6 +54,11 @@ let session = null,
   page = "overview",
   generation = 0,
   taskId = null,
+  dialogMode = null,
+  dialogVersion = 0,
+  detailRequest = 0,
+  documentRequest = 0,
+  tokenCreation = null,
   toastTimer,
   searchTimer,
   polling = false;
@@ -126,7 +131,7 @@ async function api(path, method = "GET", data, extra = {}) {
 }
 function showLogin(message = "") {
   session = null;
-  modal.close();
+  closeDialog();
   $("#boot").hidden = true;
   $("#app").hidden = true;
   $("#login").hidden = false;
@@ -282,7 +287,7 @@ async function loadTasks() {
 }
 async function documentsPage(gen) {
   const { documents } = await api("/api/documents");
-  if (gen !== generation) return;
+  if (gen !== generation || page !== "documents" || !session) return;
   $("#page").innerHTML =
     heading(
       "Documents",
@@ -295,7 +300,7 @@ async function documentsPage(gen) {
 }
 async function connectionsPage(gen) {
   const { tokens } = await api("/api/tokens");
-  if (gen !== generation) return;
+  if (gen !== generation || page !== "connections" || !session) return;
   $("#page").innerHTML =
     heading(
       "Connections",
@@ -322,7 +327,7 @@ systemctl list-timers agentkit-backup.timer</pre><p>To store a second copy, conf
 }
 async function settingsPage(gen) {
   const { entries } = await api("/api/audit");
-  if (gen !== generation) return;
+  if (gen !== generation || page !== "settings" || !session) return;
   $("#page").innerHTML =
     heading(
       "Workspace settings",
@@ -334,18 +339,63 @@ OPENAI_MODEL=your-supported-model
 # Apply changes from the kit directory:
 docker compose up -d --force-recreate worker</pre><p class="help">Request limits: 8 model calls, 2,048 output tokens per call, 180 seconds per task by default. Adjust in .env. These are technical limits, not a guaranteed currency budget.</p><a href="/docs#models" target="_blank" rel="noopener">Model configuration →</a></div></section></div><section class="panel detail-section"><div class="panel-head"><h2>Recent access and operator activity</h2><span class="muted">Latest 50</span></div>${entries.length ? entries.map((e) => `<div class="resource-row"><div class="resource-info"><span class="resource-title">${esc(e.action)}</span><small>${esc(e.actor)}${e.target ? " · " + esc(e.target.slice(0, 8)) : ""}</small></div><span class="muted">${esc(time(e.created_at))}</span></div>`).join("") : empty("No activity yet", "Operator actions will appear here.", "", "shield")}</section>`;
 }
-function dialog(title, html, detail = false) {
+function uiContext(element) {
+  return { session, generation, page, version: dialogVersion, element };
+}
+function currentDialog(context) {
+  return (
+    session &&
+    session === context.session &&
+    dialogVersion === context.version &&
+    (!context.element || context.element.isConnected)
+  );
+}
+function currentRoute(context, route = context.page) {
+  return (
+    session === context.session &&
+    session &&
+    generation === context.generation &&
+    page === route
+  );
+}
+function canChangeDialog() {
+  // The server returns a new token's secret once. Keep its submitted form until
+  // the bounded request settles so a replacement dialog cannot discard it.
+  if (tokenCreation && currentDialog(tokenCreation)) {
+    toast(
+      "Creating your token. Keep this dialog open until the request finishes.",
+    );
+    return false;
+  }
+  return true;
+}
+function dialog(title, html, detail = false, mode = "content") {
+  if (!canChangeDialog()) return false;
+  dialogMode = mode;
+  dialogVersion++;
+  if (mode !== "task") taskId = null;
   modal.classList.toggle("detail", detail);
   $("#modal-title").textContent = title;
   $("#modal-body").innerHTML = html;
   if (!modal.open) modal.showModal();
+  $("#modal-title").focus();
+  return true;
 }
 function closeDialog() {
-  modal.close();
+  if (!canChangeDialog()) return false;
+  dialogMode = null;
+  dialogVersion++;
   taskId = null;
+  modal.close();
+  return true;
 }
+modal.addEventListener("cancel", (e) => {
+  if (!canChangeDialog()) e.preventDefault();
+});
 modal.addEventListener("close", () => {
   if (modal.open) return;
+  dialogMode = null;
+  dialogVersion++;
   taskId = null;
   $("#modal-body").innerHTML = "";
 });
@@ -370,29 +420,43 @@ function newTask() {
     `<form id="task-form" data-key="${crypto.randomUUID()}"><p class="help">Tasks are saved before execution. Follow their progress and inspect the result.</p><label for="task-kind">Task type</label><select id="task-kind" name="kind"><option value="assistant" ${!configured ? "disabled" : ""}>AI assistant${!configured ? " · configure a model first" : ""}</option><option value="audit" ${!configured ? "selected" : ""}>System check · no model needed</option></select>${!configured ? '<p class="help">Configure OPENAI_API_KEY and OPENAI_MODEL on your host to enable AI tasks. <a href="/docs#models" target="_blank" rel="noopener">Setup guide ↗</a></p>' : ""}<label for="task-title">Title <span class="muted">(optional)</span></label><input id="task-title" name="title" maxlength="120" placeholder="Give this task a short name"><div id="prompt-field" ${!configured ? "hidden" : ""}><label for="task-prompt">What should the assistant do?</label><textarea id="task-prompt" name="prompt" rows="5" maxlength="16000" ${configured ? "required" : ""} placeholder="Read the project brief and create a concise launch checklist…"></textarea><p class="help">Can read workspace documents, calculate, and save text artifacts. Cannot run commands, browse the web, or send messages.</p></div><div class="form-error" role="alert"></div><div class="dialog-actions"><button class="button" type="button" data-action="close-dialog">Cancel</button><button class="button primary" type="submit">Create task ${icon("arrow")}</button></div></form>`,
   );
 }
-async function audit() {
+async function audit(context = uiContext()) {
   const data = await api(
     "/api/tasks",
     "POST",
     { kind: "audit" },
     { "idempotency-key": crypto.randomUUID() },
   );
-  await openTask(data.task.id);
-  await loadOverview();
+  if (currentDialog(context) && currentRoute(context))
+    await openTask(data.task.id);
+  else toast("System check created. Find it in Tasks.");
+  if (context.session === session && session) await loadOverview();
 }
 async function openTask(id) {
+  if (
+    !dialog("Task details", '<p class="muted">Loading task…</p>', true, "task")
+  )
+    return;
   taskId = id;
-  dialog("Task details", '<p class="muted">Loading task…</p>', true);
   await loadDetail(true);
 }
 async function loadDetail(initial = false) {
-  const id = taskId;
-  if (!id || !modal.open) return;
+  const id = taskId,
+    version = dialogVersion;
+  if (!id || !modal.open || dialogMode !== "task") return;
+  const request = ++detailRequest;
   const [data, trace] = await Promise.all([
     api(`/api/tasks/${id}`),
     api(`/api/tasks/${id}/events`),
   ]);
-  if (id !== taskId || !modal.open) return;
+  if (
+    id !== taskId ||
+    !modal.open ||
+    dialogMode !== "task" ||
+    version !== dialogVersion ||
+    request !== detailRequest
+  )
+    return;
   const t = data.task;
   $("#modal-title").textContent = t.title;
   const duration =
@@ -425,6 +489,8 @@ function confirmAction(title, text, label, action, target) {
   dialog(
     title,
     `<p>${esc(text)}</p><div class="form-error" role="alert"></div><div class="dialog-actions"><button class="button" data-action="close-dialog">Keep as is</button><button class="button danger" data-confirm="${action}" data-target="${esc(target)}">${esc(label)}</button></div>`,
+    false,
+    "confirm",
   );
 }
 function commands() {
@@ -438,6 +504,8 @@ function commands() {
       .join(
         "",
       )}<button data-action="new-task">${icon("plus")}New task<kbd>N</kbd></button></div>`,
+    false,
+    "command",
   );
 }
 async function copy(text) {
@@ -472,6 +540,13 @@ window.addEventListener("resize", () => {
 window.addEventListener("hashchange", () => {
   navigate().catch((error) => toast(error.message));
 });
+$(".skip-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  if (session) {
+    closeNav();
+    $("#main").focus();
+  } else $("#access-key").focus();
+});
 document.addEventListener("input", (e) => {
   if (e.target.id === "task-search") {
     search = e.target.value;
@@ -500,40 +575,73 @@ document.addEventListener("submit", async (e) => {
   if (!["task-form", "document-form", "token-form"].includes(form.id)) return;
   e.preventDefault();
   const submit = form.querySelector("[type=submit]");
+  const context = uiContext(form);
+  const errorArea = form.querySelector(".form-error");
+  let tokenPendingMessage,
+    tokenCloseButtons = [];
   submit.disabled = true;
-  form.querySelector(".form-error").textContent = "";
+  errorArea.textContent = "";
   const data = new FormData(form);
   try {
     if (form.id === "task-form") {
       const value = await api("/api/tasks", "POST", Object.fromEntries(data), {
         "idempotency-key": form.dataset.key,
       });
-      closeDialog();
-      await openTask(value.task.id);
-      await loadOverview();
+      const showResult = currentDialog(context) && currentRoute(context);
+      if (currentDialog(context)) closeDialog();
+      if (showResult) await openTask(value.task.id);
+      else toast("Task created. Find it in Tasks.");
+      if (context.session === session && session) await loadOverview();
     }
     if (form.id === "document-form") {
       await api("/api/documents", "POST", Object.fromEntries(data));
-      closeDialog();
+      if (currentDialog(context)) closeDialog();
       toast("Document added");
-      if (page === "documents") await documentsPage(generation);
+      if (currentRoute(context, "documents"))
+        await documentsPage(context.generation);
     }
     if (form.id === "token-form") {
+      tokenCreation = context;
+      tokenCloseButtons = [
+        ...modal.querySelectorAll('[data-action="close-dialog"]'),
+      ];
+      tokenCloseButtons.forEach((button) => (button.disabled = true));
+      tokenPendingMessage = document.createElement("p");
+      tokenPendingMessage.className = "help";
+      tokenPendingMessage.setAttribute("role", "status");
+      tokenPendingMessage.textContent =
+        "Creating token… Keep this dialog open until the request finishes.";
+      errorArea.before(tokenPendingMessage);
       const value = await api("/api/tokens", "POST", {
         name: data.get("name"),
         scopes: data.getAll("scope"),
       });
+      if (tokenCreation === context) {
+        tokenCreation = null;
+        tokenCloseButtons.forEach((button) => (button.disabled = false));
+      }
+      if (!currentDialog(context)) {
+        toast(
+          "Token created after your session changed. Revoke it in Connections if you did not save it.",
+        );
+        return;
+      }
       dialog(
         "Save your API token",
         `<div class="info-strip warning">This token is shown only once. Save it in your password manager before closing.</div><label for="new-token">${esc(value.name)}</label><input id="new-token" class="token-secret" readonly value="${esc(value.token)}"><p class="help">Permissions: ${esc(value.scopes.join(", "))}</p><div class="dialog-actions"><button class="button" data-action="copy-token">${icon("copy")}Copy token</button><button class="button primary" data-action="close-dialog">I have saved it</button></div>`,
       );
-      if (page === "connections") await connectionsPage(generation);
+      if (currentRoute(context, "connections"))
+        await connectionsPage(context.generation);
     }
   } catch (error) {
-    if (form.isConnected)
-      form.querySelector(".form-error").textContent = error.message;
+    if (currentDialog(context) && errorArea.isConnected)
+      errorArea.textContent = error.message;
     else toast(error.message);
   } finally {
+    if (tokenCreation === context) tokenCreation = null;
+    tokenPendingMessage?.remove();
+    if (!tokenCreation)
+      tokenCloseButtons.forEach((button) => (button.disabled = false));
     submit.disabled = false;
   }
 });
@@ -543,7 +651,15 @@ document.addEventListener("click", async (e) => {
   try {
     if (b.dataset.task) return await openTask(b.dataset.task);
     if (b.dataset.document) {
+      const context = uiContext(b),
+        request = ++documentRequest;
       const doc = await api(`/api/documents/${b.dataset.document}`);
+      if (
+        !currentDialog(context) ||
+        !currentRoute(context) ||
+        request !== documentRequest
+      )
+        return;
       return dialog(
         doc.title,
         `<div class="output" tabindex="0">${esc(doc.content)}</div><div class="dialog-actions"><button class="button" data-action="close-dialog">Close</button></div>`,
@@ -567,9 +683,12 @@ document.addEventListener("click", async (e) => {
         b.dataset.revoke,
       );
     if (b.dataset.cancelTask) {
+      const context = uiContext(b),
+        id = b.dataset.cancelTask;
       await api(`/api/tasks/${b.dataset.cancelTask}/cancel`, "POST", {});
       toast("Cancellation requested");
-      return await loadDetail();
+      if (currentDialog(context) && taskId === id) return await loadDetail();
+      return;
     }
     if (b.dataset.retryTask)
       return confirmAction(
@@ -582,17 +701,21 @@ document.addEventListener("click", async (e) => {
     if (b.dataset.confirm) {
       b.disabled = true;
       const { confirm, target } = b.dataset;
+      const context = uiContext(b),
+        errorArea = b.closest("#modal-body")?.querySelector(".form-error");
       try {
         if (confirm === "document") {
           await api(`/api/documents/${target}`, "DELETE");
-          closeDialog();
-          await documentsPage(generation);
+          if (currentDialog(context)) closeDialog();
+          if (currentRoute(context, "documents"))
+            await documentsPage(context.generation);
           toast("Document deleted");
         }
         if (confirm === "token") {
           await api(`/api/tokens/${target}`, "DELETE");
-          closeDialog();
-          await connectionsPage(generation);
+          if (currentDialog(context)) closeDialog();
+          if (currentRoute(context, "connections"))
+            await connectionsPage(context.generation);
           toast("Token revoked");
         }
         if (confirm === "retry") {
@@ -602,12 +725,16 @@ document.addEventListener("click", async (e) => {
             {},
             { "idempotency-key": crypto.randomUUID() },
           );
-          closeDialog();
-          await openTask(data.task.id);
+          const showResult = currentDialog(context) && currentRoute(context);
+          if (currentDialog(context)) closeDialog();
+          if (showResult) await openTask(data.task.id);
+          else toast("Retry created. Find it in Tasks.");
         }
       } catch (error) {
         b.disabled = false;
-        $("#modal-body .form-error").textContent = error.message;
+        if (currentDialog(context) && errorArea?.isConnected)
+          errorArea.textContent = error.message;
+        else toast(error.message);
       }
       return;
     }
@@ -630,7 +757,7 @@ document.addEventListener("click", async (e) => {
       case "audit":
         b.disabled = true;
         try {
-          await audit();
+          await audit(uiContext(b));
         } finally {
           b.disabled = false;
         }
@@ -651,10 +778,12 @@ document.addEventListener("click", async (e) => {
         } catch {}
         break;
       }
-      case "logout":
+      case "logout": {
+        const currentSession = session;
         await api("/api/auth/logout", "POST", {});
-        showLogin();
+        if (session === currentSession) showLogin();
         break;
+      }
       case "command":
         commands();
         break;
@@ -662,7 +791,13 @@ document.addEventListener("click", async (e) => {
         await copy($("#new-token").value);
         break;
       case "copy-result":
-        if (taskId) await copy((await api(`/api/tasks/${taskId}`)).task.result);
+        if (taskId) {
+          const id = taskId,
+            context = uiContext(b);
+          const data = await api(`/api/tasks/${id}`);
+          if (currentDialog(context) && taskId === id)
+            await copy(data.task.result);
+        }
         break;
       case "clear-filter":
         filter = "";
@@ -721,7 +856,7 @@ setInterval(async () => {
   polling = true;
   try {
     await loadOverview();
-    if (taskId) await loadDetail();
+    if (dialogMode === "task" && taskId) await loadDetail();
     const interacting =
       $("#page").contains(document.activeElement) &&
       document.activeElement.matches("input,select,button,a");

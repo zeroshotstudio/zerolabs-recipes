@@ -4,9 +4,9 @@
 >
 > Implementing a robust local editor backend requires full support for five primitives (`view`, `create`, `str_replace`, `insert`, and `undo_edit`), optional file inspection ranges, enforced workspace containment, and bounded in-memory undo snapshots. The backend is intended for a private single-writer workspace, not a host filesystem sandbox.
 
-Autonomous software engineering agents require reliable, deterministic mechanisms to inspect codebases and apply file modifications. Early generative code workflows relied on complete file overwrites: to change a single configuration constant, an LLM reproduced an entire 800-line script. This approach introduced acute operational hazards. In multi-thousand-token files, models frequently hallucinated missing functions, dropped nested error handlers, stripped inline comments, and exhausted output token limits mid-file. Furthermore, full overwrites incurred massive token latency and inflated API billing.
+Autonomous software engineering agents require reliable mechanisms to inspect codebases and apply file modifications. A full-file overwrite asks the model to reproduce an entire source file to change a single configuration constant. During that rewrite, the model can omit functions, drop error handlers or comments, or exhaust its output limit before finishing. Returning unchanged content can also add output tokens.
 
-To solve these failure modes, Anthropic formalized the built-in text editor tool (`type: "text_editor_20241022"` and `type: "text_editor_20250124"`). Rather than rewriting entire source files, Claude operates as an interactive developer: it inspects target line ranges using `view`, validates surrounding context, executes surgical string replacements with `str_replace`, inserts boilerplate with `insert`, and reverts errors using `undo_edit`.
+Anthropic's text editor tool provides targeted file operations. This recipe illustrates the historical `text_editor_20241022` and `text_editor_20250124` interfaces: Claude inspects target line ranges using `view`, validates surrounding context, requests string replacements with `str_replace`, inserts content with `insert`, and requests rollback using `undo_edit`. Check the current platform documentation for available model and tool combinations before making live requests.
 
 This guide details the internal mechanics of Anthropic's text editor tool, the mathematical uniqueness guarantees of `str_replace`, workspace containment controls, reference backend implementations in Python and TypeScript, and automated verification via cURL.
 
@@ -27,17 +27,17 @@ Companion code repository: [ZeroLabs Claude Recipes Monorepo](https://github.com
 
 ## Why Do Full File Overwrites Fail in Agentic Coding?
 
-In agentic code editing benchmarks, full-file write tools generate systemic failure modes across three distinct dimensions:
+Full-file write tools can create problems in three areas:
 
-1. **Hallucinatory Truncation and Silent Deletion**: When regenerating a 600-line module to update a single database connection string, models routinely replace complex logic with placeholder comments like `# ... rest of existing implementation unchanged ...`. In automated pipelines without human review, this wipes production business logic.
-2. **Context and Token Inefficiency**: Generating 1,500 output tokens to modify a 12-character variable name increases turn latency from 450ms to over 8,500ms. In a 10-step agent loop, token consumption expands by 12x to 18x.
-3. **Loss of Diff Auditability**: Git commits generated from full-file overwrites obscure actual logic modifications. Pull request reviewers must scan hundreds of reformatted lines rather than inspecting a clean 3-line unified diff.
+1. **Hallucinatory Truncation and Silent Deletion**: When regenerating a module to update a database connection string, a model can replace unrelated logic with placeholder comments like `# ... rest of existing implementation unchanged ...`. Applying that output without review can delete working code.
+2. **Context and Token Inefficiency**: Returning an entire file for a small change includes unchanged content in the model's output. Targeted edits can reduce that output; the effect on token use, latency, and cost depends on the file, task, and model.
+3. **Loss of Diff Auditability**: Full-file overwrites can mix the intended change with unrelated formatting changes, making the resulting diff harder to review.
 
 Substring edits can reduce the amount of code the model must return and make diffs easier to review. Actual token use, latency, and edit accuracy depend on the task and model; this recipe includes no benchmark supporting a quantitative improvement claim.
 
 ## What Is the Anthropic Text Editor Tool Specification?
 
-Anthropic provides the text editor tool as a first-class platform primitive. When registering the tool with Claude 3.7 Sonnet or Claude 3.5 Sonnet, developers declare the built-in type in the request's `tools` array:
+Anthropic provides the text editor tool as a first-class platform primitive. The historical API examples in this recipe declare the built-in type in the request's `tools` array:
 
 ```json
 {
@@ -80,10 +80,10 @@ Agent architectures handle filesystem operations using diverse methodologies. Th
 
 | Editing Pattern | Precision Metric | Token Efficiency | Hallucination Risk | Rollback Safety |
 | :--- | :--- | :--- | :--- | :--- |
-| **Full File Overwrite** | Low (Rewrites entire file) | Low (Consumes full token budget) | High (Prone to logic truncation) | Low (Requires git reset) |
+| **Full File Overwrite** | Low (Rewrites entire file) | Low (Returns unchanged content too) | High (Prone to logic truncation) | Low (Requires git reset) |
 | **Line-Based Patching (sed/ed)** | Medium (Relies on exact line numbers) | Moderate (Transmits line deltas) | High (Shifts invalid on concurrent edits) | Moderate (Requires patch reverse) |
 | **Unified Diff Application (patch)** | High (Fuzz matching chunks) | High (Transmits diff hunks) | Medium (Fuzz offsets can misapply) | High (Standardized patch revert) |
-| **Unique Substring Match (str_replace)** | Exact (100% deterministic uniqueness) | High (Transmits target snippet only) | Minimal (Fails fast on ambiguity) | High (In-memory undo snapshots) |
+| **Unique Substring Match (str_replace)** | Exact (Requires one unique match) | High (Transmits target snippet only) | Minimal (Fails fast on ambiguity) | High (In-memory undo snapshots) |
 
 The unique substring match pattern validates the requested target against the current file. It fails when that target is missing or ambiguous; it cannot detect an unrelated external edit or provide concurrency isolation by itself.
 
@@ -176,7 +176,7 @@ Verifying raw tool interactions using `curl` and `jq` validates protocol compati
 
 ### Step 1: Initiating an Edit Request
 
-Send the initial user instruction with the text editor tool declared:
+The following historical protocol example uses `claude-3-7-sonnet-20250219` and `text_editor_20250124`. Check current model availability and tool compatibility in the official documentation before adapting it for a live request. Send the initial user instruction with the text editor tool declared:
 
 ```bash
 curl -s -X POST https://api.anthropic.com/v1/messages \
@@ -315,5 +315,5 @@ Yes. The backends create missing directories one component at a time through hel
 ### How does undo_edit handle multiple sequential edits?
 The backend retains up to 50 in-memory snapshots per file from successful `str_replace` and `insert` operations. `undo_edit` restores the most recent snapshot through the same no-follow file descriptor boundary, then removes it from history only after a successful write. `create` does not add an undo snapshot. History does not survive process exit.
 
-### What tool type identifier should be used in current API versions?
-Anthropic introduced `type: "text_editor_20241022"` with Claude 3.5 Sonnet and subsequently released `type: "text_editor_20250124"`. Both versions are supported across Claude 3.5 and Claude 3.7 models, with `text_editor_20250124` offering optimized prompt conditioning for complex multi-file refactoring.
+### Which tool type identifiers do these examples illustrate?
+This recipe illustrates the historical `text_editor_20241022` and `text_editor_20250124` interfaces. Its cURL examples use `text_editor_20250124` with the historical `claude-3-7-sonnet-20250219` model identifier. These examples do not establish current API availability or compatibility; check the [official tool documentation](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/text-editor-tool) for currently supported models, tool types, and commands before making live requests.

@@ -1,0 +1,41 @@
+ZEROLABS AGENT KIT — PRODUCT WALKTHROUGH
+
+Real application in an isolated demo workspace. Model responses and token counts are scripted. Document access, calculation, task execution, artifact download, cancellation, token revocation and local backup were exercised.
+
+Silent video with on-screen captions. This recording is not a live-model test, performance benchmark, or proof of a production-host deployment.
+
+0:00 — Welcome
+Agent Kit product walkthrough. Demo workspace, scripted model responses, real local execution.
+
+0:04 — 01 / Your workspace
+See tasks, worker health and saved results in one place.
+
+0:07 — 02 / Add useful context
+Add a brief the assistant can read during a task.
+
+0:18 — 03 / Give it a task
+Describe the work, then submit it to the durable queue.
+
+0:26 — 04 / Follow the work
+The worker executes document, calculation and artifact tools.
+
+0:34 — 05 / Keep the result
+Inspect the saved answer and download the text artifact.
+
+0:44 — 06 / Stay in control
+Cancel running work. Its history remains available to inspect.
+
+0:57 — 07 / Manage access
+Give integrations scoped tokens, then revoke access when needed.
+
+1:05 — 08 / Make recovery routine
+Review the status of a real, checksum-verified database backup.
+
+1:12 — Agent Kit 2.0 / ZeroLabs
+Run the workspace on your server. Bring your own OpenAI account.
+
+1:16 — Explore Agent Kit
+Run Agent Kit on your own Linux host. Supply your OpenAI account. Model usage is billed separately.
+
+The backup shown is local. Offsite storage and target-host restore checks remain separate.
+No operator credential or integration secret is shown in the recording.

@@ -1,0 +1,99 @@
+{
+  "duration": 80.2,
+  "width": 1440,
+  "height": 1020,
+  "codec": "H.264 / yuv420p",
+  "audio": false,
+  "teaser_duration": 13.5,
+  "chapters": [
+    {
+      "id": "overview",
+      "title": "01 / Your workspace",
+      "caption": "See tasks, worker health and saved results in one place.",
+      "time": 4.0
+    },
+    {
+      "id": "documents",
+      "title": "02 / Add useful context",
+      "caption": "Add a brief the assistant can read during a task.",
+      "time": 7.401
+    },
+    {
+      "id": "create-task",
+      "title": "03 / Give it a task",
+      "caption": "Describe the work, then submit it to the durable queue.",
+      "time": 18.704
+    },
+    {
+      "id": "execution",
+      "title": "04 / Follow the work",
+      "caption": "The worker executes document, calculation and artifact tools.",
+      "time": 26.345
+    },
+    {
+      "id": "results",
+      "title": "05 / Keep the result",
+      "caption": "Inspect the saved answer and download the text artifact.",
+      "time": 34.541
+    },
+    {
+      "id": "cancel",
+      "title": "06 / Stay in control",
+      "caption": "Cancel running work. Its history remains available to inspect.",
+      "time": 44.198
+    },
+    {
+      "id": "connections",
+      "title": "07 / Manage access",
+      "caption": "Give integrations scoped tokens, then revoke access when needed.",
+      "time": 57.661
+    },
+    {
+      "id": "recovery",
+      "title": "08 / Make recovery routine",
+      "caption": "Review the status of a real, checksum-verified database backup.",
+      "time": 65.397
+    },
+    {
+      "id": "finish",
+      "title": "Agent Kit 2.0 / ZeroLabs",
+      "caption": "Run the workspace on your server. Bring your own OpenAI account.",
+      "time": 72.768
+    }
+  ],
+  "disclosure": "Real application in an isolated demo workspace. Model responses and token counts are scripted. Document access, calculation, task execution, artifact download, cancellation, token revocation and local backup were exercised.",
+  "checks": {
+    "savedResult": 437,
+    "artifactDownloaded": true,
+    "taskCancelled": true,
+    "tokenRevoked": true,
+    "backupVerified": true,
+    "pageErrors": []
+  },
+  "assets": {
+    "agent-kit-teaser.gif": {
+      "bytes": 425909,
+      "sha256": "c3bc102833a00f9b57fdcdbdfabfda659dadff320c863406b7bb6ce09f08d1a1"
+    },
+    "agent-kit-walkthrough-poster.jpg": {
+      "bytes": 84693,
+      "sha256": "22800a5d8725cc748a8cb45948ec31596e6935f34918fa14c069f827ca0ee8d3"
+    },
+    "agent-kit-walkthrough.mp4": {
+      "bytes": 1377652,
+      "sha256": "3b783d7d89be805a7029c1f6df4bfb25b9598a278a2c71161383b6b45fa03747"
+    },
+    "walkthrough-chapters.vtt": {
+      "bytes": 596,
+      "sha256": "39bcfca25aa69b4866c79b2a1e1452f5fb6da04de53047c92442b74867812e6a"
+    },
+    "walkthrough-transcript.txt": {
+      "bytes": 1645,
+      "sha256": "cff8efb463e8dfe812b2a4f2d740b7b490662571cfa6800efe17855d2990a223"
+    },
+    "walkthrough.en.vtt": {
+      "bytes": 1106,
+      "sha256": "b9a414c3f6beca23641b3431c21fe84086940670267496889bcfe3622b0dec00"
+    }
+  }
+}

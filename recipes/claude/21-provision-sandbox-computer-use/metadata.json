@@ -1,8 +1,8 @@
 {
-  "title": "How to Provision and Sandbox Claude Computer Use",
+  "title": "Claude Computer Use Protocol Simulator and Sandbox Design Notes",
   "slug": "how-to-provision-and-sandbox-claude-computer-use",
   "zone": "resources",
-  "excerpt": "Provision isolated virtual desktop sandboxes for Claude Computer Use with Xvfb, fluxbox, base64 visual feedback, and human-in-the-loop security boundaries.",
+  "excerpt": "Explore Computer Use tool-result handling with an in-memory protocol simulator and transparent 1x1 placeholder screenshots. Includes illustrative, unvalidated virtual-desktop design notes; no isolation or human-approval system is shipped.",
   "tags": [
     "claude",
     "anthropic",

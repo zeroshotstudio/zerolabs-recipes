@@ -52,7 +52,7 @@ export interface ParsedToolCall {
 }
 
 export interface ParsedResponse {
-  stopReason: Anthropic.Messages.StopReason | null;
+  stopReason: Anthropic.Message["stop_reason"];
   textBlocks: string[];
   toolCalls: ParsedToolCall[];
 }

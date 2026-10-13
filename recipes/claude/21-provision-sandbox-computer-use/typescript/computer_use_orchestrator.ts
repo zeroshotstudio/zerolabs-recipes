@@ -1,8 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
+import assert from "node:assert/strict";
+
+// In-memory protocol simulator. No actual desktop or security boundary exists.
+const SIMULATOR_WARNING =
+  "PROTOCOL SIMULATOR ONLY: no desktop, container isolation, network filtering or human approval is implemented. Screenshots are a transparent 1x1 PNG. Live mode makes real Anthropic requests and may incur charges.";
 
 // Minimal valid 1x1 transparent PNG base64
-const MOCK_SCREENSHOT_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+const PLACEHOLDER_SCREENSHOT_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=";
 
 interface DesktopActionInput {
   action: string;
@@ -11,7 +16,7 @@ interface DesktopActionInput {
   [key: string]: unknown;
 }
 
-class VirtualDesktop {
+class ComputerUseSimulator {
   public width: number;
   public height: number;
   public displayNumber: number;
@@ -28,26 +33,63 @@ class VirtualDesktop {
     const { action, coordinate, text } = input;
 
     if (action === "screenshot") {
-      return { screenshot_base64: MOCK_SCREENSHOT_BASE64 };
+      return {
+        simulated: true,
+        screenshot_base64: PLACEHOLDER_SCREENSHOT_BASE64,
+        image_width: 1,
+        image_height: 1,
+      };
     } else if (action === "mouse_move" && coordinate) {
-      this.cursorX = Math.max(0, Math.min(this.width, coordinate[0]));
-      this.cursorY = Math.max(0, Math.min(this.height, coordinate[1]));
-      return { status: "success", cursor: [this.cursorX, this.cursorY] };
-    } else if (["left_click", "right_click", "double_click"].includes(action)) {
-      return { status: "success", action, cursor: [this.cursorX, this.cursorY] };
-    } else if (action === "type" && text) {
-      return { status: "success", characters_typed: text.length };
-    } else if (action === "key" && text) {
-      return { status: "success", key_pressed: text };
+      this.cursorX = Math.max(0, Math.min(this.width - 1, coordinate[0]));
+      this.cursorY = Math.max(0, Math.min(this.height - 1, coordinate[1]));
+      return {
+        simulated: true,
+        status: "simulated",
+        cursor: [this.cursorX, this.cursorY],
+      };
+    } else if (
+      [
+        "left_click",
+        "right_click",
+        "double_click",
+        "triple_click",
+        "middle_click",
+      ].includes(action)
+    ) {
+      return {
+        simulated: true,
+        status: "simulated",
+        action,
+        cursor: [this.cursorX, this.cursorY],
+      };
+    } else if (action === "type") {
+      return {
+        simulated: true,
+        status: "simulated",
+        characters_simulated: (text || "").length,
+      };
+    } else if (action === "key") {
+      return {
+        simulated: true,
+        status: "simulated",
+        key_simulated: text || "",
+      };
+    } else if (action === "cursor_position") {
+      return { simulated: true, coordinate: [this.cursorX, this.cursorY] };
     }
-    return { status: "unsupported_action", action };
+    return { simulated: true, status: "unsupported_action", action };
   }
 }
 
-class SandboxSecurityGateway {
-  public static evaluateSafety(action: string, input: DesktopActionInput): boolean {
+// Toy keyword rejection demonstrates tool errors, not security or approval.
+class ExampleActionFilter {
+  public static accepts(input: DesktopActionInput): boolean {
     const text = (input.text || "").toLowerCase();
-    if (text.includes("rm -rf") || text.includes("sudo") || text.includes(":(){ :|:& };:")) {
+    if (
+      text.includes("rm -rf") ||
+      text.includes("sudo") ||
+      text.includes(":(){ :|:& };:")
+    ) {
       return false;
     }
     return true;
@@ -55,6 +97,7 @@ class SandboxSecurityGateway {
 }
 
 async function runComputerUseAgent(goal: string, maxTurns = 5) {
+  console.warn(SIMULATOR_WARNING);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     console.error("Error: ANTHROPIC_API_KEY is required.");
@@ -62,7 +105,7 @@ async function runComputerUseAgent(goal: string, maxTurns = 5) {
   }
 
   const client = new Anthropic({ apiKey });
-  const desktop = new VirtualDesktop(1024, 768, 1);
+  const desktop = new ComputerUseSimulator(1024, 768, 1);
 
   const computerTool: Anthropic.Beta.Messages.BetaToolComputerUse20250124 = {
     type: "computer_20250124",
@@ -73,7 +116,12 @@ async function runComputerUseAgent(goal: string, maxTurns = 5) {
   };
 
   const messages: Anthropic.Beta.Messages.BetaMessageParam[] = [
-    { role: "user", content: goal },
+    {
+      role: "user",
+      content:
+        "This is a protocol simulator, not a real desktop. All screenshots are a transparent 1x1 placeholder and actions only update in-memory state. Requested demonstration: " +
+        goal,
+    },
   ];
 
   let turn = 0;
@@ -82,7 +130,7 @@ async function runComputerUseAgent(goal: string, maxTurns = 5) {
     console.log(`[Turn ${turn}] Invoking Anthropic API...`);
 
     const response = await client.beta.messages.create({
-      model: "claude-3-7-sonnet-20250219",
+      model: process.env.MODEL || "claude-3-7-sonnet-20250219",
       max_tokens: 2048,
       tools: [computerTool],
       betas: ["computer-use-2025-01-24"],
@@ -93,7 +141,9 @@ async function runComputerUseAgent(goal: string, maxTurns = 5) {
     messages.push({ role: "assistant", content: response.content });
 
     if (response.stop_reason !== "tool_use") {
-      console.log("Agent run completed.");
+      console.log(
+        "Protocol simulation finished; no desktop task was executed.",
+      );
       break;
     }
 
@@ -104,13 +154,14 @@ async function runComputerUseAgent(goal: string, maxTurns = 5) {
         const input = block.input as DesktopActionInput;
         const action = input.action;
 
-        if (!SandboxSecurityGateway.evaluateSafety(action, input)) {
-          console.warn(`[Security Alert] Action blocked by security gateway: ${action}`);
+        if (!ExampleActionFilter.accepts(input)) {
+          console.warn(`Toy filter rejected simulated action: ${action}`);
           toolResults.push({
             type: "tool_result",
             tool_use_id: block.id,
             is_error: true,
-            content: "SecurityPolicyViolation: Action rejected by sandbox safety policy.",
+            content:
+              "SimulatedActionRejected: Toy keyword filter rejected this simulated action. No human approval or security boundary is implemented.",
           });
           continue;
         }
@@ -122,6 +173,10 @@ async function runComputerUseAgent(goal: string, maxTurns = 5) {
             type: "tool_result",
             tool_use_id: block.id,
             content: [
+              {
+                type: "text",
+                text: "simulated: true; transparent 1x1 placeholder, not a desktop screenshot",
+              },
               {
                 type: "image",
                 source: {
@@ -146,5 +201,47 @@ async function runComputerUseAgent(goal: string, maxTurns = 5) {
   }
 }
 
-const targetGoal = process.env.TEST_GOAL || "Launch browser and navigate to example.com";
-runComputerUseAgent(targetGoal).catch(console.error);
+function offlineSmoke() {
+  console.warn(SIMULATOR_WARNING);
+  const desktop = new ComputerUseSimulator();
+  const screenshot = desktop.executeAction({ action: "screenshot" });
+  assert.equal(screenshot.simulated, true);
+  const png = Buffer.from(screenshot.screenshot_base64 as string, "base64");
+  assert.equal(png.readUInt32BE(16), 1);
+  assert.equal(png.readUInt32BE(20), 1);
+  assert.deepEqual(
+    desktop.executeAction({ action: "mouse_move", coordinate: [1024, -1] })
+      .cursor,
+    [1023, 0],
+  );
+  for (const action of [
+    "left_click",
+    "type",
+    "key",
+    "cursor_position",
+    "unsupported",
+  ]) {
+    assert.equal(
+      desktop.executeAction({ action, text: "demonstration only" }).simulated,
+      true,
+    );
+  }
+  assert.equal(
+    ExampleActionFilter.accepts({ action: "type", text: "sudo rm -rf /" }),
+    false,
+  );
+  console.log(
+    "PASS offline Computer Use protocol simulator; no API or desktop interaction",
+  );
+}
+
+if (process.argv.includes("--offline-smoke")) offlineSmoke();
+else {
+  const targetGoal =
+    process.env.TEST_GOAL ||
+    "Demonstrate a screenshot request and cursor movement; no real desktop is available.";
+  runComputerUseAgent(targetGoal).catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

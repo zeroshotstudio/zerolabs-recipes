@@ -126,3 +126,28 @@ price/currency, merchant/legal/privacy facts, sender setup, host migration/deplo
 private files, retry timer monitoring, live article corrections/readback and real
 purchase/download/withdrawal/refund acceptance remain required. All original findings
 and account/deployment gates above remain in the register; none are omitted.
+
+
+## Main adoption follow-up — 2026-10-13
+
+The owner selected this implementation for launch and authorized both PR merges.
+Product main `22efe3f` has green Recipes CI 38418662507 and complete Agent Kit
+acceptance 38418662486. Site PR #24 merged as `4ba6291`. Product files/marketing/ZIP
+match the reviewed branch; two unrelated recipe additions on main were preserved.
+Both working trees switched to main.
+
+The site's first main build exposed Next.js Google-font loader failure (N16).
+Site commit `bbc2441` bundles the same font families with pinned upstream provenance
+and OFL notices. A build without production DATABASE_URL also found curriculum
+prerender failure and empty listing risks (N17); live-data pages now render at
+runtime. The complete credential-free production build and existing content/type/
+lint checks pass; site CI includes both credential-free and fixture-database builds.
+
+The launch implementation is selected; live activation remains separate. Public
+health was 200 while the new product/order/withdrawal routes were 404. ZeroVPS
+repository access provides the deployment contract but no authenticated host,
+VPN or MCP session is configured, and no deployment Actions workflow exists there.
+Actual deployment/migration/private files/mail timer, article corrections, approved
+price/merchant terms and real transaction acceptance remain required. No live host
+write, charge, refund or email was performed. All original and follow-up findings,
+including the unpatched development-only advisory, remain in the full register.

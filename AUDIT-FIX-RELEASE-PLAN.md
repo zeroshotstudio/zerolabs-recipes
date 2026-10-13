@@ -40,6 +40,9 @@ Findings 7, 8 and 10 concern repository recipes outside the Agent Kit ZIP. They 
 | N13 / open live-site gate | The separately deployed ZeroLabs legal pages retain Berlin/contact details that conflict with the confirmed Australian operator, and GA4 initializes without a source-level consent condition. Existing analytics/privacy statements do not accurately establish the observed PostgreSQL/contact/newsletter/optional Turnstile flows. | Prepare exact application-source corrections and a fact-dependent privacy inventory; use the actual deployment route. Verify the final identity, vendor roles, retention/transfers and regional tracking/consent behavior in a real browser. These external application defects are not closed by recipe payloads, draft terms or kit CI. |
 | N14 / fixed site source | The separate site's production npm audit reported 3 Critical, 50 High, 88 Moderate and 16 Low advisory records, including outdated Next.js/MCP dependencies and a development CLI installed as production. | ZeroLabs PR #24 updates compatible packages and transitive pins, moves shadcn to development, and passes the production build, existing content/MCP tests and a zero-advisory production npm audit. Require site CI and actual deployment; this does not change the kit archive or certify the site OS image. |
 | N15 / open development maintenance | The complete site development graph retains High `GHSA-vfj7-8cjw-p6xm` in braces 3.0.3 through ESLint/fast-glob/shadcn. No patched registry version is published. | Restricted to trusted repository build/lint patterns; absent from the production dependency audit and inspected standalone output. Do not expose those tools to untrusted patterns. Track/adopt the published upstream fix. No audit ignore or assertion of a clean full development graph. |
+| N16 / fixed site source | The first merged-site main build failed in Next.js's Google-font loader, although prior PR builds passed. | Bundle pinned IBM Plex Sans/JetBrains Mono fonts through next/font/local, preserving families/weight ranges and carrying their OFL notices. The loader/network dependency is removed; the full production build and existing content checks pass. Main CI repeats browser/rendering checks. |
+| N17 / fixed site source | Removing secrets from the Docker context exposed a build dependency on production DATABASE_URL for three curriculum hubs; listing fallbacks could also bake empty live-data pages. | Render live-data hubs, homepage/pagination and course index at runtime. The complete build now passes without DATABASE_URL; CI repeats both credential-free and fixture-database builds. Runtime DB credentials remain outside image build layers. |
+
 
 ## 3. Automation and final-source validation
 
@@ -125,6 +128,28 @@ price/currency and merchant/legal facts, a verified email sender, private releas
 assigned operators and finalized terms. No real transaction/email, ZeroVPS deployment,
 timer firing or live article write occurred. These remaining activation checks keep N13
 and the applicable account/deployment gates open. The kit source and ZIP are unchanged.
+
+### Launch implementation selected and promoted to main — 2026-10-13
+
+The owner selected this Agent Kit and site implementation as the launch product
+and authorized promoting the working branches to main. Product PR #1 merged as
+`22efe3f`; site PR #24 merged as `4ba6291`, with build corrections in site commit
+`bbc2441`. Both local checkouts track main. Two unrelated recipe additions already
+on main were preserved; the reviewed Agent Kit, marketing and archive bytes match
+`2009143` exactly. The 2.0.0 customer ZIP remains SHA-256
+`6a2f13f9385a4ebfc5d1dedef07b5975d0ff8aaabe67c7bfe7efbd48f7d79b39`.
+
+Product main at `22efe3f` passed [Recipes CI 38418662507](https://github.com/zeroshotstudio/zerolabs-recipes/actions/runs/38418662507)
+and [complete Agent Kit acceptance 38418662486](https://github.com/zeroshotstudio/zerolabs-recipes/actions/runs/38418662486).
+N16–N17 record the site build follow-up. Source selection and main adoption do not
+satisfy the remaining account, legal, host, timer, backup and real transaction gates.
+
+A read-only public check found `/api/health` healthy and `/agent-kit`, its order page
+and withdrawal page still returning 404. ZeroVPS repository access works, but there
+is no deployment Actions workflow and no host/VPN/MCP connection bound here. Its
+normal deployment/updater contract requires actual host backup, migration, immutable
+rollback and health/state verification. No host mutation, live article write,
+commerce activation or financial transaction was performed in this follow-up.
 
 ## 5. Release sequence and rollback
 

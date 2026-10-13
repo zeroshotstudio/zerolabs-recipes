@@ -1,0 +1,11 @@
+[Unit]
+Description=Verified Agent Kit database backup
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=@INSTALL_DIR@
+ExecStart="@INSTALL_DIR@/scripts/backup.sh"
+UMask=0077
+TimeoutStartSec=1800

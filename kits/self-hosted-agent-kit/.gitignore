@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+node_modules/
+backups/
+state/
+logs/
+data/
+dist/
+release/*.zip
+release/*.tar.gz
+release/SHA256SUMS
+!app/lib/
+!app/lib/*.js
+release/

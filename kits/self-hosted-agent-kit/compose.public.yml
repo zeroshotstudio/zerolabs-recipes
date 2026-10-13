@@ -1,0 +1,9 @@
+# Requires Docker Compose 2.24.4+ for !override.
+services:
+  caddy:
+    ports: !override ["80:80", "443:443"]
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?Set PUBLIC_DOMAIN before enabling public mode}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL before enabling public mode}
+    volumes:
+      - ./Caddyfile.public:/etc/caddy/Caddyfile:ro

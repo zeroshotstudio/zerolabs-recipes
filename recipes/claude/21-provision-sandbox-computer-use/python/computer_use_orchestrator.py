@@ -1,25 +1,29 @@
-"""
-Claude Computer Use Virtual Desktop Sandbox Orchestrator.
-Demonstrates:
-- Computer tool registration (`computer_20250124`).
-- Screen coordinate handling and action dispatch (`mouse_move`, `left_click`, `type`, `key`, `screenshot`).
-- Human-in-the-loop validation boundary for sensitive actions.
-- Multi-turn execution loop feeding base64 screenshot results back to Claude.
+"""Computer Use protocol simulator; this module controls no actual desktop.
+
+Actions only update Python state and screenshots are a transparent 1x1 PNG.
+The toy keyword filter supplies no isolation or human-approval guarantee.
+Live mode makes real Anthropic API requests and may incur usage charges.
 """
 
 import os
 import sys
-import base64
 import json
 import logging
-from typing import Dict, Any, List, Optional
-from anthropic import Anthropic
+from typing import Dict, Any, List
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("computer-use-sandbox")
+logger = logging.getLogger("computer-use-simulator")
+SIMULATOR_WARNING = (
+    "PROTOCOL SIMULATOR ONLY: no desktop, container isolation, network filtering "
+    "or human approval is implemented. Screenshots are a transparent 1x1 PNG. "
+    "Live mode makes real Anthropic requests and may incur charges."
+)
+PLACEHOLDER_SCREENSHOT_BASE64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII="
+)
 
-# 1. Mock Screen Interface (Simulates an Xvfb / VNC virtual desktop framebuffer)
-class VirtualDesktop:
+# 1. In-memory action simulator; no X11, VNC, shell or filesystem driver.
+class ComputerUseSimulator:
     def __init__(self, width: int = 1024, height: int = 768, display_num: int = 1):
         self.width = width
         self.height = height
@@ -29,86 +33,71 @@ class VirtualDesktop:
         self.action_history: List[Dict[str, Any]] = []
 
     def capture_screenshot_base64(self) -> str:
-        """
-        Returns a mock 1x1 transparent PNG encoded in base64.
-        In production, replace with:
-            subprocess.run(["scrot", "-z", "/tmp/screen.png"])
-            with open("/tmp/screen.png", "rb") as f:
-                return base64.b64encode(f.read()).decode("utf-8")
-        """
-        # Minimal valid 1x1 transparent PNG
-        png_bytes = (
-            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-            b"\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05"
-            b"\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
-        )
-        return base64.b64encode(png_bytes).decode("utf-8")
+        """Return a placeholder image, independent of nominal display size."""
+        return PLACEHOLDER_SCREENSHOT_BASE64
 
     def execute_action(self, action: str, **kwargs) -> Dict[str, Any]:
-        """Dispatches an action to the virtual desktop."""
+        """Record an action without sending any operating-system input."""
         self.action_history.append({"action": action, "kwargs": kwargs})
 
         if action == "screenshot":
-            logger.info("VirtualDesktop: Capturing screenshot at %sx%s", self.width, self.height)
-            return {"screenshot_base64": self.capture_screenshot_base64()}
+            logger.info("Simulator: Returning transparent 1x1 placeholder screenshot")
+            return {"simulated": True, "screenshot_base64": self.capture_screenshot_base64(), "image_width": 1, "image_height": 1}
 
         elif action == "mouse_move":
             x, y = kwargs.get("coordinate", [0, 0])
-            self.cursor_x = max(0, min(self.width, x))
-            self.cursor_y = max(0, min(self.height, y))
-            logger.info("VirtualDesktop: Mouse moved to (%s, %s)", self.cursor_x, self.cursor_y)
-            return {"status": "success", "cursor": [self.cursor_x, self.cursor_y]}
+            self.cursor_x = max(0, min(self.width - 1, x))
+            self.cursor_y = max(0, min(self.height - 1, y))
+            logger.info("Simulator: Recorded cursor (%s, %s)", self.cursor_x, self.cursor_y)
+            return {"simulated": True, "status": "simulated", "cursor": [self.cursor_x, self.cursor_y]}
 
         elif action in ("left_click", "right_click", "double_click", "triple_click", "middle_click"):
-            logger.info("VirtualDesktop: Executing %s at current position (%s, %s)", action, self.cursor_x, self.cursor_y)
-            return {"status": "success", "action": action}
+            logger.info("Simulator: Recorded %s at (%s, %s)", action, self.cursor_x, self.cursor_y)
+            return {"simulated": True, "status": "simulated", "action": action}
 
         elif action == "type":
             text = kwargs.get("text", "")
-            logger.info("VirtualDesktop: Typing text (length %d)", len(text))
-            return {"status": "success", "characters_typed": len(text)}
+            logger.info("Simulator: Recorded text (length %d); nothing was typed", len(text))
+            return {"simulated": True, "status": "simulated", "characters_simulated": len(text)}
 
         elif action == "key":
             text = kwargs.get("text", "")
-            logger.info("VirtualDesktop: Pressing key combination '%s'", text)
-            return {"status": "success", "key": text}
+            logger.info("Simulator: Recorded a key combination; nothing was pressed")
+            return {"simulated": True, "status": "simulated", "key": text}
 
         elif action == "cursor_position":
-            return {"coordinate": [self.cursor_x, self.cursor_y]}
+            return {"simulated": True, "coordinate": [self.cursor_x, self.cursor_y]}
 
         else:
-            logger.warning("VirtualDesktop: Unsupported action '%s'", action)
-            return {"status": "unsupported_action", "action": action}
+            logger.warning("Simulator: Unsupported action '%s'", action)
+            return {"simulated": True, "status": "unsupported_action", "action": action}
 
 
-# 2. Security Boundary and Human-In-The-Loop Gate
-class SandboxSecurityGateway:
-    SENSITIVE_ACTIONS = {"submit_order", "delete_file", "sudo", "transfer_funds"}
+# 2. Toy keyword rejection illustrates tool errors; it is not a security boundary.
+class ExampleActionFilter:
 
     @classmethod
-    def evaluate_safety(cls, action: str, parameters: Dict[str, Any]) -> bool:
-        """
-        Evaluates whether an action requires human operator confirmation.
-        Returns True if safe to proceed automatically, False if gate is tripped.
-        """
-        # Check text keystrokes for destructive shell commands
+    def accepts(cls, action: str, parameters: Dict[str, Any]) -> bool:
+        """Return an illustrative keyword decision; no human approval occurs."""
         text = parameters.get("text", "").lower()
         if "rm -rf" in text or "sudo" in text or ":(){ :|:& };:" in text:
-            logger.warning("SECURITY ALERT: Destructive command detected in keystroke buffer: %s", text)
+            logger.warning("Toy filter rejected simulated text; this is not a security guarantee")
             return False
         return True
 
 
 # 3. Agent Execution Loop
 def run_computer_use_agent(goal: str, max_turns: int = 5):
+    logger.warning(SIMULATOR_WARNING)
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         logger.error("ANTHROPIC_API_KEY environment variable is required.")
         sys.exit(1)
 
+    from anthropic import Anthropic
     client = Anthropic(api_key=api_key)
-    desktop = VirtualDesktop(width=1024, height=768, display_num=1)
-    security_gateway = SandboxSecurityGateway()
+    desktop = ComputerUseSimulator(width=1024, height=768, display_num=1)
+    action_filter = ExampleActionFilter()
 
     # Tool definition for computer use beta
     computer_tool = {
@@ -120,7 +109,7 @@ def run_computer_use_agent(goal: str, max_turns: int = 5):
     }
 
     messages: List[Dict[str, Any]] = [
-        {"role": "user", "content": goal}
+        {"role": "user", "content": "This is a protocol simulator, not a real desktop. All screenshots are a transparent 1x1 placeholder and actions only update in-memory state. Requested demonstration: " + goal}
     ]
 
     turn = 0
@@ -128,8 +117,8 @@ def run_computer_use_agent(goal: str, max_turns: int = 5):
         turn += 1
         logger.info("Turn %d: Calling Anthropic API...", turn)
 
-        response = client.messages.create(
-            model="claude-3-7-sonnet-20250219",
+        response = client.beta.messages.create(
+            model=os.environ.get("MODEL", "claude-3-7-sonnet-20250219"),
             max_tokens=2048,
             tools=[computer_tool],
             betas=["computer-use-2025-01-24"],
@@ -142,10 +131,10 @@ def run_computer_use_agent(goal: str, max_turns: int = 5):
         messages.append({"role": "assistant", "content": response.content})
 
         if response.stop_reason != "tool_use":
-            logger.info("Agent finished execution with reason: %s", response.stop_reason)
+            logger.info("Protocol simulation finished with API stop reason: %s", response.stop_reason)
             for block in response.content:
                 if getattr(block, "type", "") == "text":
-                    print(f"\nFinal Response:\n{block.text}")
+                    print(f"\nModel response (protocol simulation; no desktop task was executed):\n{block.text}")
             break
 
         # Process tool calls
@@ -162,19 +151,17 @@ def run_computer_use_agent(goal: str, max_turns: int = 5):
 
             if tool_name == "computer":
                 action = tool_input.get("action")
-                # Human-in-the-loop safety gate
-                if not security_gateway.evaluate_safety(action, tool_input):
-                    logger.error("Action blocked by Security Gateway: %s", action)
+                if not action_filter.accepts(action, tool_input):
+                    logger.warning("Toy filter rejected simulated action: %s", action)
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": tool_use_id,
                         "is_error": True,
-                        "content": "SecurityPolicyViolation: Action rejected by human-in-the-loop safety gate."
+                        "content": "SimulatedActionRejected: Toy keyword filter rejected this simulated action. No human approval or security boundary is implemented."
                     })
                     continue
 
-                # Execute action on virtual desktop
-                exec_result = desktop.execute_action(action, **tool_input)
+                exec_result = desktop.execute_action(**tool_input)
 
                 if action == "screenshot":
                     # For screenshot, return image block inside tool_result
@@ -182,6 +169,7 @@ def run_computer_use_agent(goal: str, max_turns: int = 5):
                         "type": "tool_result",
                         "tool_use_id": tool_use_id,
                         "content": [
+                            {"type": "text", "text": "simulated: true; transparent 1x1 placeholder, not a desktop screenshot"},
                             {
                                 "type": "image",
                                 "source": {
@@ -211,6 +199,6 @@ def run_computer_use_agent(goal: str, max_turns: int = 5):
 
 
 if __name__ == "__main__":
-    test_goal = os.environ.get("TEST_GOAL", "Open the terminal and check system date.")
-    logger.info("Starting Computer Use Sandbox Orchestrator with goal: '%s'", test_goal)
+    test_goal = os.environ.get("TEST_GOAL", "Demonstrate a screenshot request and cursor movement; no real desktop is available.")
+    logger.info("Starting Computer Use protocol simulator")
     run_computer_use_agent(test_goal)

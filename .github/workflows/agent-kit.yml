@@ -1,0 +1,108 @@
+name: Agent Kit acceptance
+on:
+  pull_request:
+    paths: ['kits/self-hosted-agent-kit/**', 'marketing/agent-kit/**', '.github/workflows/agent-kit.yml']
+  push:
+    branches: [main]
+    paths: ['kits/self-hosted-agent-kit/**', 'marketing/agent-kit/**', '.github/workflows/agent-kit.yml']
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: kits/self-hosted-agent-kit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Install locked dependencies
+        run: |
+          npm ci --prefix app
+          npm ci --prefix integrations/mcp
+          npm ci --prefix tests
+          cd tests
+          npx playwright install --with-deps chromium
+      - name: Validate source and generate documentation
+        run: |
+          find scripts -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          python3 -m compileall -q scripts examples tests
+          npm test --prefix app
+          node tests/provider-smoke.mjs
+          python3 tests/systemd.py
+          npm audit --prefix app --omit=dev
+          npm audit --prefix integrations/mcp --omit=dev
+          npm audit --prefix tests
+          python3 scripts/build-docs.py
+          git diff --exit-code -- app/public/docs.html docs/index.html
+      - name: Dashboard regressions and marketing workflows
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          node tests/frontend-regressions.mjs
+          node ../../marketing/agent-kit/tests/browser.mjs
+      - name: Create isolated fixture stack
+        run: |
+          ROOT="$PWD" python3 scripts/config.py init
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.env');s=p.read_text().replace('COMPOSE_PROJECT_NAME=agentkit','COMPOSE_PROJECT_NAME=agentkit-ci-test').replace('PUBLIC_ORIGIN=http://localhost:3080','PUBLIC_ORIGIN=http://localhost:13080').replace('PORT=3080','PORT=13080');p.write_text(s);p.chmod(0o600)
+          PY
+          mkdir -p state backups
+          docker compose -f docker-compose.yml -f tests/compose.test.yml up -d --build --wait --wait-timeout 180
+      - name: Audit actual runtime images
+        run: |
+          curl --fail --silent --show-error --location https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_linux_amd64.tar.gz --output /tmp/agentkit-grype.tar.gz
+          printf '%s  %s\n' '0a9ee97ef5ae2ee953b0a80098105052e846cdbe319a57d808b519c33cd1343d' /tmp/agentkit-grype.tar.gz | sha256sum --check -
+          tar -xzf /tmp/agentkit-grype.tar.gz -C /tmp grype
+          mkdir -p /tmp/agentkit-images
+          for component in app postgres caddy; do
+            image=zerolabs-agentkit:2.0.0
+            if [[ "$component" != app ]]; then image="zerolabs-agentkit-$component:2.0.0"; fi
+            /tmp/grype "docker:$image" --fail-on high -o json > "/tmp/agentkit-images/$component.json"
+          done
+      - name: Installer ownership boundaries
+        run: sudo python3 tests/installer.py
+      - name: Token transaction concurrency and rollback
+        run: >-
+          docker compose -f docker-compose.yml -f tests/compose.test.yml run --rm --no-deps
+          -v "$PWD/app/tests:/app/tests:ro" migrate
+          node --input-type=module -e
+          'process.env.AUTH_TEST_DATABASE_URL="postgresql://agent_admin:"+encodeURIComponent(process.env.POSTGRES_ADMIN_PASSWORD)+"@postgres/"+encodeURIComponent(process.env.DB_NAME); await import("./tests/auth-postgres.test.js")'
+      - name: API, MCP and browser workflows
+        run: |
+          node tests/acceptance.mjs
+          node tests/mcp.mjs
+          SCREENSHOT_DIR=/tmp/agentkit-browser node tests/browser.mjs
+          node tests/auth-rate.mjs
+      - name: Failure recovery and database privileges
+        run: node tests/resilience.mjs
+      - name: Backups, installation and restore
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y rclone
+          python3 tests/operations.py
+      - name: Build and validate release artifact
+        run: |
+          python3 scripts/release.py
+          python3 tests/update.py
+          python3 tests/package.py
+      - name: Service diagnostics
+        if: failure()
+        run: docker compose -f docker-compose.yml -f tests/compose.test.yml logs --no-color --tail 100 > /tmp/agentkit-services.log
+      - name: Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-kit-acceptance
+          path: |
+            /tmp/agentkit-browser
+            /tmp/agentkit-marketing
+            /tmp/agentkit-images
+            /tmp/agentkit-services.log
+            kits/self-hosted-agent-kit/release/*
+      - name: Stop isolated services
+        if: always()
+        run: docker compose -f docker-compose.yml -f tests/compose.test.yml down --volumes

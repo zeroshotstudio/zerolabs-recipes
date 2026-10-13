@@ -1,3 +1,8 @@
+Licensing scope for Agent Kit 2.0 and later:
+The MIT license below applies to this repository except kits/self-hosted-agent-kit/,
+which is governed by the LICENSE in that directory. This notice does not revoke
+rights previously granted for earlier published versions.
+
 MIT License
 
 Copyright (c) 2026 ZeroShot Studio

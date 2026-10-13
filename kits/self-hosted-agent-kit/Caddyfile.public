@@ -1,0 +1,24 @@
+{
+  admin off
+  email {$ACME_EMAIL}
+}
+# Private liveness probe remains HTTP even when the public site requires HTTPS.
+:8080 {
+  handle /health/live {
+    reverse_proxy api:3000 {
+    header_up X-AgentKit-Client-IP {remote_host}
+  }
+  }
+  handle {
+    respond 404
+  }
+}
+{$PUBLIC_DOMAIN} {
+  encode zstd gzip
+  request_body {
+    max_size 192KB
+  }
+  reverse_proxy api:3000 {
+    header_up X-AgentKit-Client-IP {remote_host}
+  }
+}

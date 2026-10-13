@@ -1,378 +1,51 @@
-# Self-Hosted Agent Infrastructure Kit — Developer Guide
+# Developer guide · 2.0
 
-This developer guide provides architectural documentation, API specifications, database schemas, and integration recipes for developers and engineers building, extending, or integrating autonomous agents with the **Self-Hosted Agent Infrastructure Stack**.
+## Runtime
 
----
+Four long-running services: Caddy, API, worker and PostgreSQL. A one-shot migration service creates the schema and a non-superuser `agent_app` role. The API and worker receive only the application database password; only the worker receives the model key. Neither has a host filesystem or Docker socket mount. The API reads a non-secret backup status file. Runtime containers are unprivileged, read-only, drop capabilities, and have memory/CPU/process limits.
 
-## 1. System Architecture & Topology
+PostgreSQL is the canonical queue and document/result store. Enqueue commits before HTTP 202. `FOR UPDATE SKIP LOCKED` claims one task per worker. A 30-second lease is renewed every two seconds. Actual worker heartbeats expire in the UI after 15 seconds. An expired running task is marked failed (or cancelled) by the API sweep or a worker; the API sweeps every five seconds even when all workers are offline. It is never automatically replayed. Multiple workers can be started with `--scale worker=N`. Idempotency prevents duplicate **submission**, not a universal exactly-once guarantee for external provider effects.
 
-The kit is architected as an isolated, self-healing microservices mesh orchestrated via Docker Compose and governed by systemd.
+Cancellation signals an AbortController and records the final status after the worker stops. Aborting HTTP cannot guarantee the provider has stopped computation or billing. Partial artifacts and reported token counts remain available for inspection. Manual retry creates a new task with `parent_job_id`.
 
-```
-                  ┌────────────────────────────────────────────────────────┐
-                  │                      Public Internet                   │
-                  └───────────────────────────┬────────────────────────────┘
-                                              │ Port 80, 443
-                                              ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│ Host VPS (Ubuntu 22.04 / 24.04 LTS) — UFW Hardened (Ports 22, 80, 443 only)             │
-│                                                                                          │
-│  ┌────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ Caddy 2.8 Reverse Proxy (Auto Let's Encrypt SSL / HTTP3 / Rate-Limiting / Gzip)   │  │
-│  └───────────────────────────────────┬────────────────────────────────────────────────┘  │
-│                                      │ http://agent-runtime:3000                         │
-│                                      ▼                                                   │
-│  ┌────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ agent-runtime (Node.js 22 LTS)                                                     │  │
-│  │ ├─ Web Operations Dashboard (Glassmorphism HUD, Quick Connect Portal)              │  │
-│  │ ├─ ZeroVPS Guardrail Engine (Command Interception & AST Blacklisting)              │  │
-│  │ ├─ REST & SSE Streaming Endpoints (/api/stream, /api/agent/*)                     │  │
-│  │ └─ Framework Dispatchers (Antigravity, Claude, OpenAI, Cursor, Python, Node)       │  │
-│  └──────────────────┬─────────────────────────────────┬───────────────────────────────┘  │
-│                     │                                 │                                  │
-│   Private Docker    │ postgres:5432                   │ redis:6379                       │
-│   Network           ▼                                 ▼                                  │
-│   (agent-net) ┌───────────────────────────┐     ┌───────────────────────────┐            │
-│               │ PostgreSQL 17 Alpine      │     │ Redis 7.4 Alpine          │            │
-│               │ - Persistent Memory       │     │ - Distributed Task Queues │            │
-│               │ - Task History & Logs     │     │ - Pub/Sub Event Bus       │            │
-│               │ - Vector-Ready Schema     │     │ - Distributed Mutex Locks │            │
-│               └───────────────────────────┘     └───────────────────────────┘            │
-│                               ▲                               ▲                          │
-│                               └───────────────┬───────────────┘                          │
-│                                               │ Internal Network                         │
-│                               ┌───────────────┴───────────────┐                          │
-│                               │ Custom Autonomous Agents      │                          │
-│                               │ (Python / CrewAI / AutoGen)   │                          │
-│                               └───────────────────────────────┘                          │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
-```
+The assistant uses the Responses API with `store:false`, explicit function definitions, strict JSON schemas and an execution allowlist. All response output items, including encrypted reasoning, are carried forward during tool continuations. Each request's usage is accumulated only if the provider reports it. Tool calls are bounded by the model-step and time limits; artifact and document sizes are capped. No tool can execute code, issue arbitrary SQL, browse, or access arbitrary host paths. This limits consequences of prompt injection; it does not guarantee factual answers or prevent the model from reading any document in this shared workspace.
 
-### Network Isolation Principle
-- **Zero Exposed Database Ports:** Neither PostgreSQL (`5432`) nor Redis (`6379`) bind to `0.0.0.0` or public host interfaces. They communicate exclusively over the internal Docker bridge network (`agent-net`).
-- **External Ingress:** All HTTP/HTTPS traffic terminates at Caddy. Caddy handles automatic TLS certificate provisioning via Let's Encrypt and forwards authorized requests to `agent-runtime:3000`.
-- **Remote Developer Access:** Developers who need direct GUI access to PostgreSQL (e.g. via TablePlus, DBeaver, or psql) must connect via Tailscale private IP or an encrypted SSH tunnel:
-  ```bash
-  ssh -L 5433:localhost:5432 user@vps-ip
-  ```
+## HTTP contract
 
----
+Authenticated endpoints accept `Authorization: Bearer <scoped-token>`. Browsers use an HttpOnly SameSite=Strict session plus `X-CSRF-Token` and an exact Origin match for mutations. Only the operator can manage documents and tokens. `ADMIN_TOKEN` is a break-glass administrative bearer credential; integrations should use scoped tokens.
 
-## 2. Database Schema & Data Models
+| Method / path | Permission | Result |
+| --- | --- | --- |
+| GET /health/live | Public | 200 if API process responds |
+| GET /health/ready | Public | 200 if DB and worker are ready; otherwise 503 |
+| POST /api/auth/login | Exact Origin | `{key}` → session cookie and CSRF token |
+| GET /api/auth/session | Authenticated | Operator/scopes context and CSRF token for browser sessions |
+| POST /api/auth/logout | Authenticated + browser CSRF | Invalidates current session |
+| GET /api/overview | tasks:read | Recorded counts, recent tasks, heartbeats, backup status |
+| GET /api/tasks?status=&q=&offset= | tasks:read | Up to 30 task summaries and total |
+| POST /api/tasks | tasks:write | `{kind:"assistant",prompt,title?}` or `{kind:"audit"}` → 202 after commit |
+| GET /api/tasks/:id | tasks:read | Task record and artifact metadata |
+| GET /api/tasks/:id/events?after=0 | tasks:read | Up to 250 ordered persisted events |
+| POST /api/tasks/:id/cancel | tasks:write | 202; queued task cancels immediately, running task receives abort |
+| POST /api/tasks/:id/retry | tasks:write | New linked task; only failed/cancelled tasks |
+| GET /api/artifacts/:id | tasks:read | Plain text attachment |
+| GET /api/documents[/:id] | documents:read | Document list / full document |
+| POST /api/documents | Operator | `{title,content}` → 201; maximum 100 × 64 KiB |
+| DELETE /api/documents/:id | Operator | Deletes current document; earlier results/backups may retain text |
+| GET /api/tokens | Operator | Token metadata, never values or hashes |
+| POST /api/tokens | Operator | `{name,scopes}` → token shown once |
+| DELETE /api/tokens/:id | Operator | Immediate revocation |
+| GET /api/recovery | Operator | Last verified backup / last failed attempt |
+| GET /api/audit | Operator | Latest 50 access/operator events |
 
-The stack automatically boots PostgreSQL 17 with pre-initialized tables inside `agentdb`.
+Use a unique `Idempotency-Key` (8–128 letters/digits or `._:-`) on task creation and retries. Reuse it for the same submission after a network failure. Identical replay returns 200 and the original task ID/summary; changed input returns 409. Submission responses never include saved results, so a write-only token cannot read them by replaying a request. The queue admits at most 100 unfinished tasks. All operator/API tokens belong to one shared workspace; there is no per-user or per-document tenancy. A token with tasks:write can ask the assistant to use any workspace document. Combining tasks:write with tasks:read can therefore reveal document-derived content in results even without the direct documents:read endpoint scope.
 
-### Core Tables
+Errors return `{error,request_id}`. 400 invalid input, 401 no valid identity, 403 permission/origin/CSRF failure, 404 missing object, 409 conflict, 413 oversized request, 415 wrong content type, 429 rate/queue limit, 503 unavailable dependency. The reverse proxy may return its own plain-text 413 for oversized bodies. Callers must handle a failed HTTP request before parsing success data. A request accepted with 202 is not a finished task.
 
-#### `agent_tasks`
-Stores all dispatched agent runs, execution metadata, safety verification status, and output logs:
+## MCP
 
-```sql
-CREATE TABLE IF NOT EXISTS agent_tasks (
-    id SERIAL PRIMARY KEY,
-    prompt TEXT NOT NULL,
-    output TEXT,
-    safety_status VARCHAR(50) DEFAULT 'PASSED',
-    framework VARCHAR(50) DEFAULT 'generic',
-    session_id VARCHAR(100),
-    metadata JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE
-);
+`integrations/mcp/index.js` is an actual stdio MCP server using the official SDK. It advertises `submit_task`, `get_task`, `list_tasks`, `list_documents` and `read_document`; it performs authenticated requests to this API. It does not expose PostgreSQL credentials. Install its locked dependencies on the client machine with `npm ci`, use Node 22 or 24, and set `AGENTKIT_URL` and `AGENTKIT_TOKEN`. The provided client configs use an absolute local path; adjust it for your installation.
 
-CREATE INDEX IF NOT EXISTS idx_agent_tasks_created_at ON agent_tasks (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_agent_tasks_framework ON agent_tasks (framework);
-CREATE INDEX IF NOT EXISTS idx_agent_tasks_safety ON agent_tasks (safety_status);
-```
+## Verification
 
-#### `agent_registry`
-Maintains a heartbeat registry of active connected agents across frameworks:
-
-```sql
-CREATE TABLE IF NOT EXISTS agent_registry (
-    agent_id VARCHAR(100) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    framework VARCHAR(50) NOT NULL,
-    status VARCHAR(50) DEFAULT 'online',
-    last_ping TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    metadata JSONB DEFAULT '{}'::jsonb
-);
-```
-
----
-
-## 3. Redis Queue Protocol & Event Bus
-
-The kit leverages Redis 7.4 for asynchronous task distribution and event streaming.
-
-### Key Data Structures
-- `agent:tasks` (List / FIFO Queue): Agents pop JSON payloads using `BLPOP agent:tasks 0`.
-- `agent:results:{taskId}` (String with TTL 86400s): Stores task output payloads.
-- `agent:events` (Pub/Sub Channel): Emits live telemetry events to the dashboard SSE stream.
-
-### Task Payload Specification
-```json
-{
-  "id": "task_1728345600000",
-  "framework": "antigravity",
-  "prompt": "Analyze repository health and generate changelog",
-  "created_at": "2026-10-07T21:00:00.000Z",
-  "environment": {
-    "timeout_seconds": 300,
-    "sandbox_mode": true
-  }
-}
-```
-
----
-
-## 4. REST & SSE API Reference
-
-The `agent-runtime` daemon exposes a unified REST API on port `3000` (proxied via Caddy).
-
-### 1. Health & Stack Status
-- **Endpoint:** `GET /api/health`
-- **Response:**
-  ```json
-  {
-    "status": "healthy",
-    "timestamp": "2026-10-07T21:00:00.000Z",
-    "services": {
-      "postgres": "connected",
-      "redis": "connected",
-      "guardrails": "active"
-    },
-    "version": "1.2.0"
-  }
-  ```
-
-### 2. Live Telemetry Stream (SSE)
-- **Endpoint:** `GET /api/stream`
-- **Protocol:** Server-Sent Events (`text/event-stream`)
-- **Events:**
-  - `metrics`: Emits CPU, Memory, Disk, and container status every 2 seconds.
-  - `task_dispatched`: Triggered when an agent receives a job.
-  - `task_completed`: Triggered when an execution finishes.
-  - `guardrail_alert`: Triggered when a destructive command is blocked.
-
-### 3. Agent Heartbeat Ping
-- **Endpoint:** `POST /api/agent/ping`
-- **Payload:**
-  ```json
-  {
-    "agentId": "antigravity-worker-01",
-    "name": "Google Antigravity Agent",
-    "framework": "antigravity",
-    "status": "idle"
-  }
-  ```
-- **Response:** `{"success": true, "message": "Agent registered/updated"}`
-
-### 4. Agent Task Dispatch
-- **Endpoint:** `POST /api/agent/dispatch`
-- **Headers:** `Content-Type: application/json`
-- **Payload:**
-  ```json
-  {
-    "framework": "claude",
-    "prompt": "Run database migration for agent memory vector index",
-    "sessionId": "sess_abc123"
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "taskId": 42,
-    "framework": "claude",
-    "status": "DISPATCHED",
-    "safetyStatus": "PASSED"
-  }
-  ```
-
-### 5. ZeroVPS Guardrail Evaluation
-- **Endpoint:** `POST /api/guardrail-test`
-- **Payload:** `{"command": "rm -rf / --no-preserve-root"}`
-- **Response (Blocked):**
-  ```json
-  {
-    "allowed": false,
-    "status": "BLOCKED",
-    "reason": "Destructive filesystem wipe pattern detected (rm -rf /)"
-  }
-  ```
-
----
-
-## 5. Frontier AI Integration Recipes
-
-### A. Google Antigravity (AGY) Integration
-Google Antigravity agents can connect directly via Model Context Protocol or CLI rules.
-
-1. **MCP Configuration (`templates/antigravity_mcp.json`):**
-   ```json
-   {
-     "mcpServers": {
-       "agent-postgres": {
-         "command": "npx",
-         "args": [
-           "-y",
-           "@modelcontextprotocol/server-postgres",
-           "postgresql://postgres:PLACEHOLDER@vps.example.com:5432/agentdb"
-         ]
-       }
-     }
-   }
-   ```
-2. **Rule Directive:** Add to `.antigravity/rules` or `AGENTS.md`:
-   ```markdown
-   - Persistent State: Query PostgreSQL `agent_tasks` before beginning complex multi-step work.
-   - Queue Dispatch: Push asynchronous long-running subagent tasks to Redis `agent:tasks`.
-   - Security Boundary: Respect ZeroVPS Guardrails; never execute bare destructive shell wipes.
-   ```
-
-### B. Anthropic Claude Code & Claude Desktop
-1. Locate your Claude configuration:
-   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-   - Linux: `~/.config/Claude/claude_desktop_config.json`
-   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-2. Add the PostgreSQL MCP server:
-   ```json
-   {
-     "mcpServers": {
-       "agent-postgres": {
-         "command": "npx",
-         "args": [
-           "-y",
-           "@modelcontextprotocol/server-postgres",
-           "postgresql://postgres:PLACEHOLDER@agent.example.com:5432/agentdb"
-         ]
-       }
-     }
-   }
-   ```
-3. Restart Claude Desktop. Claude now possesses direct SQL introspection into your VPS memory!
-
-### C. OpenAI Agents SDK & Codex
-Python-native integration using the OpenAI Assistants/Agents API:
-
-```python
-import os, json, psycopg2
-from openai import OpenAI
-
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
-
-def execute_agent_task(prompt: str):
-    # Log task start in agentdb
-    with conn.cursor() as cur:
-        cur.execute(
-            "INSERT INTO agent_tasks (prompt, framework, safety_status) VALUES (%s, %s, %s) RETURNING id;",
-            (prompt, "openai", "PASSED")
-        )
-        task_id = cur.fetchone()[0]
-        conn.commit()
-    
-    # Run completion or assistant
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    result = response.choices[0].message.content
-
-    # Save output back to persistent memory
-    with conn.cursor() as cur:
-        cur.execute(
-            "UPDATE agent_tasks SET output = %s, completed_at = NOW() WHERE id = %s;",
-            (result, task_id)
-        )
-        conn.commit()
-    return result
-```
-
-### D. Cursor & Windsurf AI IDEs
-Drop the following into your workspace `.cursor/mcp.json` or `.codeium/windsurf/mcp_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "vps-stack": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-postgres",
-        "postgresql://postgres:PLACEHOLDER@agent.example.com:5432/agentdb"
-      ]
-    }
-  }
-}
-```
-
----
-
-## 6. Extending with Custom Agent Containers
-
-To add your own custom 24/7 worker container to the stack:
-
-1. Create your agent directory: `agents/my-worker/`
-2. Write a `Dockerfile`:
-   ```dockerfile
-   FROM python:3.11-slim
-   WORKDIR /app
-   COPY requirements.txt .
-   RUN pip install --no-cache-dir -r requirements.txt
-   COPY . .
-   CMD ["python", "worker.py"]
-   ```
-3. Add the service to `docker-compose.yml`:
-   ```yaml
-     custom-worker:
-       build: ./agents/my-worker
-       container_name: custom-worker
-       restart: unless-stopped
-       environment:
-         - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} # PLACEHOLDER
-         - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379 # PLACEHOLDER
-       networks:
-         - agent-net
-       depends_on:
-         postgres:
-           condition: service_healthy
-         redis:
-           condition: service_healthy
-   ```
-4. Build and start:
-   ```bash
-   docker compose up -d --build custom-worker
-   ```
-
----
-
-## 7. ZeroVPS Guardrail Architecture & Rule Extensions
-
-The guardrail engine intercepts shell commands and API actions before execution.
-
-### Rule Hierarchy
-1. **Critical FS Wipes:** Blocks `rm -rf /`, `mkfs`, `dd if=/dev/zero`, block-device overwrites.
-2. **Fork Bomb & Resource Denial:** Blocks `:(){ :|:& };:`, unbounded infinite memory allocations.
-3. **Network Exfiltration of Secrets:** Blocks `curl ... | bash` targeting unverified remote scripts and dumping `.env` contents to external webhooks.
-4. **Firewall & Security Tampering:** Blocks disabling UFW or stopping the watchdog daemon from non-root sessions.
-
-### Custom Rule Extension
-Edit `scripts/guardrails/rules.json`:
-```json
-{
-  "blocked_patterns": [
-    "DROP DATABASE",
-    "TRUNCATE agent_tasks",
-    "chmod 777 -R /"
-  ],
-  "allowed_overrides": [
-    "ALLOW_MAINTENANCE_WINDOW"
-  ]
-}
-```
-Reload rules without downtime:
-```bash
-docker compose restart agent-runtime
-```
+Unit tests cover input boundaries and tool execution restrictions. `tests/acceptance.mjs` exercises authentication, permissions, durable execution, tool calls, cancellation, artifacts and errors against the running Docker app. The fixture implements the provider protocol deterministically; it does not establish compatibility with every model. Release tests additionally exercise outage recovery, backups, restore, the MCP transport and the browser. See RELEASE-ACCEPTANCE.md for actual results and remaining environment checks.

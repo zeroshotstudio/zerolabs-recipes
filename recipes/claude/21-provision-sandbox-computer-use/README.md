@@ -1,80 +1,77 @@
-# Recipe 21: How to Provision and Sandbox Claude Computer Use
+# Recipe 21: Computer Use Protocol Simulator and Sandbox Design Notes
 
-This recipe demonstrates how to provision, configure, and safely sandbox Claude Computer Use (`computer_20250124` / `computer_20241022`) inside isolated virtual desktop containers.
+The Python and TypeScript examples demonstrate Computer Use tool registration
+and a bounded tool-result loop. **They are protocol simulators.** They provision
+no desktop or container, send no mouse/keyboard input, and return a transparent
+**1×1 placeholder PNG**, independent of their nominal 1024×768 tool dimensions.
 
-## Overview
+Every simulated action result includes `simulated: true`. The live loop prints a
+warning and tells the model that the desktop is simulated. Its keyword filter
+only demonstrates a rejected tool result: it supplies no filesystem or network
+isolation, protection against prompt injection, or human approval workflow.
 
-Claude Computer Use enables models like Claude 3.7 Sonnet to observe graphical user interfaces and dispatch native input actions:
-- `screenshot`: Capture visual state of the display framebuffer.
-- `mouse_move`: Reposition cursor across absolute screen coordinates.
-- `left_click`, `right_click`, `double_click`, `triple_click`, `middle_click`: Mouse interaction.
-- `type`: String text input.
-- `key`: Special keys and modifier chords (`Return`, `ctrl+c`, `BackSpace`).
-- `cursor_position`: Query current mouse coordinates.
+Live mode still sends real requests to Anthropic and may incur API usage charges.
+This example cannot prove that a GUI task completed. The historical default model
+and beta schema have not been revalidated against a live account; select a
+currently supported model/tool combination before making requests.
 
-## Architecture
+## What is implemented
 
-1. **Virtual Desktop Container**: Runs Xvfb (virtual framebuffer), fluxbox (window manager), and xdotool / scrot for headless automation.
-2. **Security Gateway**: Intercepts actions before execution. Blocks unauthorized destructive shell commands, enforces network proxy constraints, and routes sensitive actions to human verification gates.
-3. **Execution Loop**: Captures screenshots as base64 PNGs and injects them back to Claude via `tool_result` image content blocks.
+- Registration of `computer_20250124` with nominal display dimensions.
+- In-memory cursor movement, click/type/key acknowledgements and cursor queries.
+- A transparent placeholder image in screenshot `tool_result` blocks.
+- A toy keyword rejection and a maximum of five API turns by default.
 
-## Directory Structure
+Unsupported actions return `unsupported_action`. Turn limits bound API rounds;
+they do not impose an operating-system resource boundary or an action deadline.
 
+## Offline checks
+
+Python simulator tests need only the standard library:
+
+```sh
+python3 -m unittest discover -s recipes/claude/21-provision-sandbox-computer-use/python -p 'test_*.py'
 ```
-.
-├── .env.example
-├── curl_probe.sh
-├── metadata.json
-├── README.md
-├── blog-post.md
-├── python/
-│   └── computer_use_orchestrator.py
-└── typescript/
-    ├── package.json
-    └── computer_use_orchestrator.ts
+
+TypeScript checks use the locked dependencies and Node 22 or later:
+
+```sh
+cd recipes/claude/21-provision-sandbox-computer-use/typescript
+npm ci
+npm run build
+node --experimental-strip-types computer_use_orchestrator.ts --offline-smoke
 ```
 
-## Setup & Execution
+Neither offline command calls Anthropic or interacts with a desktop.
 
-### 1. Environment Configuration
+## Optional live protocol demonstration
 
-Copy `.env.example` to `.env` and set your Anthropic API key:
+Install the Anthropic Python SDK for the Python loop, or install the locked
+TypeScript dependencies as above. Set the key in the process environment:
 
-```bash
-cp .env.example .env
+```sh
 export ANTHROPIC_API_KEY="your-anthropic-api-key"
+# Optional: export MODEL="a-model-compatible-with-computer_20250124"
+python3 recipes/claude/21-provision-sandbox-computer-use/python/computer_use_orchestrator.py
 ```
 
-### 2. cURL Probe
+For TypeScript, run `node --experimental-strip-types computer_use_orchestrator.ts`
+from its directory. The `.env.example` file documents variables; the programs do
+not load `.env` automatically. The nominal display environment variables are
+used only by `curl_probe.sh`; the orchestrators use fixed nominal dimensions.
 
-Execute the bash probe to verify tool registration and API connectivity:
+`curl_probe.sh` sends a real initial API request. It verifies request/response
+compatibility only; it provisions no desktop, captures no actual screen, and
+does not establish deployment readiness.
 
-```bash
-chmod +x curl_probe.sh
-./curl_probe.sh
-```
+## Designing an actual desktop runtime
 
-### 3. Python Orchestrator
+[The accompanying design notes](blog-post.md) retain illustrative Xvfb/Fluxbox
+Docker and entrypoint snippets. They are unvalidated guidance, not shipped
+infrastructure or a hardened sandbox. They are not connected to these simulators.
 
-Run the Python implementation:
-
-```bash
-python3 python/computer_use_orchestrator.py
-```
-
-### 4. TypeScript Orchestrator
-
-Install dependencies and run:
-
-```bash
-cd typescript
-npm install
-npx ts-node computer_use_orchestrator.ts
-```
-
-## Security Best Practices
-
-- **Container Isolation**: Never run Computer Use directly on host developer machines. Run inside rootless Docker or Firecracker microVMs.
-- **Egress Filtering**: Restrict network egress using Squid forward proxies or iptables rules to whitelist only designated endpoints.
-- **Credential Hygiene**: Strip cloud tokens, SSH keys, and secret environment variables from the virtual desktop runtime.
-- **Human-in-the-Loop**: Implement approval checkpoints for transactional or destructive operations.
+An actual deployment needs a separately implemented desktop driver, verified
+isolation and network policy, credential separation, resource limits, and an
+approval mechanism appropriate to its actions. A container running as a non-root
+user alone does not establish these guarantees. A keyword filter cannot identify
+all destructive GUI actions or enforce human consent.

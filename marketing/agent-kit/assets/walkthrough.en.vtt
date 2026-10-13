@@ -1,0 +1,45 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:04.000
+Agent Kit product walkthrough. Demo workspace, scripted model responses, real local execution.
+
+2
+00:00:04.000 --> 00:00:07.401
+See tasks, worker health and saved results in one place.
+
+3
+00:00:07.401 --> 00:00:18.704
+Add a brief the assistant can read during a task.
+
+4
+00:00:18.704 --> 00:00:26.345
+Describe the work, then submit it to the durable queue.
+
+5
+00:00:26.345 --> 00:00:34.541
+The worker executes document, calculation and artifact tools.
+
+6
+00:00:34.541 --> 00:00:44.198
+Inspect the saved answer and download the text artifact.
+
+7
+00:00:44.198 --> 00:00:57.661
+Cancel running work. Its history remains available to inspect.
+
+8
+00:00:57.661 --> 00:01:05.397
+Give integrations scoped tokens, then revoke access when needed.
+
+9
+00:01:05.397 --> 00:01:12.768
+Review the status of a real, checksum-verified database backup.
+
+10
+00:01:12.768 --> 00:01:16.169
+Run the workspace on your server. Bring your own OpenAI account.
+
+11
+00:01:16.169 --> 00:01:20.200
+Run Agent Kit on your own Linux host. Supply your OpenAI account. Model usage is billed separately.

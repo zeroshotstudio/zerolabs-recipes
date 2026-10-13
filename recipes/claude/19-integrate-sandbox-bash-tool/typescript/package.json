@@ -1,11 +1,12 @@
 {
   "name": "claude-integrate-sandbox-bash-tool",
   "version": "1.0.0",
-  "description": "Integrate and sandbox Claude bash tool with bounded timeouts and process isolation",
+  "description": "Claude bash tool with mandatory unprivileged, resource-bounded Docker isolation",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "tsc && node dist/index.js"
+    "start": "tsc && node dist/index.js",
+    "test": "npm run build && node --test test/*.test.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0"

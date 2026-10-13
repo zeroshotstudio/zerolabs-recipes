@@ -2,7 +2,7 @@
 
 Audit baseline: `85c24b7301a64fbe1714a4bf9483e83e334b4968` on `codex/agent-kit-overhaul`, [PR #1](https://github.com/zeroshotstudio/zerolabs-recipes/pull/1). Reviewed 2026-10-11 UTC. This register retains every original finding and recommendation and adds issues discovered during remediation. Public release remains on hold until the evidence below is complete.
 
-All ten original findings have fixes and regression evidence; additional kit/recipe findings have corrections or documented image-advisory dispositions. Independent review found no remaining blocking code defect within that audited scope. The follow-up 86-file customer ZIP passes strict verification and the new provider-receipt regressions; complete final-head CI must validate its runtime acceptance. Newly identified live-site privacy/identity defects remain open under N13. See [the revalidation report](reports/agent-kit-audit-revalidation.md) for evidence and remaining maintenance limits. Final-head CI and the account/deployment gates below still determine public-launch readiness.
+All ten original findings have fixes and regression evidence; additional kit/recipe findings have corrections or documented image-advisory dispositions. Independent review found no remaining blocking code defect within that audited scope. The follow-up 86-file customer ZIP passes strict verification, provider-receipt regressions and complete CI at product source `a11ea1d`. The separately deployed site's source fixes and commerce flows are now implemented in [ZeroLabs PR #24](https://github.com/zeroshotstudio/ZeroLabs/pull/24); its live deployment/privacy gate remains open under N13. Site dependency findings are retained under N14–N15. See [the revalidation report](reports/agent-kit-audit-revalidation.md) for evidence and remaining limits. Account/deployment gates still determine public-launch readiness.
 
 ## 1. Original findings: required fixes and closure evidence
 
@@ -38,6 +38,8 @@ Findings 7, 8 and 10 concern repository recipes outside the Agent Kit ZIP. They 
 | N11 | The live-provider smoke script could print a passing receipt despite missing per-response usage or inconsistent task totals. Require measured, safe-integer usage on every model response and reconcile the task totals before passing. | Execute the actual script's JavaScript offline against valid, missing, invalid, mismatched and overflowing usage responses. CI runs this regression; the actual account/model smoke remains a separate gate. |
 | N12 | The kit license's unqualified warranty disclaimer can mislead purchasers about mandatory consumer rights. Preserve non-excludable guarantees, remedies and digital-content updates, including Australian and applicable overseas protections. | Review against current official Australian/EU/German sources and independent clause checks. Preserve existing permission grants, prior public grants and third-party notices. Complete the actual storefront's legal presentation and withdrawal/refund flow separately. |
 | N13 / open live-site gate | The separately deployed ZeroLabs legal pages retain Berlin/contact details that conflict with the confirmed Australian operator, and GA4 initializes without a source-level consent condition. Existing analytics/privacy statements do not accurately establish the observed PostgreSQL/contact/newsletter/optional Turnstile flows. | Prepare exact application-source corrections and a fact-dependent privacy inventory; use the actual deployment route. Verify the final identity, vendor roles, retention/transfers and regional tracking/consent behavior in a real browser. These external application defects are not closed by recipe payloads, draft terms or kit CI. |
+| N14 / fixed site source | The separate site's production npm audit reported 3 Critical, 50 High, 88 Moderate and 16 Low advisory records, including outdated Next.js/MCP dependencies and a development CLI installed as production. | ZeroLabs PR #24 updates compatible packages and transitive pins, moves shadcn to development, and passes the production build, existing content/MCP tests and a zero-advisory production npm audit. Require site CI and actual deployment; this does not change the kit archive or certify the site OS image. |
+| N15 / open development maintenance | The complete site development graph retains High `GHSA-vfj7-8cjw-p6xm` in braces 3.0.3 through ESLint/fast-glob/shadcn. No patched registry version is published. | Restricted to trusted repository build/lint patterns; absent from the production dependency audit and inspected standalone output. Do not expose those tools to untrusted patterns. Track/adopt the published upstream fix. No audit ignore or assertion of a clean full development graph. |
 
 ## 3. Automation and final-source validation
 
@@ -75,8 +77,8 @@ and supplied legal identity/contact information for the terms. Official ABN
 Lookup lists ABN 30 285 930 662 as an active individual/sole trader under James
 John Goode, not currently registered for GST. See
 [the official record](https://abr.business.gov.au/ABN/View?id=30285930662).
-This does not establish the tax treatment or contracting identity of an
-unselected merchant-of-record checkout.
+The owner subsequently selected Lemon Squeezy. This does not establish the actual
+store contract, tax treatment, product price or contracting identity for that account.
 
 Prepare Australian base terms with EU consumer information; preserve mandatory
 local protections for targeted overseas consumers. The actual checkout must
@@ -95,11 +97,34 @@ pages after applying them through the owner's connected access.
 
 Reviewed prelaunch sales, withdrawal and privacy preparation is versioned in
 [marketing/agent-kit/legal](marketing/agent-kit/legal/README.md). Three separate
-drafting/source checks do not certify worldwide enforceability or the unselected
-checkout. Its actual seller/MoR, price, genuine contact, tax, durable confirmation,
+drafting/source checks do not certify worldwide enforceability or the selected
+checkout account. Its actual seller/MoR, price, genuine contact, tax, durable confirmation,
 withdrawal/refund and privacy acceptance cases remain open. The live site's
 privacy/terms application pages and nonessential tracking require separate
 application deployment and browser verification; retain N13 until that succeeds.
+
+### Product/site implementation follow-up — 2026-10-13
+
+[ZeroLabs PR #24](https://github.com/zeroshotstudio/ZeroLabs/pull/24) now implements
+Lemon Squeezy checkout, immutable terms snapshots, canonical signed order events,
+private checksum-verified buyer delivery, purchaser-only redelivery, two-step
+withdrawal with durable dated receipts and email retries, and explicitly assigned
+operator full refunds with no automatic financial replay. It also records email/postal
+declarations and defect/non-delivery cases. The imprint, request links, tracking fixes,
+Docker/standalone secret exclusions and prepared article-update tooling are integrated.
+The CMS updater refuses concurrent edits and preserves timestamp microseconds.
+
+All 35 PostgreSQL commerce tests passed, plus actual local HTTP/CMS checks, browser
+accessibility/overflow at three widths, the production build, 21 existing content suites
+and eight public MCP security/protocol groups. The site maintains a separate CI workflow.
+The full evidence and configuration checklist are in that PR's
+`docs/AGENT-KIT-COMMERCE-VALIDATION.md` and `docs/AGENT-KIT-COMMERCE.md`.
+
+Sales remain disabled without actual store/variant/API/webhook bindings, approved
+price/currency and merchant/legal facts, a verified email sender, private release files,
+assigned operators and finalized terms. No real transaction/email, ZeroVPS deployment,
+timer firing or live article write occurred. These remaining activation checks keep N13
+and the applicable account/deployment gates open. The kit source and ZIP are unchanged.
 
 ## 5. Release sequence and rollback
 

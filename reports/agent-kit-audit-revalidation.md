@@ -85,3 +85,44 @@ all-country legal-validity certification, approved price or invented contact is
 claimed.
 
 The owner identified ZeroVPS as the access route. Its documented SSH/MCP routes require secure runtime connection bindings, which are absent from this session; GitHub repository access is not live-host or CMS authentication. The environment also has no live provider, backup or storefront credentials. Fixture Responses traffic, local rclone storage, static TLS configuration and unit validation do not close those gates. Preserve v1 separately; cut over only after validation, retaining the matching application, pre-update backup and separately secured secrets.
+
+## Follow-up evidence — 2026-10-13
+
+The product source at `a11ea1df388e21e774503ea9fe5618e3ffec39b0` has green
+[Recipes CI 38155576402](https://github.com/zeroshotstudio/zerolabs-recipes/actions/runs/38155576402)
+and [Agent Kit acceptance 38155576396](https://github.com/zeroshotstudio/zerolabs-recipes/actions/runs/38155576396).
+The latter CI archive is byte-identical to the 86-file local ZIP with SHA-256
+`6a2f13f9385a4ebfc5d1dedef07b5975d0ff8aaabe67c7bfe7efbd48f7d79b39`.
+The October 13 follow-up changes only audit documentation in this repository;
+kit source and packaged bytes are unchanged.
+
+The owner selected Lemon Squeezy. The actual website source implementation is in
+[ZeroLabs PR #24](https://github.com/zeroshotstudio/ZeroLabs/pull/24): checkout and
+immutable terms, signed canonical orders, private exact-ZIP delivery/redelivery,
+two-step withdrawal/dated acknowledgment with durable email retries, explicitly
+assigned operator refunds without automatic financial replay, and outside-form
+withdrawal/support recording. Prepared identity/tracking fixes, prominent request
+links, secret/private-build exclusions and safe article-correction tooling are integrated.
+
+Local evidence: 35 passing PostgreSQL commerce cases, HTTP permissions/origin/receipt
+checks, atomic CMS precondition/readback checks, desktop and two mobile browser widths
+with zero axe A/AA violations or overflow, production build, 21 existing content suites
+and eight public MCP security/protocol groups. Detailed scope and live activation
+instructions are versioned in the site's commerce validation/configuration documents.
+These fixtures performed no live provider transaction or email.
+
+N14 records the separately hosted site's production dependency findings: baseline
+3 Critical/50 High/88 Moderate/16 Low advisory records, corrected to zero production
+npm advisories through compatible upgrades, transitive pins and removal of a development
+CLI from runtime dependencies. N15 retains one unpatched High braces development-only
+advisory, GHSA-vfj7-8cjw-p6xm, through ESLint/fast-glob/shadcn. It is absent from the
+production graph and inspected standalone output; trusted build patterns only, adopt
+an upstream fix when published. This is not an OS image scan or a clean full-development
+dependency claim.
+
+N13 stays open for actual deployment/privacy/account verification. No authenticated
+ZeroVPS/CMS, Lemon Squeezy or email runtime bindings are available here. Actual approved
+price/currency, merchant/legal/privacy facts, sender setup, host migration/deployment,
+private files, retry timer monitoring, live article corrections/readback and real
+purchase/download/withdrawal/refund acceptance remain required. All original findings
+and account/deployment gates above remain in the register; none are omitted.

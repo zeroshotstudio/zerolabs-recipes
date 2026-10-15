@@ -1,8 +1,8 @@
-# Designing Hierarchical Supervisor-Worker Agent Swarms in OpenClaw — ZeroLabs Companion Recipe
+# Supervisor-Worker Agent Swarms in OpenClaw — ZeroLabs Companion Recipe
 
-> **Canonical Teardown & Deep Dive:** [Designing Hierarchical Supervisor-Worker Agent Swarms in OpenClaw](https://labs.zeroshot.studio/openclaw/multi-agent-delegation-supervisor-patterns?utm_source=github&utm_medium=repo&utm_campaign=multi-agent-delegation-supervisor-patterns)
+> **Canonical Teardown & Deep Dive:** [Supervisor-Worker Agent Swarms in OpenClaw](https://labs.zeroshot.studio/openclaw/multi-agent-delegation-supervisor-patterns?utm_source=github&utm_medium=repo&utm_campaign=multi-agent-delegation-supervisor-patterns)
 
-This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"Designing Hierarchical Supervisor-Worker Agent Swarms in OpenClaw"**.
+This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"Supervisor-Worker Agent Swarms in OpenClaw"**.
 
 ## Quick Start
 

@@ -232,6 +232,6 @@ Site PR #25 also fixes the final image security boundary: its bare pinned Node
 runner installs exact reviewed shared-library revisions and excludes build
 package managers. A fresh actual image has zero detected High/Critical matches,
 three Medium BusyBox matches and the documented embedded-OpenSSL inventory limit.
-CI now enforces an actual serving-image scan. Isolated image routes pass without
+The CI actual-image scan addition is prepared but publishing it requires GitHub workflow scope; the exact patch is retained in operations evidence. Isolated image routes pass without
 production bindings; production deployment remains blocked. CodeRabbit raised
 0 issues on the backup, discovery and image/CI corrections.

@@ -163,3 +163,65 @@ commerce activation or financial transaction was performed in this follow-up.
 ## Completion rules
 
 Every original finding remains individually traceable; additional findings and recommendations remain in this register. An item closes only with its stated implementation and evidence. A code-audit result and a public-launch decision are recorded separately. Automated axe checks do not certify every accessibility need or Safari device; dependency/image scans are time-specific; protocol fixtures are not live models; same-schema rollback is not proof of every future migration. No merge, existing-host replacement, payment configuration or public publication is implied by remediation work.
+
+
+## Deployment/release revalidation — 2026-10-18
+
+Public launch remains **BLOCKED**. The selected implementation remains on main;
+current product main `b6640b379d0d42df9cf5b4a8df11788487360e1b` has passing
+[Recipes CI 38989450185](https://github.com/zeroshotstudio/zerolabs-recipes/actions/runs/38989450185).
+The kit/marketing files have no changes from the reviewed release. The approved
+ZIP recovered from [acceptance 38418662486](https://github.com/zeroshotstudio/zerolabs-recipes/actions/runs/38418662486)
+passes strict manifest/membership/mode/size/hash/digest validation and remains
+SHA-256 `6a2f13f9385a4ebfc5d1dedef07b5975d0ff8aaabe67c7bfe7efbd48f7d79b39`.
+No replacement archive or new public release was published.
+
+| Register IDs | Current disposition |
+| --- | --- |
+| 1, N1 | Installer ownership/root-helper fixes retained; complete release CI evidence retained. Intended real host ownership/timer acceptance remains open. |
+| 2, 3 | Worker lifecycle fixes retained; fresh unit regressions pass. No real provider execution or automatic retry performed. |
+| 4, 5, N8 | Browser/navigation fixes retained; linked release acceptance remains applicable to unchanged kit files. |
+| 6 | Fresh actual PostgreSQL token concurrency/audit rollback regression passes. |
+| 7, N2 | Docker-only shell fixes retained; current Recipes CI passes. This does not correct hosted article bodies. |
+| 8 | File-editor boundary fixes retained; current Recipes CI passes. |
+| 9, N3, N9 | Scanner protections retained; current Recipes CI passes. |
+| 10 | Patched MCP locks retained; current Recipes CI passes. Fresh kit MCP audit also remains zero-advisory. |
+| N4, N5, N10 | Recipe build/simulator/claim corrections retained; current Recipes CI passes. All three hosted articles still require authenticated canonical corrections. |
+| N6 | Exact approved archive, external checksums and complete manifest validation pass; current packaged files match byte for byte. |
+| N7 | Exact ZIP images rebuilt and rescanned separately; dated image evidence/dispositions are recorded in the operations release evidence. Provider/target-host acceptance remains separate. |
+| N11 | All 24 actual-script provider-receipt regressions pass; actual account/model tool call, artifact 437 and measured-usage acceptance remain open. |
+| N12 | Packaged mandatory-rights license remains byte-identical. Actual merchant/licensor/terms/privacy approval and transaction acceptance remain open. |
+| N13 | OPEN: live legal/privacy/tracking and article corrections are not deployed. Production still lacks the Agent Kit routes. Recovery evidence blocks rollout. |
+| N14 | Selected-site production dependency audit remains zero-advisory; production still serves an older image. Actual candidate/serving image evidence is tracked privately in operations. |
+| N15 | OPEN MAINTENANCE: registry latest braces remains 3.0.3 and upstream advisory lists no published patch. Full development audit retains one High; production audit and inspected standalone output exclude it. Trusted repository patterns only; no ignore or clean-full-graph claim. |
+| N16 | Bundled font correction retained; credential-free production build passes. |
+| N17 | Runtime live-content correction retained; credential-free build passes. Four additional discovery routes were corrected on site PR #25 so request analytics do not execute while building. |
+
+Additional operations findings remain explicit:
+
+- N18: ZeroLabs backup inventory omitted private content/legal/release state and
+  its local uploads volume. Source correction and a restore/fail-closed regression
+  are prepared in ZeroVPS; fresh verified-offsite capture and remote restore/key
+  recovery remain required.
+- N19: Production release metadata is inconsistent and the reverse proxy currently
+  appends a caller-controlled forwarded IP chain. Establish the deployed immutable
+  image/source evidence and overwrite trusted client-IP headers before commerce
+  acceptance. Do not infer these facts from selected Git main.
+
+Fresh commerce validation passed all 35 isolated PostgreSQL tests with the actual
+approved ZIP, HTTP and CMS-precondition checks, and Chromium desktop/mobile
+accessibility/receipt/download checks. These use payment/email fixtures. There
+are no actual purchase/delivery/email/refund, real provider, target-host timer,
+external monitor, encrypted offsite restore or key-recovery receipts.
+
+Outstanding owner inputs remain the approved store/variant/price/currency and
+actual merchant/tax arrangements; finalized legal/privacy/support commitments;
+secure payment/email credentials and authorized operator IDs; intended separate
+v2 host/model/access/monitoring configuration; encrypted remote and vault-held
+recovery keys; and an approved live payment method/amount. Deployment is blocked
+by verified-offsite backup failures. Sales and legal approval flags remain closed.
+
+Full private operational evidence is maintained in ZeroVPS
+`docs/releases/2026-10-18-agent-kit-release.md`. Earlier public license grants
+remain valid. Repository visibility/source-control policy needs explicit
+reconciliation before installing a custom production service.

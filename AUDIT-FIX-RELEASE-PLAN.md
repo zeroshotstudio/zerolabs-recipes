@@ -200,9 +200,10 @@ No replacement archive or new public release was published.
 Additional operations findings remain explicit:
 
 - N18: ZeroLabs backup inventory omitted private content/legal/release state and
-  its local uploads volume. Source correction and a restore/fail-closed regression
-  are prepared in ZeroVPS; fresh verified-offsite capture and remote restore/key
-  recovery remain required.
+  its local uploads volume. Committed source correction and a restore/fail-closed regression
+  are installed through ZeroVPS PR #45. A fresh local archive restores 354 posts,
+  19 public tables and 47 hashed data files in isolation; verified-offsite capture,
+  remote restore and key recovery remain required.
 - N19: Production release metadata is inconsistent and the reverse proxy currently
   appends a caller-controlled forwarded IP chain. Establish the deployed immutable
   image/source evidence and overwrite trusted client-IP headers before commerce
@@ -225,3 +226,12 @@ Full private operational evidence is maintained in ZeroVPS
 `docs/releases/2026-10-18-agent-kit-release.md`. Earlier public license grants
 remain valid. Repository visibility/source-control policy needs explicit
 reconciliation before installing a custom production service.
+
+
+Site PR #25 also fixes the final image security boundary: its bare pinned Node
+runner installs exact reviewed shared-library revisions and excludes build
+package managers. A fresh actual image has zero detected High/Critical matches,
+three Medium BusyBox matches and the documented embedded-OpenSSL inventory limit.
+CI now enforces an actual serving-image scan. Isolated image routes pass without
+production bindings; production deployment remains blocked. CodeRabbit raised
+0 issues on the backup, discovery and image/CI corrections.

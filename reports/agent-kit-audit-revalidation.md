@@ -151,3 +151,13 @@ Actual deployment/migration/private files/mail timer, article corrections, appro
 price/merchant terms and real transaction acceptance remain required. No live host
 write, charge, refund or email was performed. All original and follow-up findings,
 including the unpatched development-only advisory, remain in the full register.
+
+## Release follow-up references — 2026-10-19
+
+The [full issue register](../AUDIT-FIX-RELEASE-PLAN.md#owner-follow-up-and-release-scope--2026-10-19)
+now records current private-source setup, resolved workflow publication access,
+remaining artifact-storage failure (N21), and unfinished broader provider scope
+(N20). Support, protected commerce acceptance and customer-preview plans are
+prepared, not activated. The approved 2.0.0 package remains byte-identical;
+future provider implementation requires a new version. Existing findings and
+actual legal/commercial/host/recovery gates remain open as individually recorded.

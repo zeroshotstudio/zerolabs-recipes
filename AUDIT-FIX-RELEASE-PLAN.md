@@ -235,3 +235,57 @@ three Medium BusyBox matches and the documented embedded-OpenSSL inventory limit
 The CI actual-image scan addition is prepared but publishing it requires GitHub workflow scope; the exact patch is retained in operations evidence. Isolated image routes pass without
 production bindings; production deployment remains blocked. CodeRabbit raised
 0 issues on the backup, discovery and image/CI corrections.
+
+## Owner follow-up and release scope — 2026-10-19
+
+The owner marked the commercial offer TBA, requested support-agent and acceptance
+setup planning, and confirmed the intended broad provider/client scope. Paid sales
+remain closed. All register dispositions above remain traceable; the following
+updates supersede the dated workflow-access/private-source blockers only.
+
+- **Workflow publication access resolved:** the existing organization SSH identity
+  pushed site commit `04f8539`. Candidate runtime-image audit enforcement is now in
+  site PR #25; it scans the built candidate, not the production container.
+  [CI 39214956130](https://github.com/zeroshotstudio/ZeroLabs/actions/runs/39214956130)
+  passed all source/security verification steps, then failed the required report
+  upload because the GitHub account's Actions artifact quota is exhausted.
+- **Private application source established:** private `zeroshotstudio/ZeroKit`
+  preserves the kit subtree/history imported from public main `ec788018606ef974d1984b59d805f24b35393dc1`.
+  Import commit `b2425784105f0ddf55685b45c79f5fb3d6cd395a`, tag
+  `agent-kit-2.0.0-source-import`. All 84 manifest-listed files match, and the exact
+  approved ZIP/checksums/digest are retained as a private draft release. An
+  authenticated download verified the unchanged approved SHA-256. Public recipe
+  links/visibility and valid earlier grants remain unchanged. No v2 deployment
+  is implied. Port the complete package acceptance CI to ZeroKit before a new
+  product release; the subtree import does not include its parent workflow.
+- **N18 current gate:** ZeroLabs now has verified offsite evidence, while PostgreSQL
+  and MinIO remain blocked. Encrypted remote download/restore and key recovery
+  remain unproven. The original local restore is not substituted for those gates.
+- **N20 — unfinished provider scope:** the original quick-connect scope was wider
+  than its simulated execution implementation. The v2 rebuild introduced real
+  OpenAI execution but did not complete that breadth. Plan native OpenAI,
+  Anthropic and Google adapters plus individually accepted agent-client connections
+  and guided account setup. Subscription entitlement/authentication is a separate
+  supported integration question. No extra provider is shipped by this plan.
+  Implement and accept the intended scope in a newly versioned package; retain
+  2.0.0 bytes and purchaser access.
+- **N21 — release evidence storage:** resolve the GitHub account artifact quota and
+  rerun latest-head site CI with the candidate scan JSON retained. Do not weaken
+  the severity or evidence gates or delete purchased-release evidence to obtain
+  a passing run. Workflow publication permission is no longer the blocker.
+
+Support preparation pins nine release documents by hash, with cited retrieval,
+human-reviewed drafts, deterministic declaration intake and no model financial,
+administrative or shell authority. No support inbox or sending runtime is active.
+A protected commerce profile/runbook keeps sales closed and test mode selected;
+actual store/legal/sender/operator bindings and approved live payment amount/method
+remain required. A separate disclosed synthetic/read-only customer preview is
+planned; the current shared operator workspace is not a public multi-user trial.
+
+Fresh production checks still find a healthy site and four Agent Kit routes at
+404. Deployment provenance, trusted forwarded-IP handling, migration, real
+mail/timer/monitoring, provider/host acceptance, canonical article corrections and
+actual purchase/withdrawal/refund evidence remain open. Detailed plans, redacted
+evidence and remaining inputs are maintained in private ZeroVPS
+`docs/releases/2026-10-19-agent-kit-followup.md`. No customer-facing licence was
+replaced or legal approval inferred from the template/reference research.

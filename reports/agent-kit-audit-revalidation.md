@@ -152,6 +152,32 @@ price/merchant terms and real transaction acceptance remain required. No live ho
 write, charge, refund or email was performed. All original and follow-up findings,
 including the unpatched development-only advisory, remain in the full register.
 
+## Goal revalidation checkpoint — 2026-10-18
+
+Historical checkpoint retained from upstream main. The later October 18 deployment/release revalidation and October 19 owner follow-up in the full register supersede its environment and review-access observations where explicitly recorded; they do not close the remaining live acceptance gates.
+
+**Overall objective: BLOCKED, not complete.** The requested new independent
+review did not run. CodeRabbit CLI 0.9.0 installs and reports its version, but
+`auth status --agent` reports `not_authenticated`. The required login attempt,
+`auth login --agent`, returns `environment_unsupported`: browser login is not
+available here. Provision a CodeRabbit Agentic API key through secure runtime
+configuration, or authenticate from a supported browser-enabled terminal.
+There is no new CodeRabbit issue count and no claim of zero blocking issues.
+
+Independent automated observations: the current site production npm audit has
+zero advisories at all severities. Product main was refreshed to `b6640b3`;
+Agent Kit/marketing source still matches the reviewed version and the customer
+archive remains SHA-256
+`6a2f13f9385a4ebfc5d1dedef07b5975d0ff8aaabe67c7bfe7efbd48f7d79b39`.
+Site main remains `bbc2441`. These checks are not a replacement for the new audit.
+
+N13 remains open: current live health is 200, while product, order and withdrawal
+routes return 404. This session still has no configured host/VPN, model, payment
+or email runtime bindings. N15 remains open development maintenance; the registry
+still publishes braces 3.0.3. The seven account/deployment gates and all original
+findings remain in the release register. Completing the ZeroVPS handoff and
+configuring review authentication are required before the goal can be closed.
+
 ## Release follow-up references — 2026-10-19
 
 The [full issue register](../AUDIT-FIX-RELEASE-PLAN.md#owner-follow-up-and-release-scope--2026-10-19)

@@ -160,6 +160,41 @@ commerce activation or financial transaction was performed in this follow-up.
 5. After release authorization, publish the verified ZIP/checksums and matching documentation, enable the approved sales flow, and deploy the validated replacement. Review support and refund readiness before public access.
 6. During initial operation, monitor readiness, queue failures, worker leases, provider usage, disk capacity, backup verification/offsite success and actual scheduled runs. If acceptance fails, disable the sales/cutover path and restore the matching old application plus pre-update backup into a clean project; do not run older code against an incompatible migrated database.
 
+## Goal revalidation checkpoint — 2026-10-18
+
+Historical checkpoint retained from upstream main. The later October 18 deployment/release revalidation and October 19 owner follow-up in the full register supersede its environment and review-access observations where explicitly recorded; they do not close the remaining live acceptance gates.
+
+The objective that all findings/recommendations are implemented and a new audit
+returns no blockers is **BLOCKED, not complete**. This checkpoint does not reopen
+the previously verified fixes or substitute a dependency check for a fresh review.
+
+- Product main was refreshed to `b6640b379d0d42df9cf5b4a8df11788487360e1b`;
+  site main remains `bbc24418105b65bb770ac00173113d77774202d2`. Agent Kit/marketing
+  files still match the reviewed source, and the customer ZIP still has SHA-256
+  `6a2f13f9385a4ebfc5d1dedef07b5975d0ff8aaabe67c7bfe7efbd48f7d79b39`.
+- A fresh site production npm audit reports zero advisories in every severity.
+  The registry still offers braces 3.0.3; N15's development-maintenance disposition
+  remains open. This is not a fresh runtime-image audit or complete security review.
+- CodeRabbit CLI 0.9.0 was installed and its version verified. Authentication
+  status is `not_authenticated`; `coderabbit auth login --agent` returns
+  `environment_unsupported` because browser login is unavailable here. A securely
+  provisioned Agentic API key or supported browser-enabled login is required.
+  **No new CodeRabbit review ran and no zero-issue result is claimed.**
+- Current public checks: `/api/health` returns 200; `/agent-kit`,
+  `/agent-kit/order` and `/agent-kit/withdraw` return 404. N13 and applicable live
+  deployment/privacy/commerce gates remain open.
+- Current environment observations list no host, provider, payment or email
+  bindings, no outbound identities and no configured VPN/TCP destinations.
+  Actual host installation, model acceptance, encrypted offsite recovery,
+  payment/refund acceptance and legal/account facts cannot be verified through
+  repository access alone. Approved price/currency and actual merchant
+  configuration must not be invented.
+
+Resume the fresh review after CodeRabbit authentication is configured; complete
+the ZeroVPS operational handoff with the intended account/host bindings and retain
+evidence for every gate. Do not mark the overall objective complete from CI or
+these partial checks.
+
 ## Completion rules
 
 Every original finding remains individually traceable; additional findings and recommendations remain in this register. An item closes only with its stated implementation and evidence. A code-audit result and a public-launch decision are recorded separately. Automated axe checks do not certify every accessibility need or Safari device; dependency/image scans are time-specific; protocol fixtures are not live models; same-schema rollback is not proof of every future migration. No merge, existing-host replacement, payment configuration or public publication is implied by remediation work.

@@ -203,6 +203,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`news/reimagining-advertising-with-ai`](./recipes/news/reimagining-advertising-with-ai) | Reimagining advertising with AI | [Read Deep Dive](https://labs.zeroshot.studio/news/reimagining-advertising-with-ai?utm_source=github&utm_medium=repo&utm_campaign=reimagining-advertising-with-ai) | Python 3.11, ZeroLabs Architecture |
 | [`news/4-tips-for-styling-outfits-with-gemini`](./recipes/news/4-tips-for-styling-outfits-with-gemini) | 4 tips for styling outfits with Gemini | [Read Deep Dive](https://labs.zeroshot.studio/news/4-tips-for-styling-outfits-with-gemini?utm_source=github&utm_medium=repo&utm_campaign=4-tips-for-styling-outfits-with-gemini) | Python 3.11, ZeroLabs Architecture |
 | [`news/gpt-6-and-intelligent-ui-for-everyone`](./recipes/news/gpt-6-and-intelligent-ui-for-everyone) | GPT-6 and Intelligent UI for everyone | [Read Deep Dive](https://labs.zeroshot.studio/news/gpt-6-and-intelligent-ui-for-everyone?utm_source=github&utm_medium=repo&utm_campaign=gpt-6-and-intelligent-ui-for-everyone) | Python 3.11, ZeroLabs Architecture |
+| [`news/strengthening-our-defenses-against-distillation`](./recipes/news/strengthening-our-defenses-against-distillation) | Strengthening our defenses against distillation | [Read Deep Dive](https://labs.zeroshot.studio/news/strengthening-our-defenses-against-distillation?utm_source=github&utm_medium=repo&utm_campaign=strengthening-our-defenses-against-distillation) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

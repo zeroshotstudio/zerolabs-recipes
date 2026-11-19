@@ -250,6 +250,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`ai-workflows/resilient-webhook-handlers-vibe-coders`](./recipes/ai-workflows/resilient-webhook-handlers-vibe-coders) | Resilient Webhook Handlers for Vibe Coders: Signature Verification, Idempotency, and Async Queues | [Read Deep Dive](https://labs.zeroshot.studio/ai-workflows/resilient-webhook-handlers-vibe-coders?utm_source=github&utm_medium=repo&utm_campaign=resilient-webhook-handlers-vibe-coders) | Python 3.11, ZeroLabs Architecture |
 | [`news/anthropic-prices-initial-public-offering`](./recipes/news/anthropic-prices-initial-public-offering) | Anthropic prices initial public offering | [Read Deep Dive](https://labs.zeroshot.studio/news/anthropic-prices-initial-public-offering?utm_source=github&utm_medium=repo&utm_campaign=anthropic-prices-initial-public-offering) | Python 3.11, ZeroLabs Architecture |
 | [`news/introducing-gemini-4-neon`](./recipes/news/introducing-gemini-4-neon) | Introducing Gemini 4 Neon | [Read Deep Dive](https://labs.zeroshot.studio/news/introducing-gemini-4-neon?utm_source=github&utm_medium=repo&utm_campaign=introducing-gemini-4-neon) | Python 3.11, ZeroLabs Architecture |
+| [`news/genie-4-is-now-available`](./recipes/news/genie-4-is-now-available) | Genie 4 is now available | [Read Deep Dive](https://labs.zeroshot.studio/news/genie-4-is-now-available?utm_source=github&utm_medium=repo&utm_campaign=genie-4-is-now-available) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

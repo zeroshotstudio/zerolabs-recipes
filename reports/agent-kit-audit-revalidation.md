@@ -154,6 +154,8 @@ including the unpatched development-only advisory, remain in the full register.
 
 ## Goal revalidation checkpoint — 2026-10-18
 
+Historical checkpoint retained from upstream main. The later October 18 deployment/release revalidation and October 19 owner follow-up in the full register supersede its environment and review-access observations where explicitly recorded; they do not close the remaining live acceptance gates.
+
 **Overall objective: BLOCKED, not complete.** The requested new independent
 review did not run. CodeRabbit CLI 0.9.0 installs and reports its version, but
 `auth status --agent` reports `not_authenticated`. The required login attempt,
@@ -175,3 +177,13 @@ or email runtime bindings. N15 remains open development maintenance; the registr
 still publishes braces 3.0.3. The seven account/deployment gates and all original
 findings remain in the release register. Completing the ZeroVPS handoff and
 configuring review authentication are required before the goal can be closed.
+
+## Release follow-up references — 2026-10-19
+
+The [full issue register](../AUDIT-FIX-RELEASE-PLAN.md#owner-follow-up-and-release-scope--2026-10-19)
+now records current private-source setup, resolved workflow publication access,
+remaining artifact-storage failure (N21), and unfinished broader provider scope
+(N20). Support, protected commerce acceptance and customer-preview plans are
+prepared, not activated. The approved 2.0.0 package remains byte-identical;
+future provider implementation requires a new version. Existing findings and
+actual legal/commercial/host/recovery gates remain open as individually recorded.

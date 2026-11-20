@@ -252,6 +252,7 @@ We use this monorepo as a live, open-source exemplar demonstrating how modern en
 | [`news/introducing-gemini-4-neon`](./recipes/news/introducing-gemini-4-neon) | Introducing Gemini 4 Neon | [Read Deep Dive](https://labs.zeroshot.studio/news/introducing-gemini-4-neon?utm_source=github&utm_medium=repo&utm_campaign=introducing-gemini-4-neon) | Python 3.11, ZeroLabs Architecture |
 | [`news/genie-4-is-now-available`](./recipes/news/genie-4-is-now-available) | Genie 4 is now available | [Read Deep Dive](https://labs.zeroshot.studio/news/genie-4-is-now-available?utm_source=github&utm_medium=repo&utm_campaign=genie-4-is-now-available) | Python 3.11, ZeroLabs Architecture |
 | [`news/introducing-tool-retrieval-in-the-gemini-api`](./recipes/news/introducing-tool-retrieval-in-the-gemini-api) | Introducing Tool Retrieval in the Gemini API | [Read Deep Dive](https://labs.zeroshot.studio/news/introducing-tool-retrieval-in-the-gemini-api?utm_source=github&utm_medium=repo&utm_campaign=introducing-tool-retrieval-in-the-gemini-api) | Python 3.11, ZeroLabs Architecture |
+| [`news/icymi-transfer-your-history-from-other-ai-apps-into-gemini`](./recipes/news/icymi-transfer-your-history-from-other-ai-apps-into-gemini) | ICYMI: Transfer your history from other AI apps into Gemini. | [Read Deep Dive](https://labs.zeroshot.studio/news/icymi-transfer-your-history-from-other-ai-apps-into-gemini?utm_source=github&utm_medium=repo&utm_campaign=icymi-transfer-your-history-from-other-ai-apps-into-gemini) | Python 3.11, ZeroLabs Architecture |
 
 ---
 

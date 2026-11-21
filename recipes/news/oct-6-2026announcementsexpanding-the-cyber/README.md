@@ -1,31 +1,13 @@
-# Oct 6, 2026AnnouncementsExpanding the Cyber — ZeroLabs Companion Recipe
+# Anthropic revises its Cyber Verification Program
 
-> **Canonical Teardown & Deep Dive:** [Oct 6, 2026AnnouncementsExpanding the Cyber](https://labs.zeroshot.studio/news/oct-6-2026announcementsexpanding-the-cyber?utm_source=github&utm_medium=repo&utm_campaign=oct-6-2026announcementsexpanding-the-cyber)
+Anthropic reorganised access for qualifying security teams. The programme describes verification requirements for different kinds of work.
 
-This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"Oct 6, 2026AnnouncementsExpanding the Cyber"**.
+[Read the ZeroLabs article](https://labs.zeroshot.studio/news/oct-6-2026announcementsexpanding-the-cyber)
 
-## Quick Start
+## Source material
 
-### 1. Prerequisites
-- Docker & Docker Compose
-- Python 3.11+
-- Node.js 20+ (if frontend component included)
+- [Anthropic · Anthropic revises its Cyber Verification Program](https://www.anthropic.com/news/cyber-verification-program)
 
-### 2. Setup Environment
-```bash
-cp .env.example .env
-# Edit .env with your environment variables
-```
+## List the source links
 
-### 3. Run Starter
-```bash
-docker compose up -d
-# or run standalone python script
-python3 starter.py
-```
-
-## Architecture & Workflow Details
-For full architectural diagrams, failure mode analyses, and benchmark data, read the complete intelligence brief at [ZeroLabs](https://labs.zeroshot.studio/news/oct-6-2026announcementsexpanding-the-cyber?utm_source=github&utm_medium=repo&utm_campaign=oct-6-2026announcementsexpanding-the-cyber).
-
----
-*Maintained by [ZeroShot Studio](https://zeroshot.studio) & the ZeroLabs Team.*
+Run `python3 starter.py`. The starter lists the original announcement. The Python command reads no account data and makes no network requests.

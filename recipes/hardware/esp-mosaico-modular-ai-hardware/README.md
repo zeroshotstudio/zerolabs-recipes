@@ -1,27 +1,14 @@
-# ESP-Mosaico: Espressif's Modular AI Hardware for Coding Agents — ZeroLabs Companion Recipe
+# ESP-Mosaico CoreBoard identification guide
 
-> **Canonical Teardown & Deep Dive:** [ESP-Mosaico: Espressif's Modular AI Hardware for Coding Agents](https://labs.zeroshot.studio/hardware/esp-mosaico-modular-ai-hardware?utm_source=github&utm_medium=repo&utm_campaign=esp-mosaico-modular-ai-hardware)
+Espressif identifies the ESP-Mosaico chip and publishes separate guides for its CoreBoard revisions. Match the board marking to the guide before wiring.
 
-This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"ESP-Mosaico: Espressif's Modular AI Hardware for Coding Agents"**.
+[Read the ZeroLabs article](https://labs.zeroshot.studio/hardware/esp-mosaico-modular-ai-hardware)
 
-## Quick Start
+## Source material
 
-### 1. Prerequisites
-- Python 3.11+
-- Docker & Docker Compose (optional)
+- [Espressif · ESP-Mosaico CoreBoard identification guide](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s31/esp-mosaico/index.html)
+- [Espressif · ESP-Mosaico](https://github.com/espressif/esp-dev-kits/blob/8caaff046bfa477d19cdcc2dad02a012eb25556b/docs/en/esp-mosaico/index.rst)
 
-### 2. Setup Environment
-```bash
-cp .env.example .env
-```
+## List the source links
 
-### 3. Run Starter Workflow
-```bash
-python3 starter.py
-```
-
-## Architecture & Workflow Details
-For full architectural diagrams, failure mode analyses, and benchmark data, read the complete intelligence brief at [ZeroLabs](https://labs.zeroshot.studio/hardware/esp-mosaico-modular-ai-hardware?utm_source=github&utm_medium=repo&utm_campaign=esp-mosaico-modular-ai-hardware).
-
----
-*Maintained by [ZeroShot Studio](https://zeroshot.studio) & the ZeroLabs Team.*
+Run `python3 starter.py`. The starter lists the board identification references. It does not connect to a board or collect measurements.

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""
-Starter implementation for: Oct 6, 2026AnnouncementsExpanding the Cyber
-See complete teardown at: https://labs.zeroshot.studio/news/oct-6-2026announcementsexpanding-the-cyber
-"""
+"""List the ZeroLabs article and its primary references."""
 
-import os
-import sys
+TITLE = 'Anthropic revises its Cyber Verification Program'
+ARTICLE_URL = 'https://labs.zeroshot.studio/news/oct-6-2026announcementsexpanding-the-cyber'
+SOURCE_URLS = ('https://www.anthropic.com/news/cyber-verification-program',)
+
 
 def main():
-    print("[+] Initializing Oct 6, 2026AnnouncementsExpanding the Cyber starter workflow...")
-    # Add implementation details here
-    print("[+] Workflow completed successfully.")
+    print(TITLE)
+    print(ARTICLE_URL)
+    for url in SOURCE_URLS:
+        print(url)
+
 
 if __name__ == "__main__":
     main()

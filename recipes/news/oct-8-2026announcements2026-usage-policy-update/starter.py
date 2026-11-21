@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""
-Starter implementation for: Oct 8, 2026Announcements2026 Usage Policy update
-See complete teardown at: https://labs.zeroshot.studio/news/oct-8-2026announcements2026-usage-policy-update
-"""
+"""List the ZeroLabs article and its primary references."""
 
-import os
-import sys
+TITLE = 'What changed in Anthropic’s Usage Policy'
+ARTICLE_URL = 'https://labs.zeroshot.studio/news/oct-8-2026announcements2026-usage-policy-update'
+SOURCE_URLS = ('https://www.anthropic.com/news/2026-usage-policy-update',)
+
 
 def main():
-    print("[+] Initializing Oct 8, 2026Announcements2026 Usage Policy update starter workflow...")
-    # Add implementation details here
-    print("[+] Workflow completed successfully.")
+    print(TITLE)
+    print(ARTICLE_URL)
+    for url in SOURCE_URLS:
+        print(url)
+
 
 if __name__ == "__main__":
     main()

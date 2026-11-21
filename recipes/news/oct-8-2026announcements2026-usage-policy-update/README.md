@@ -1,31 +1,13 @@
-# Oct 8, 2026Announcements2026 Usage Policy update — ZeroLabs Companion Recipe
+# What changed in Anthropic’s Usage Policy
 
-> **Canonical Teardown & Deep Dive:** [Oct 8, 2026Announcements2026 Usage Policy update](https://labs.zeroshot.studio/news/oct-8-2026announcements2026-usage-policy-update?utm_source=github&utm_medium=repo&utm_campaign=oct-8-2026announcements2026-usage-policy-update)
+Anthropic set a November effective date for its policy update and brought rules on deceptive campaigns together. Here is what operators can check.
 
-This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"Oct 8, 2026Announcements2026 Usage Policy update"**.
+[Read the ZeroLabs article](https://labs.zeroshot.studio/news/oct-8-2026announcements2026-usage-policy-update)
 
-## Quick Start
+## Source material
 
-### 1. Prerequisites
-- Docker & Docker Compose
-- Python 3.11+
-- Node.js 20+ (if frontend component included)
+- [Anthropic · What changed in Anthropic’s Usage Policy](https://www.anthropic.com/news/2026-usage-policy-update)
 
-### 2. Setup Environment
-```bash
-cp .env.example .env
-# Edit .env with your environment variables
-```
+## List the source links
 
-### 3. Run Starter
-```bash
-docker compose up -d
-# or run standalone python script
-python3 starter.py
-```
-
-## Architecture & Workflow Details
-For full architectural diagrams, failure mode analyses, and benchmark data, read the complete intelligence brief at [ZeroLabs](https://labs.zeroshot.studio/news/oct-8-2026announcements2026-usage-policy-update?utm_source=github&utm_medium=repo&utm_campaign=oct-8-2026announcements2026-usage-policy-update).
-
----
-*Maintained by [ZeroShot Studio](https://zeroshot.studio) & the ZeroLabs Team.*
+Run `python3 starter.py`. The starter lists the original announcement. The Python command reads no account data and makes no network requests.

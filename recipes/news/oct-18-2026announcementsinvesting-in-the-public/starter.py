@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""
-Starter implementation for: Oct 18, 2026AnnouncementsInvesting in the public
-See complete teardown at: https://labs.zeroshot.studio/news/oct-18-2026announcementsinvesting-in-the-public
-"""
+"""List the ZeroLabs article and its primary references."""
 
-import os
-import sys
+TITLE = 'How the Anthropic Public Benefit Fund would work'
+ARTICLE_URL = 'https://labs.zeroshot.studio/news/oct-18-2026announcementsinvesting-in-the-public'
+SOURCE_URLS = ('https://www.anthropic.com/news/public-benefit-fund',)
+
 
 def main():
-    print("[+] Initializing Oct 18, 2026AnnouncementsInvesting in the public starter workflow...")
-    # Add implementation details here
-    print("[+] Workflow completed successfully.")
+    print(TITLE)
+    print(ARTICLE_URL)
+    for url in SOURCE_URLS:
+        print(url)
+
 
 if __name__ == "__main__":
     main()

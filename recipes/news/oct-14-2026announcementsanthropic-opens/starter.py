@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""
-Starter implementation for: Oct 14, 2026AnnouncementsAnthropic opens
-See complete teardown at: https://labs.zeroshot.studio/news/oct-14-2026announcementsanthropic-opens
-"""
+"""List the ZeroLabs article and its primary references."""
 
-import os
-import sys
+TITLE = 'Anthropic opens a Singapore office'
+ARTICLE_URL = 'https://labs.zeroshot.studio/news/oct-14-2026announcementsanthropic-opens'
+SOURCE_URLS = ('https://www.anthropic.com/news/singapore-office-opening',)
+
 
 def main():
-    print("[+] Initializing Oct 14, 2026AnnouncementsAnthropic opens starter workflow...")
-    # Add implementation details here
-    print("[+] Workflow completed successfully.")
+    print(TITLE)
+    print(ARTICLE_URL)
+    for url in SOURCE_URLS:
+        print(url)
+
 
 if __name__ == "__main__":
     main()

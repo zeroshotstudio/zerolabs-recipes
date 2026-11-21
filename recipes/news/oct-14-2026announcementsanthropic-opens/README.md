@@ -1,31 +1,13 @@
-# Oct 14, 2026AnnouncementsAnthropic opens — ZeroLabs Companion Recipe
+# Anthropic opens a Singapore office
 
-> **Canonical Teardown & Deep Dive:** [Oct 14, 2026AnnouncementsAnthropic opens](https://labs.zeroshot.studio/news/oct-14-2026announcementsanthropic-opens?utm_source=github&utm_medium=repo&utm_campaign=oct-14-2026announcementsanthropic-opens)
+Anthropic opened a Singapore office and signed an agreement with the government covering model evaluation, adoption research and AI safety.
 
-This directory contains the reproducible code companion and starter configuration for the ZeroLabs technical brief: **"Oct 14, 2026AnnouncementsAnthropic opens"**.
+[Read the ZeroLabs article](https://labs.zeroshot.studio/news/oct-14-2026announcementsanthropic-opens)
 
-## Quick Start
+## Source material
 
-### 1. Prerequisites
-- Docker & Docker Compose
-- Python 3.11+
-- Node.js 20+ (if frontend component included)
+- [Anthropic · Anthropic opens a Singapore office](https://www.anthropic.com/news/singapore-office-opening)
 
-### 2. Setup Environment
-```bash
-cp .env.example .env
-# Edit .env with your environment variables
-```
+## List the source links
 
-### 3. Run Starter
-```bash
-docker compose up -d
-# or run standalone python script
-python3 starter.py
-```
-
-## Architecture & Workflow Details
-For full architectural diagrams, failure mode analyses, and benchmark data, read the complete intelligence brief at [ZeroLabs](https://labs.zeroshot.studio/news/oct-14-2026announcementsanthropic-opens?utm_source=github&utm_medium=repo&utm_campaign=oct-14-2026announcementsanthropic-opens).
-
----
-*Maintained by [ZeroShot Studio](https://zeroshot.studio) & the ZeroLabs Team.*
+Run `python3 starter.py`. The starter lists the original announcement. The Python command reads no account data and makes no network requests.

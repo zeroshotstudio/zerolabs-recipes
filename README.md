@@ -335,6 +335,6 @@ We welcome community recipe proposals, bug fixes, and workflow improvements! Ple
 
 ## 📄 License
 
-Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
+Recipes are distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
 
 Maintained with 🖤 by **[ZeroShot Studio](https://zeroshot.studio)**.
